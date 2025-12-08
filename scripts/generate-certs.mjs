@@ -2,11 +2,12 @@
 
 /**
  * Generate self-signed SSL certificates for local HTTPS development
+ * Uses the selfsigned package for proper certificate generation
  */
 
-import { generateKeyPairSync, createSign } from 'crypto';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 
 const certsDir = join(process.cwd(), 'certs');
 
@@ -27,45 +28,59 @@ if (existsSync(keyPath) && existsSync(certPath)) {
 console.log('🔐 Generating self-signed SSL certificates...');
 
 try {
-  // Generate RSA key pair
-  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-    publicKeyEncoding: {
-      type: 'spki',
-      format: 'pem'
-    },
-    privateKeyEncoding: {
-      type: 'pkcs8',
-      format: 'pem'
-    }
-  });
+  // Try using selfsigned package
+  const selfsigned = await import('selfsigned');
+  
+  const attrs = [{ name: 'commonName', value: 'localhost' }];
+  const options = {
+    days: 365,
+    keySize: 2048,
+    algorithm: 'sha256',
+    extensions: [
+      {
+        name: 'basicConstraints',
+        cA: true,
+      },
+      {
+        name: 'keyUsage',
+        keyCertSign: true,
+        digitalSignature: true,
+        keyEncipherment: true,
+      },
+      {
+        name: 'subjectAltName',
+        altNames: [
+          { type: 2, value: 'localhost' },
+          { type: 7, ip: '127.0.0.1' },
+        ],
+      },
+    ],
+  };
 
-  // Create a simple self-signed certificate
-  // For development, we'll create a basic certificate structure
-  const cert = `-----BEGIN CERTIFICATE-----
-MIIDazCCAlOgAwIBAgIUGmHHKXE8sJKhMp8xqvGxhxZ7yK0wDQYJKoZIhvcNAQEL
-BQAwRTELMAkGA1UEBhMCVVMxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoM
-GEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yNDEyMDgwMDAwMDBaFw0yNTEy
-MDgwMDAwMDBaMEUxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApTb21lLVN0YXRlMSEw
-HwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQwggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQDGvHuBxVZMNL2xBN8kN6vPE3p6jKZB5fN5C8+Qr0vF
-7xPmGxPL1sZK8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3Y
-ZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3Y
-AgMBAAGjUzBRMB0GA1UdDgQWBBTHQHGPxZ5N8PL5C2+Q5P8L3YZN8TAfBgNVHSME
-GDAWgBTHQHGPxZ5N8PL5C2+Q5P8L3YZN8TAPBgNVHRMBAf8EBTADAQH/MA0GCSqG
-SIb3DQEBCwUAA4IBAQAEy8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C
-2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C2+Q5P8L3YZN8PL5C
------END CERTIFICATE-----`;
+  const pems = selfsigned.default.generate(attrs, options);
 
-  writeFileSync(keyPath, privateKey);
-  writeFileSync(certPath, cert);
+  writeFileSync(keyPath, pems.private);
+  writeFileSync(certPath, pems.cert);
   
   console.log('\n✅ SSL certificates generated successfully!');
   console.log(`   Key: ${keyPath}`);
   console.log(`   Cert: ${certPath}\n`);
-  console.log('⚠️  Note: This is a basic self-signed certificate for development only.');
+  console.log('⚠️  Note: This is a self-signed certificate for development only.');
   console.log('   For production, use proper SSL certificates from a trusted CA.\n');
 } catch (error) {
   console.error('\n❌ Failed to generate certificates:', error.message);
-  process.exit(1);
+  console.error('\nTrying alternative method with openssl...\n');
+  
+  try {
+    // Fallback to openssl if available
+    execSync(
+      `openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj "/CN=localhost" ` +
+      `-keyout "${keyPath}" -out "${certPath}" -days 365 2>/dev/null`,
+      { stdio: 'inherit' }
+    );
+    console.log('\n✅ SSL certificates generated successfully with openssl!');
+  } catch (opensslError) {
+    console.error('OpenSSL also failed. Please install openssl or check the error above.');
+    process.exit(1);
+  }
 }
