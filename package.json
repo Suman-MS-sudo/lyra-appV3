@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-server.mjs",
+    "dev:app": "node scripts/https-server.mjs",
+    "dev:proxy": "node scripts/proxy-server.mjs",
+    "setup:certs": "node scripts/generate-certs.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 443",
     "lint": "eslint",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -39,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "jsdom": "^27.2.0",
+    "selfsigned": "^5.2.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.15"
