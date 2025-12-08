@@ -24,7 +24,7 @@ export default async function CustomersPage() {
 
   if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch customers with organization info
+  // Fetch all non-admin, non-super_customer users as customers
   const { data: customers } = await serviceSupabase
     .from('profiles')
     .select(`
@@ -33,7 +33,7 @@ export default async function CustomersPage() {
         name
       )
     `)
-    .eq('account_type', 'customer')
+    .not('account_type', 'in', ['admin', 'super_customer'])
     .order('created_at', { ascending: false });
 
   return (
