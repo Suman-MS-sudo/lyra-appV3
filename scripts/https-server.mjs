@@ -52,7 +52,7 @@ app.prepare().then(() => {
       res.statusCode = 500;
       res.end('Internal server error');
     }
-  }).listen(port, (err) => {
+  }).listen(port, hostname, (err) => {
     if (err) {
       if (err.code === 'EACCES') {
         console.error(`\n❌ Permission denied to bind to port ${port}`);
