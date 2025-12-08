@@ -13,7 +13,7 @@ import { join } from 'path';
 import { execSync } from 'child_process';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = '0.0.0.0';
 const port = 443;
 
 // Path to SSL certificates

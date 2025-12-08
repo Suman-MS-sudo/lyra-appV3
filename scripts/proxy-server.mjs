@@ -41,8 +41,8 @@ const server = http.createServer((req, res) => {
   req.pipe(proxyReq);
 });
 
-server.listen(PROXY_PORT, () => {
-  console.log(`\n🔀 HTTP Proxy Server running on http://localhost:${PROXY_PORT}`);
+server.listen(PROXY_PORT, '0.0.0.0', () => {
+  console.log(`\n🔀 HTTP Proxy Server running on http://0.0.0.0:${PROXY_PORT}`);
   console.log(`   Forwarding to https://localhost:${TARGET_PORT}\n`);
 });
 
