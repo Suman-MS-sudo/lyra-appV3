@@ -27,6 +27,10 @@
 # SSL certificates
 /certs
 
+# PM2 logs
+/logs
+*.log
+
 # debug
 npm-debug.log*
 yarn-debug.log*
