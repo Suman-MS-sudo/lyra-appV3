@@ -2,12 +2,11 @@
 
 /**
  * Generate self-signed SSL certificates for local HTTPS development
- * Uses the selfsigned package for proper certificate generation
  */
 
+import forge from 'node-forge';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
 
 const certsDir = join(process.cwd(), 'certs');
 
@@ -28,39 +27,91 @@ if (existsSync(keyPath) && existsSync(certPath)) {
 console.log('🔐 Generating self-signed SSL certificates...');
 
 try {
-  // Try using selfsigned package
-  const selfsigned = await import('selfsigned');
+  // Generate a keypair
+  console.log('   Generating RSA keypair...');
+  const keys = forge.pki.rsa.generateKeyPair(2048);
   
-  const attrs = [{ name: 'commonName', value: 'localhost' }];
-  const options = {
-    days: 365,
-    keySize: 2048,
-    algorithm: 'sha256',
-    extensions: [
-      {
-        name: 'basicConstraints',
-        cA: true,
-      },
-      {
-        name: 'keyUsage',
-        keyCertSign: true,
-        digitalSignature: true,
-        keyEncipherment: true,
-      },
-      {
-        name: 'subjectAltName',
-        altNames: [
-          { type: 2, value: 'localhost' },
-          { type: 7, ip: '127.0.0.1' },
-        ],
-      },
-    ],
-  };
-
-  const pems = selfsigned.default.generate(attrs, options);
-
-  writeFileSync(keyPath, pems.private);
-  writeFileSync(certPath, pems.cert);
+  // Create a certificate
+  console.log('   Creating certificate...');
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '01';
+  cert.validity.notBefore = new Date();
+  cert.validity.notAfter = new Date();
+  cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1);
+  
+  const attrs = [{
+    name: 'commonName',
+    value: 'localhost'
+  }, {
+    name: 'countryName',
+    value: 'US'
+  }, {
+    shortName: 'ST',
+    value: 'State'
+  }, {
+    name: 'localityName',
+    value: 'City'
+  }, {
+    name: 'organizationName',
+    value: 'Development'
+  }, {
+    shortName: 'OU',
+    value: 'IT'
+  }];
+  
+  cert.setSubject(attrs);
+  cert.setIssuer(attrs);
+  cert.setExtensions([{
+    name: 'basicConstraints',
+    cA: true
+  }, {
+    name: 'keyUsage',
+    keyCertSign: true,
+    digitalSignature: true,
+    nonRepudiation: true,
+    keyEncipherment: true,
+    dataEncipherment: true
+  }, {
+    name: 'extKeyUsage',
+    serverAuth: true,
+    clientAuth: true,
+    codeSigning: true,
+    emailProtection: true,
+    timeStamping: true
+  }, {
+    name: 'nsCertType',
+    server: true,
+    client: true,
+    email: true,
+    objsign: true,
+    sslCA: true,
+    emailCA: true,
+    objCA: true
+  }, {
+    name: 'subjectAltName',
+    altNames: [{
+      type: 2, // DNS
+      value: 'localhost'
+    }, {
+      type: 7, // IP
+      ip: '127.0.0.1'
+    }]
+  }, {
+    name: 'subjectKeyIdentifier'
+  }]);
+  
+  // Self-sign certificate
+  console.log('   Signing certificate...');
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+  
+  // Convert to PEM format
+  const privateKeyPem = forge.pki.privateKeyToPem(keys.privateKey);
+  const certPem = forge.pki.certificateToPem(cert);
+  
+  // Write files
+  writeFileSync(keyPath, privateKeyPem);
+  writeFileSync(certPath, certPem);
   
   console.log('\n✅ SSL certificates generated successfully!');
   console.log(`   Key: ${keyPath}`);
@@ -69,18 +120,6 @@ try {
   console.log('   For production, use proper SSL certificates from a trusted CA.\n');
 } catch (error) {
   console.error('\n❌ Failed to generate certificates:', error.message);
-  console.error('\nTrying alternative method with openssl...\n');
-  
-  try {
-    // Fallback to openssl if available
-    execSync(
-      `openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj "/CN=localhost" ` +
-      `-keyout "${keyPath}" -out "${certPath}" -days 365 2>/dev/null`,
-      { stdio: 'inherit' }
-    );
-    console.log('\n✅ SSL certificates generated successfully with openssl!');
-  } catch (opensslError) {
-    console.error('OpenSSL also failed. Please install openssl or check the error above.');
-    process.exit(1);
-  }
+  console.error(error.stack);
+  process.exit(1);
 }
