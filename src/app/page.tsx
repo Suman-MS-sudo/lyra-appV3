@@ -38,7 +38,8 @@ interface Machine {
   wifi_rssi?: number;
   free_heap?: number;
   uptime?: number;
-  stock_level?: number;
+  network_speed?: number;
+  temperature?: number;
   connection_type?: string;
   last_error?: string;
   last_error_time?: string;
@@ -260,6 +261,12 @@ export default function Home() {
   };
 
   const addToCart = (item: MachineProduct) => {
+    // Check stock first
+    if (item.stock === 0) {
+      alert('❌ Out of Stock\n\nThis product is currently unavailable. Please try another product or check back later.');
+      return;
+    }
+
     const totalItems = getTotalItems();
     
     if (totalItems >= 3) {
@@ -338,6 +345,23 @@ export default function Home() {
   const handleCheckout = async () => {
     if (cart.size === 0) {
       alert('Cart is empty');
+      return;
+    }
+
+    // Validate all cart items have stock
+    const outOfStockItems: string[] = [];
+    for (const [productId, cartItem] of cart.entries()) {
+      const product = products.find(p => p.product_id === productId);
+      if (!product || product.stock === 0) {
+        outOfStockItems.push(cartItem.name);
+      } else if (product.stock < cartItem.quantity) {
+        outOfStockItems.push(`${cartItem.name} (only ${product.stock} available)`);
+      }
+    }
+
+    if (outOfStockItems.length > 0) {
+      const itemsList = outOfStockItems.map(item => `• ${item}`).join('\n');
+      alert(`❌ Cannot Complete Purchase\n\nThe following items are out of stock or have insufficient quantity:\n\n${itemsList}\n\nPlease remove these items from your cart or reduce the quantity.`);
       return;
     }
 
@@ -699,6 +723,19 @@ export default function Home() {
                           <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
                             {item.products.description || 'Premium quality sanitary product'}
                           </p>
+                          
+                          {/* Low Stock Warning */}
+                          {item.stock > 0 && item.stock < 5 && (
+                            <div className="flex items-center gap-2 mb-2 sm:mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                              <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              <span className="text-xs sm:text-sm text-amber-800 font-medium">
+                                Only {item.stock} left! Grab yours before it's gone 🔥
+                              </span>
+                            </div>
+                          )}
+                          
                           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                             <div className="text-xl sm:text-2xl font-bold text-gray-900">
                               ₹{parseFloat(item.price).toFixed(0)}
@@ -812,24 +849,31 @@ export default function Home() {
               <div className="bg-gray-50 rounded-lg p-3 border">
                 <div className="flex items-center gap-2 mb-1">
                   <svg className={`w-4 h-4 ${
-                    machine?.stock_level == null ? 'text-gray-400' :
-                    machine.stock_level > 20 ? 'text-green-600' :
-                    machine.stock_level > 10 ? 'text-yellow-600' : 'text-red-600'
+                    (() => {
+                      const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+                      return totalStock === 0 ? 'text-gray-400' :
+                             totalStock > 20 ? 'text-green-600' :
+                             totalStock > 10 ? 'text-yellow-600' : 'text-red-600';
+                    })()
                   }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                   <span className="text-xs text-gray-600">Stock Level</span>
                 </div>
                 <div className="text-sm font-semibold text-gray-900">
-                  {machine?.stock_level != null ? `${machine.stock_level} units` : 'N/A'}
+                  {(() => {
+                    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+                    return `${totalStock} units`;
+                  })()}
                 </div>
-                {machine?.stock_level != null && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {machine.stock_level > 20 ? 'Full' :
-                     machine.stock_level > 10 ? 'Medium' :
-                     machine.stock_level > 0 ? 'Low' : 'Empty'}
-                  </div>
-                )}
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {(() => {
+                    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+                    return totalStock > 20 ? 'Full' :
+                           totalStock > 10 ? 'Medium' :
+                           totalStock > 0 ? 'Low' : 'Empty';
+                  })()}
+                </div>
               </div>
 
               {/* Uptime */}
@@ -868,6 +912,54 @@ export default function Home() {
                   <div className="text-xs text-gray-500 mt-0.5">
                     {machine.free_heap > 100000 ? 'Healthy' :
                      machine.free_heap > 50000 ? 'Normal' : 'Low'}
+                  </div>
+                )}
+              </div>
+
+              {/* Network Speed */}
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className={`w-4 h-4 ${
+                    machine?.network_speed == null ? 'text-gray-400' :
+                    machine.network_speed > 50 ? 'text-green-600' :
+                    machine.network_speed > 20 ? 'text-yellow-600' : 'text-red-600'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="text-xs text-gray-600">Network Speed</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {machine?.network_speed != null ? `${machine.network_speed.toFixed(1)} KB/s` : 'N/A'}
+                </div>
+                {machine?.network_speed != null && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {machine.network_speed > 50 ? 'Fast' :
+                     machine.network_speed > 20 ? 'Good' : 'Slow'}
+                  </div>
+                )}
+              </div>
+
+              {/* Temperature */}
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className={`w-4 h-4 ${
+                    machine?.temperature == null ? 'text-gray-400' :
+                    machine.temperature > 60 ? 'text-red-600' :
+                    machine.temperature > 45 ? 'text-orange-600' :
+                    machine.temperature > 30 ? 'text-yellow-600' : 'text-blue-600'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span className="text-xs text-gray-600">Temperature</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {machine?.temperature != null ? `${machine.temperature.toFixed(1)}°C` : 'N/A'}
+                </div>
+                {machine?.temperature != null && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {machine.temperature > 60 ? 'Critical' :
+                     machine.temperature > 45 ? 'Hot' :
+                     machine.temperature > 30 ? 'Warm' : 'Normal'}
                   </div>
                 )}
               </div>

@@ -13,7 +13,7 @@ async function checkHealthMetrics() {
 
   const { data: machine, error } = await supabase
     .from('vending_machines')
-    .select('machine_id, firmware_version, wifi_rssi, free_heap, uptime, stock_level, last_ping')
+    .select('machine_id, firmware_version, wifi_rssi, free_heap, uptime, last_ping')
     .eq('machine_id', 'lyra_SNVM_003')
     .single();
 
@@ -27,13 +27,21 @@ async function checkHealthMetrics() {
     process.exit(1);
   }
 
+  // Fetch stock from machine_products
+  const { data: products } = await supabase
+    .from('machine_products')
+    .select('stock')
+    .eq('machine_id', 'lyra_SNVM_003');
+
+  const totalStock = products?.reduce((sum, p) => sum + (p.stock || 0), 0) || 0;
+
   console.log('📊 Machine Health Metrics:');
   console.log('  Machine ID:', machine.machine_id);
   console.log('  Firmware Version:', machine.firmware_version || 'N/A');
   console.log('  WiFi Signal (RSSI):', machine.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'N/A');
   console.log('  Free Heap:', machine.free_heap != null ? `${machine.free_heap} bytes` : 'N/A');
   console.log('  Uptime:', machine.uptime != null ? `${machine.uptime} seconds` : 'N/A');
-  console.log('  Stock Level:', machine.stock_level != null ? `${machine.stock_level} units` : 'N/A');
+  console.log('  Total Stock:', totalStock, 'units (from machine_products)');
   console.log('  Last Ping:', machine.last_ping || 'N/A');
   console.log('\n✅ Done!');
 }

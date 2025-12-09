@@ -25,14 +25,14 @@ export async function POST(request: NextRequest) {
       wifi_rssi,
       free_heap,
       uptime,
-      stock_level
+      network_speed_kbps,
+      temperature_celsius
     } = body;
 
     console.log('📡 Machine ping received:', {
       machine_id,
       firmware_version,
-      wifi_rssi,
-      stock_level
+      wifi_rssi
     });
 
     // Update machine record with latest ping data
@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
         wifi_rssi: wifi_rssi || null,
         free_heap: free_heap || null,
         uptime: uptime || null,
-        stock_level: stock_level || null,
+        network_speed: network_speed_kbps || null,
+        temperature: temperature_celsius || null
       };
 
       const { error: updateError } = await supabase

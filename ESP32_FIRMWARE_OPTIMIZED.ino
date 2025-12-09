@@ -16,6 +16,7 @@
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h>
 #include <SPI.h>
+#include <esp_task_wdt.h>
 
 // Ethernet library selection
 // Comment out to disable Ethernet support
@@ -34,6 +35,9 @@
 // ==================== FIRMWARE VERSION ====================
 #define CURRENT_FIRMWARE_VERSION "V1.0.0"
 
+// ==================== WATCHDOG CONFIGURATION ====================
+#define WDT_TIMEOUT 30  // Watchdog timeout in seconds
+
 // ==================== PIN DEFINITIONS ====================
 #define EEPROM_SIZE 256
 #define WIFI_RESET_BUTTON_PIN 4
@@ -51,6 +55,8 @@ String deviceMacAddress;
 String machineId = "UNKNOWN";
 String machineName = "UNKNOWN";
 unsigned long lastPingTime = 0;
+unsigned long lastWiFiCheck = 0;
+unsigned long wifiReconnectAttempts = 0;
 
 // Server configuration
 String SERVER_BASE = "https://192.168.1.2";  // HTTPS for WiFi
@@ -79,6 +85,11 @@ void sendStockAwareStatus();
 void sendStockAwareErrorStatus();
 void resetAllMotorStocks();
 bool macStringToBytes(const String &macStr, byte out[6]);
+float measureNetworkSpeed();
+void initializeWatchdog();
+void feedWatchdog();
+void maintainWiFiConnection();
+void ensureWiFiStability();
 
 // Diagnostic functions
 void testHTTPvsHTTPS();
@@ -217,6 +228,81 @@ bool macStringToBytes(const String &macStr, byte out[6]) {
         out[i] = (byte) strtol(buf, NULL, 16);
     }
     return true;
+}
+
+void initializeWatchdog() {
+    Serial.println("🐕 Initializing Watchdog Timer (" + String(WDT_TIMEOUT) + "s timeout)...");
+    
+    // Configure watchdog for newer ESP32 Arduino core
+    esp_task_wdt_config_t wdt_config = {
+        .timeout_ms = WDT_TIMEOUT * 1000,  // Convert seconds to milliseconds
+        .idle_core_mask = 0,               // Watch all cores
+        .trigger_panic = true              // Trigger panic on timeout
+    };
+    
+    esp_task_wdt_init(&wdt_config);        // Initialize with config
+    esp_task_wdt_add(NULL);                // Add current thread to WDT watch
+    
+    Serial.println("✅ Watchdog Timer active");
+}
+
+void feedWatchdog() {
+    esp_task_wdt_reset();
+}
+
+void ensureWiFiStability() {
+    // Disable WiFi power saving to prevent sleep mode
+    WiFi.setSleep(false);
+    
+    // Set WiFi to maximum performance mode
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    
+    // Set aggressive keepalive settings
+    WiFi.setAutoReconnect(true);
+    
+    Serial.println("✅ WiFi stability optimizations applied");
+}
+
+void maintainWiFiConnection() {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("⚠ WiFi disconnected! Reconnecting...");
+        wifiReconnectAttempts++;
+        
+        String ssid = eepromReadStringSafe(0, 32);
+        String password = eepromReadStringSafe(32, 64);
+        
+        if (ssid.length() > 0) {
+            WiFi.disconnect();
+            delay(1000);
+            WiFi.begin(ssid.c_str(), password.c_str());
+            
+            int attempts = 0;
+            while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+                delay(500);
+                Serial.print(".");
+                feedWatchdog();  // Feed watchdog during reconnection
+                attempts++;
+            }
+            
+            if (WiFi.status() == WL_CONNECTED) {
+                Serial.println("\n✅ WiFi reconnected! IP: " + WiFi.localIP().toString());
+                ensureWiFiStability();
+                digitalWrite(BLUE_LED_PIN, HIGH);
+                sendStockAwareStatus();
+                wifiReconnectAttempts = 0;
+            } else {
+                Serial.println("\n❌ WiFi reconnection failed");
+                sendStockAwareErrorStatus();
+                
+                // If multiple reconnection failures, restart ESP
+                if (wifiReconnectAttempts > 5) {
+                    Serial.println("🔄 Multiple WiFi failures, rebooting...");
+                    delay(1000);
+                    ESP.restart();
+                }
+            }
+        }
+    }
 }
 
 void printPartitionInfo() {
@@ -474,14 +560,48 @@ String fetchMachineInfoFromBackend(const String& mac) {
     return machineId;
 }
 
+float getESP32Temperature() {
+    // Read internal temperature sensor (Fahrenheit)
+    float tempF = temperatureRead();
+    // Convert to Celsius
+    float tempC = (tempF - 32.0) * 5.0 / 9.0;
+    return tempC;
+}
+
+float measureNetworkSpeed() {
+    if (!isNetworkConnected()) return 0.0;
+    
+    // Measure download speed with a small test request
+    String testUrl = SERVER_BASE + "/api/machine-ping";
+    
+    unsigned long startTime = millis();
+    String responseBody = "";
+    int code = makeHTTPRequest(testUrl, "GET", "", &responseBody);
+    unsigned long endTime = millis();
+    
+    if (code <= 0 || responseBody.length() == 0) return 0.0;
+    
+    // Calculate speed: bytes / time(ms) * 1000 / 1024 = KB/s
+    float timeSec = (endTime - startTime) / 1000.0;
+    if (timeSec == 0) timeSec = 0.001;
+    
+    float speedKBps = (responseBody.length() / timeSec) / 1024.0;
+    return speedKBps; // Returns KB/s
+}
+
 void sendMachineStatusPing() {
+    // Measure network speed and temperature
+    float networkSpeed = measureNetworkSpeed();
+    float temperature = getESP32Temperature();
+    
     String payload = "{";
     payload += "\"machine_id\":\"" + machineId + "\",";
     payload += "\"firmware_version\":\"" + String(CURRENT_FIRMWARE_VERSION) + "\",";
     payload += "\"wifi_rssi\":" + String(WiFi.RSSI()) + ",";
     payload += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
     payload += "\"uptime\":" + String(millis()) + ",";
-    payload += "\"stock_level\":" + String(readMotorStockFromEEPROM());
+    payload += "\"network_speed_kbps\":" + String(networkSpeed, 2) + ",";
+    payload += "\"temperature_celsius\":" + String(temperature, 1);
     payload += "}";
 
     String url = SERVER_BASE + "/api/machine-ping";
@@ -823,6 +943,9 @@ void setup() {
     
     Serial.println("\n🚀 Lyra Vending Machine " + String(CURRENT_FIRMWARE_VERSION));
     
+    // Initialize watchdog timer for automatic recovery
+    initializeWatchdog();
+    
     // ========== DETAILED MEMORY REPORT ==========
     Serial.println("\n🔋 ===== ESP32 MEMORY REPORT =====");
     
@@ -896,6 +1019,7 @@ void setup() {
         
         if (WiFi.status() == WL_CONNECTED) {
             Serial.println("✅ WiFi Connected");
+            ensureWiFiStability();  // Apply WiFi stability optimizations
             digitalWrite(BLUE_LED_PIN, HIGH);
             
             fetchMachineInfoFromBackend(deviceMacAddress);
@@ -918,12 +1042,21 @@ void setup() {
 // ==================== MAIN LOOP ====================
 
 void loop() {
+    // Feed watchdog timer to prevent auto-reboot
+    feedWatchdog();
+    
     ArduinoOTA.handle();
     server.handleClient();
     
 #ifdef USE_ETHERNET
     checkEthernetLinkStatus();
 #endif
+    
+    // Monitor and maintain WiFi connection every 30 seconds
+    if (!provisioningMode && !useEthernet && millis() - lastWiFiCheck > 30000) {
+        maintainWiFiConnection();
+        lastWiFiCheck = millis();
+    }
     
     // LED blink in provisioning mode
     if (provisioningMode) {
