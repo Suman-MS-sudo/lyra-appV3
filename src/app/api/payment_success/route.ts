@@ -102,10 +102,13 @@ export async function GET(request: NextRequest) {
       .eq('dispensed', false)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    console.log('Payment query result:', { pendingPayment, error: paymentError?.message });
 
     if (paymentError || !pendingPayment) {
       // No pending payments - default response
+      console.log('No pending payment found for machine:', machine.machine_id);
       return successResponse({
         status: 'No pending payments',
       });
@@ -173,7 +176,7 @@ export async function GET(request: NextRequest) {
       timestamp: pendingPayment.created_at,
     };
 
-    console.log('💰 Returning payment to ESP32:', responseData);
+    console.log('💰 Returning payment to ESP32:', JSON.stringify(responseData, null, 2));
     
     return successResponse(responseData);
 
