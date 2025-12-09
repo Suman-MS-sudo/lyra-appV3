@@ -59,8 +59,8 @@ unsigned long lastWiFiCheck = 0;
 unsigned long wifiReconnectAttempts = 0;
 
 // Server configuration
-String SERVER_BASE = "https://192.168.1.2";  // HTTPS for WiFi
-String ETHERNET_SERVER_BASE = "http://192.168.1.2:8080";  // HTTP proxy for Ethernet
+String SERVER_BASE = "https://lyra-app.co.in";  // Production HTTPS server
+String ETHERNET_SERVER_BASE = "http://lyra-app.co.in";  // Production HTTP for Ethernet
 
 // Ethernet globals
 #ifdef USE_ETHERNET
