@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +12,17 @@ export async function POST(request: NextRequest) {
       machineId,
       products,
     } = await request.json();
+
+    // Get authenticated user
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
 
     // Verify payment signature
     const sign = razorpay_order_id + '|' + razorpay_payment_id;
@@ -57,17 +69,17 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating transaction:', {
       machine_id: machine.id,
-      customer_id: machine.customer_id,
+      customer_id: user.id,
       total_amount: totalAmount,
       products_count: products.length,
     });
 
-    // Create transaction
+    // Create transaction with authenticated user ID
     const { data: transaction, error: txError } = await serviceSupabase
       .from('transactions')
       .insert({
         machine_id: machine.id,
-        customer_id: machine.customer_id,
+        customer_id: user.id, // Use authenticated user ID instead of machine.customer_id
         total_amount: totalAmount,
         payment_status: 'paid',
         status: 'completed', // Transaction status enum
