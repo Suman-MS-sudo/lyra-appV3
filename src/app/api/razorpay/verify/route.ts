@@ -70,7 +70,9 @@ export async function POST(request: NextRequest) {
         customer_id: machine.customer_id,
         total_amount: totalAmount,
         payment_status: 'paid',
+        status: 'completed', // Transaction status enum
         payment_method: 'razorpay',
+        quantity: products.reduce((sum: number, p: any) => sum + p.quantity, 0), // Total quantity
         razorpay_order_id,
         razorpay_payment_id,
         items: products,

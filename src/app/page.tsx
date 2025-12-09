@@ -189,13 +189,14 @@ export default function Home() {
         return;
       }
       
-      // Check if machine is truly online (last ping within 2 minutes)
+      // Check if machine is truly online (last ping within 10 minutes)
+      // ESP32 sends pings every 5 minutes, so 10 min tolerance is reasonable
       const machine = data.machine;
       if (machine.last_ping) {
         const lastPingTime = new Date(machine.last_ping).getTime();
         const now = new Date().getTime();
-        const twoMinutes = 2 * 60 * 1000;
-        machine.asset_online = (now - lastPingTime) < twoMinutes;
+        const tenMinutes = 10 * 60 * 1000;
+        machine.asset_online = (now - lastPingTime) < tenMinutes;
       }
       
       setMachine(machine);
