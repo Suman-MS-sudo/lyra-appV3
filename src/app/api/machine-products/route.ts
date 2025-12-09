@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         product:products (
           id,
           name,
-          category
+          description
         )
       `)
       .eq('machine_id', machine_id)
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       return {
         product_id: product.id,
         name: product.name,
-        category: product.category,
+        description: product.description || '',
         stock: mp.stock,
         price: parseFloat(mp.price || '0'),
       };
