@@ -5,7 +5,25 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load environment variables manually
+const envPath = join(__dirname, '..', '.env.local');
+try {
+  const envContent = readFileSync(envPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const match = line.match(/^([^=]+)=(.*)$/);
+    if (match) {
+      process.env[match[1]] = match[2];
+    }
+  });
+} catch (err) {
+  console.error('⚠️  Could not load .env.local, using existing environment variables');
+}
 
 const macAddress = process.argv[2] || 'C0:CD:D6:84:85:DC';
 
