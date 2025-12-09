@@ -887,7 +887,7 @@ void testHTTPvsHTTPS() {
     
     // Test HTTP
     Serial.println("🌐 Testing HTTP...");
-    String httpUrl = "http://192.168.1.2:80/api/machine-ping";
+    String httpUrl = "http://lyra-app.co.in/api/machine-ping";
     HTTPClient http;
     http.begin(httpUrl);
     int httpCode = http.GET();
@@ -1164,10 +1164,10 @@ void loop() {
             }
         } else if (command == "switch") {
             if (SERVER_BASE.startsWith("https://")) {
-                SERVER_BASE = "http://192.168.1.2:80";
+                SERVER_BASE = "http://lyra-app.co.in";
                 Serial.println("🔄 Switched to HTTP mode");
             } else {
-                SERVER_BASE = "https://192.168.1.2";
+                SERVER_BASE = "https://lyra-app.co.in";
                 Serial.println("🔄 Switched to HTTPS mode");
             }
             Serial.println("📡 New SERVER_BASE: " + SERVER_BASE);
