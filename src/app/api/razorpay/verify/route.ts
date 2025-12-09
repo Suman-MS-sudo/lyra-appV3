@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
+import Razorpay from 'razorpay';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,14 +13,37 @@ export async function POST(request: NextRequest) {
       products,
     } = await request.json();
 
-    // Get authenticated user
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+    // Verify payment signature
+    const sign = razorpay_order_id + '|' + razorpay_payment_id;
+    const expectedSign = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .update(sign.toString())
+      .digest('hex');
+
+    if (razorpay_signature !== expectedSign) {
       return NextResponse.json(
-        { success: false, error: 'User not authenticated' },
-        { status: 401 }
+        { success: false, error: 'Invalid payment signature' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch order details from Razorpay to get user_id from notes
+    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_lmKnnhDWFEBx4e';
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'OrxoAbykv5jDlvzJxgPifKh6';
+    
+    const razorpay = new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret,
+    });
+
+    const order = await razorpay.orders.fetch(razorpay_order_id);
+    const userId = order.notes?.user_id;
+
+    if (!userId) {
+      console.error('No user ID found in order notes');
+      return NextResponse.json(
+        { success: false, error: 'Invalid order - missing user information' },
+        { status: 400 }
       );
     }
 
@@ -69,17 +92,17 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating transaction:', {
       machine_id: machine.id,
-      customer_id: user.id,
+      customer_id: userId,
       total_amount: totalAmount,
       products_count: products.length,
     });
 
-    // Create transaction with authenticated user ID
+    // Create transaction with user ID from order notes
     const { data: transaction, error: txError } = await serviceSupabase
       .from('transactions')
       .insert({
         machine_id: machine.id,
-        customer_id: user.id, // Use authenticated user ID instead of machine.customer_id
+        customer_id: userId, // Use user ID from Razorpay order notes
         total_amount: totalAmount,
         payment_status: 'paid',
         status: 'completed', // Transaction status enum
