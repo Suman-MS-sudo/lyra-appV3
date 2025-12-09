@@ -83,19 +83,7 @@ export async function GET(request: NextRequest) {
         amount,
         total_amount,
         items,
-        created_at,
-        transaction_items (
-          quantity,
-          price,
-          machine_products (
-            id,
-            product:products (
-              id,
-              name,
-              description
-            )
-          )
-        )
+        created_at
       `)
       .eq('machine_id', machine.id)
       .eq('payment_status', 'paid')
@@ -104,7 +92,10 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    console.log('Payment query result:', { pendingPayment, error: paymentError?.message });
+    console.log('Payment query result:', { 
+      pendingPayment: pendingPayment ? { id: pendingPayment.id, items: pendingPayment.items } : null, 
+      error: paymentError?.message 
+    });
 
     if (paymentError || !pendingPayment) {
       // No pending payments - default response
@@ -114,37 +105,26 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Step 3: Format products for ESP32
-    // Support both old format (transaction_items) and new format (items JSONB)
+    // Step 3: Format products for ESP32 from items JSONB
     let products = [];
     
-    if (pendingPayment.items && typeof pendingPayment.items === 'string') {
-      // New Razorpay format: items stored as JSONB array
-      try {
-        const itemsArray = JSON.parse(pendingPayment.items);
-        products = itemsArray.map((item: any) => ({
-          product: {
-            id: item.product_id || 0,
-            name: item.name || 'Unknown Product',
-            description: item.description || '',
-          },
-          quantity: item.quantity || 1,
-          price: parseFloat(item.price || 0),
-        }));
-      } catch (e) {
-        console.error('Failed to parse items JSONB:', e);
-      }
-    } else if (pendingPayment.transaction_items && pendingPayment.transaction_items.length > 0) {
-      // Old format: transaction_items relation
-      products = pendingPayment.transaction_items.map((item: any) => ({
+    try {
+      // Items are stored as JSONB array in the items column
+      const itemsArray = typeof pendingPayment.items === 'string' 
+        ? JSON.parse(pendingPayment.items) 
+        : pendingPayment.items;
+      
+      products = (itemsArray || []).map((item: any) => ({
         product: {
-          id: item.machine_products?.product?.id || 0,
-          name: item.machine_products?.product?.name || 'Unknown Product',
-          description: item.machine_products?.product?.description || '',
+          id: item.product_id || 0,
+          name: item.name || 'Unknown Product',
+          description: item.description || '',
         },
-        quantity: item.quantity,
-        price: parseFloat(item.price),
+        quantity: item.quantity || 1,
+        price: parseFloat(item.price || 0),
       }));
+    } catch (e) {
+      console.error('Failed to parse items:', e);
     }
 
     // Step 4: Mark transaction as dispensed
