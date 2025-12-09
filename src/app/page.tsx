@@ -89,11 +89,11 @@ export default function Home() {
       fetchMachineAndProducts();
     }
 
-    // Load Razorpay script from local copy (CDN often blocked by ad blockers)
+    // Load Razorpay script from official CDN
     const loadScript = () => {
       // Check if already loaded
       if (window.Razorpay) {
-        console.log('Razorpay already available');
+        console.log('✅ Razorpay already available');
         setRazorpayLoaded(true);
         return Promise.resolve();
       }
@@ -104,52 +104,26 @@ export default function Home() {
         oldScripts.forEach(s => s.remove());
 
         const script = document.createElement('script');
-        // Try local script first (works even with ad blockers)
-        script.src = '/razorpay-checkout.js';
-        script.async = true;
-        
-        script.onload = () => {
-          console.log('Razorpay script loaded from local source');
-          if (window.Razorpay) {
-            setRazorpayLoaded(true);
-            resolve(true);
-          } else {
-            console.warn('Script loaded but Razorpay object not found, trying CDN...');
-            // Fallback to CDN
-            loadFromCDN().then(resolve).catch(reject);
-          }
-        };
-        
-        script.onerror = (error) => {
-          console.warn('Local script failed, trying CDN:', error);
-          // Fallback to CDN
-          loadFromCDN().then(resolve).catch(reject);
-        };
-        
-        document.head.appendChild(script);
-      });
-    };
-
-    const loadFromCDN = () => {
-      return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
+        // Load directly from official Razorpay CDN
         script.src = 'https://checkout.razorpay.com/v1/checkout.js';
         script.async = true;
         script.crossOrigin = 'anonymous';
         
         script.onload = () => {
-          console.log('Razorpay loaded from CDN');
+          console.log('✅ Razorpay loaded from official CDN');
           if (window.Razorpay) {
             setRazorpayLoaded(true);
             resolve(true);
           } else {
-            reject(new Error('CDN loaded but Razorpay not available'));
+            const error = new Error('Razorpay object not found after script load');
+            console.error('❌', error);
+            reject(error);
           }
         };
         
         script.onerror = (error) => {
-          console.error('CDN load failed. Razorpay is blocked.');
-          console.error('Please disable ad blocker or check network settings.');
+          console.error('❌ Failed to load Razorpay from official CDN');
+          console.error('Please check your internet connection or disable ad blockers');
           setRazorpayLoaded(false);
           reject(error);
         };
@@ -159,7 +133,7 @@ export default function Home() {
     };
 
     loadScript().catch(err => {
-      console.error('Failed to load Razorpay from all sources:', err);
+      console.error('❌ Failed to load Razorpay:', err);
       setRazorpayLoaded(false);
     });
   }, [machineId]);
