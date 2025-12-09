@@ -6,9 +6,10 @@ import { successResponse, errorResponse } from '@/lib/api-helpers';
  * Coin Payment API for ESP32
  * 
  * Endpoint: POST /api/coin-payment
- * Body: { machine_id, product_id, amount_in_paisa }
+ * Body: { machine_id, product_id (UUID), amount_in_paisa }
  * 
- * Records coin-based transactions (offline payments)
+ * Records coin-based transactions in dedicated coin_payments table
+ * and updates stock in machine_products
  */
 export async function POST(request: NextRequest) {
   try {
@@ -28,8 +29,7 @@ export async function POST(request: NextRequest) {
     // Convert paisa to rupees (100 paisa = 1 rupee)
     const amountInRupees = amount_in_paisa / 100;
 
-    // Get machine products to find the actual product UUID
-    // ESP32 sends product_id as integer (motor number), we need to map it
+    // Verify machine_product exists and get current stock
     const { data: machineProduct, error: mpError } = await supabase
       .from('machine_products')
       .select(`
@@ -42,55 +42,61 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq('machine_id', machine_id)
-      .limit(1)
+      .eq('product_id', product_id)
       .single();
 
-    let productUuid = null;
-    let productName = 'Coin Purchase';
-    
-    if (machineProduct && !mpError && machineProduct.product) {
-      const prod = Array.isArray(machineProduct.product) 
-        ? machineProduct.product[0] 
-        : machineProduct.product;
-      productUuid = prod.id;
-      productName = prod.name;
+    if (mpError || !machineProduct) {
+      console.error('Machine product not found:', machine_id, product_id);
+      return errorResponse('Machine product not found', 'NOT_FOUND', 404);
     }
 
-    // Create transaction record for coin payment
-    const { data: transaction, error: txError } = await supabase
-      .from('transactions')
+    const product = Array.isArray(machineProduct.product) 
+      ? machineProduct.product[0] 
+      : machineProduct.product;
+
+    // Create coin payment record
+    const { data: coinPayment, error: cpError } = await supabase
+      .from('coin_payments')
       .insert({
         machine_id,
-        product_id: productUuid, // Use UUID or null
-        amount: amountInRupees,
-        total_amount: amountInRupees,
+        product_id,
+        amount_in_paisa,
         quantity: 1,
-        status: 'completed',
-        payment_method: 'coin',
-        payment_status: 'paid',
         dispensed: true,
         dispensed_at: new Date().toISOString(),
-        items: JSON.stringify([{
-          product_id: productUuid,
-          name: productName,
-          price: amountInRupees,
-          quantity: 1,
-        }]),
       })
       .select()
       .single();
 
-    if (txError) {
-      console.error('Coin payment transaction error:', txError);
-      return errorResponse('Failed to record transaction', 'TRANSACTION_FAILED', 500);
+    if (cpError) {
+      console.error('Coin payment insert error:', cpError);
+      return errorResponse('Failed to record coin payment', 'INSERT_FAILED', 500);
     }
 
-    console.log(`💰 Coin payment recorded: ${machine_id} / ₹${amountInRupees}`);
+    // Update stock in machine_products (decrement by 1)
+    const newStock = Math.max(0, machineProduct.stock - 1);
+    const { error: stockError } = await supabase
+      .from('machine_products')
+      .update({ 
+        stock: newStock,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', machineProduct.id);
+
+    if (stockError) {
+      console.error('Stock update error:', stockError);
+      // Log error but don't fail the request - payment already recorded
+    }
+
+    console.log(`💰 Coin payment recorded: ${machine_id} / ${product.name} / ₹${amountInRupees} / Stock: ${machineProduct.stock} → ${newStock}`);
 
     return successResponse({
-      message: 'Coin payment recorded',
-      transaction_id: transaction.id,
+      message: 'Coin payment recorded and stock updated',
+      payment_id: coinPayment.id,
       amount: amountInRupees,
+      product_name: product.name,
+      old_stock: machineProduct.stock,
+      new_stock: newStock,
     });
 
   } catch (error: any) {

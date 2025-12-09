@@ -54,6 +54,7 @@ bool provisioningMode = false;
 String deviceMacAddress;
 String machineId = "UNKNOWN";
 String machineName = "UNKNOWN";
+String defaultProductId = "";  // UUID of default product for coin payments
 unsigned long lastPingTime = 0;
 unsigned long lastWiFiCheck = 0;
 unsigned long wifiReconnectAttempts = 0;
@@ -71,9 +72,10 @@ EthernetClient ethClient;
 #endif
 
 // ==================== FORWARD DECLARATIONS ====================
-void notifyProductStockUpdate(const String& machine_id, int product_id, int quantity = 1, String mode = "");
+void notifyProductStockUpdate(const String& machine_id, const String& product_id, int quantity = 1, String mode = "");
 String fetchMachineInfoFromBackend(const String& mac);
-void dispenseProductByMotor();
+void fetchMachineProducts();
+void dispenseProductByMotor(String productId = "");
 void listenForOnlinePayment();
 void sendMachineStatusPing();
 bool isHTTPS(const String& url);
@@ -191,12 +193,16 @@ void saveWiFiCredentials(String ssid, String password) {
     eepromWriteString(32, password, 64);
 }
 
-void saveMotorStockToEEPROM(int count) {
+void saveMotorStockToEEPROM(int count, String productId = "") {
     EEPROM.begin(EEPROM_SIZE);
     EEPROM.write(MOTOR1_ADDR, count);
     EEPROM.commit();
     Serial.printf("📦 Motor stock saved: %d\n", count);
-    notifyProductStockUpdate(machineId, 1, count, "set");
+    
+    // Sync to database if product_id provided
+    if (productId.length() > 0) {
+        notifyProductStockUpdate(machineId, productId, count, "set");
+    }
 }
 
 int readMotorStockFromEEPROM() {
@@ -564,6 +570,45 @@ String fetchMachineInfoFromBackend(const String& mac) {
     return machineId;
 }
 
+void fetchMachineProducts() {
+    if (machineId == "UNKNOWN" || machineId.length() == 0) {
+        Serial.println("⚠ Cannot fetch products: machine ID unknown");
+        return;
+    }
+    
+    String url = SERVER_BASE + "/api/machine-products?machine_id=" + urlEncode(machineId);
+    
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        url = ETHERNET_SERVER_BASE + "/api/machine-products?machine_id=" + urlEncode(machineId);
+    }
+#endif
+    
+    Serial.println("📦 Fetching machine products...");
+    String responseBody = "";
+    int code = makeHTTPRequest(url, "GET", "", &responseBody);
+    
+    if (code == 200 && responseBody.length() > 0) {
+        DynamicJsonDocument doc(1024);
+        DeserializationError err = deserializeJson(doc, responseBody);
+        if (!err && doc.containsKey("data")) {
+            JsonObject data = doc["data"];
+            if (data.containsKey("default_product")) {
+                JsonObject defaultProd = data["default_product"];
+                defaultProductId = defaultProd["product_id"] | "";
+                String productName = defaultProd["name"] | "Unknown";
+                int stock = defaultProd["stock"] | 0;
+                
+                Serial.println("✅ Default Product ID: " + defaultProductId);
+                Serial.println("   Name: " + productName);
+                Serial.printf("   Stock (DB): %d\n", stock);
+            }
+        }
+    } else {
+        Serial.printf("⚠ Failed to fetch products: %d\n", code);
+    }
+}
+
 float getESP32Temperature() {
     // Read internal temperature sensor (Fahrenheit)
     float tempF = temperatureRead();
@@ -635,10 +680,10 @@ void sendMachineStatusPing() {
     }
 }
 
-void notifyProductStockUpdate(const String& machine_id, int product_id, int quantity, String mode) {
+void notifyProductStockUpdate(const String& machine_id, const String& product_id, int quantity, String mode) {
     String payload = "{";
     payload += "\"machine_id\":\"" + machine_id + "\",";
-    payload += "\"product_id\":" + String(product_id) + ",";
+    payload += "\"product_id\":\"" + product_id + "\",";
     payload += "\"quantity\":" + String(quantity);
     if (mode.length() > 0) {
         payload += ",\"mode\":\"" + mode + "\"";
@@ -652,12 +697,17 @@ void notifyProductStockUpdate(const String& machine_id, int product_id, int quan
     }
 #endif
 
-    makeHTTPRequest(url, "POST", payload);
+    int code = makeHTTPRequest(url, "POST", payload);
+    if (code == 200) {
+        Serial.println("✅ Stock synced to database");
+    } else {
+        Serial.printf("⚠ Stock sync failed: %d\n", code);
+    }
 }
 
 // ==================== DISPENSE FUNCTIONS ====================
 
-void dispenseProductByMotor() {
+void dispenseProductByMotor(String productId = "") {
     int stock = readMotorStockFromEEPROM();
     if (stock <= 0) {
         Serial.println("❌ Motor out of stock!");
@@ -671,11 +721,11 @@ void dispenseProductByMotor() {
     delay(2830);
     digitalWrite(TRANSISTOR_BASE, LOW);
     
-    saveMotorStockToEEPROM(stock - 1);
+    saveMotorStockToEEPROM(stock - 1, productId);
     Serial.printf("✅ Motor stopped! New stock: %d\n", stock - 1);
 }
 
-void dispenseAsCoinSequence() {
+void dispenseAsCoinSequence(String productId = "") {
     Serial.println("📺 Display: Dispensing (3)");
     Serial2.print("3");
     digitalWrite(BLUE_LED_PIN, LOW);
@@ -683,7 +733,7 @@ void dispenseAsCoinSequence() {
     digitalWrite(BLUE_LED_PIN, HIGH);
     delay(2900);
     
-    dispenseProductByMotor();
+    dispenseProductByMotor(productId);
     
     Serial.println("📺 Display: Thank You (1)");
     Serial2.print("1");
@@ -729,17 +779,19 @@ void handlePaymentDocument(JsonObject doc) {
         
         for (JsonObject item : products) {
             JsonObject product = item["product"];
+            String productId = product["id"] | "";
             String productName = product["name"] | "Unknown";
             int quantity = item["quantity"] | 1;
             float price = item["price"] | 0.0;
             
             Serial.printf("   - %s x%d (₹%.2f each)\n", productName.c_str(), quantity, price);
+            Serial.printf("   📋 Product ID: %s\n", productId.c_str());
             totalItems += quantity;
             
             // Dispense each quantity
             for (int i = 0; i < quantity; i++) {
                 Serial.printf("\n🎰 Dispensing item %d/%d: %s\n", i + 1, quantity, productName.c_str());
-                dispenseAsCoinSequence();
+                dispenseAsCoinSequence(productId);
                 Serial.println("✅ Item dispensed successfully!");
                 delay(500);
             }
@@ -750,7 +802,7 @@ void handlePaymentDocument(JsonObject doc) {
         Serial.println("========================================\n");
     } else {
         Serial.println("📦 Dispensing single item (no product details)");
-        dispenseAsCoinSequence();
+        dispenseAsCoinSequence("");
         Serial.println("✅ Dispensing completed!\n");
     }
 }
@@ -805,10 +857,15 @@ void listenForOnlinePayment() {
     }
 }
 
-void sendCoinPayment(int productNumber, int coinAmount) {
+void sendCoinPayment(int coinAmount) {
+    if (defaultProductId.length() == 0) {
+        Serial.println("⚠ Cannot send coin payment: no product assigned");
+        return;
+    }
+    
     String payload = "{";
     payload += "\"machine_id\":\"" + machineId + "\",";
-    payload += "\"product_id\":" + String(productNumber) + ",";
+    payload += "\"product_id\":\"" + defaultProductId + "\",";
     payload += "\"amount_in_paisa\":" + String(coinAmount * 100);
     payload += "}";
 
@@ -819,8 +876,15 @@ void sendCoinPayment(int productNumber, int coinAmount) {
     }
 #endif
 
-    int code = makeHTTPRequest(url, "POST", payload);
-    Serial.printf("💰 Coin payment: %d\n", code);
+    Serial.println("💰 Sending coin payment...");
+    String responseBody = "";
+    int code = makeHTTPRequest(url, "POST", payload, &responseBody);
+    
+    if (code == 200) {
+        Serial.println("✅ Coin payment recorded and stock synced");
+    } else {
+        Serial.printf("⚠ Coin payment failed: %d\n", code);
+    }
 }
 
 // ==================== DIAGNOSTIC FUNCTIONS ====================
@@ -1077,6 +1141,7 @@ void setup() {
         SERVER_BASE = ETHERNET_SERVER_BASE;
         feedWatchdog();  // Feed after Ethernet init
         fetchMachineInfoFromBackend(deviceMacAddress);
+        fetchMachineProducts();  // Get product_id for coin payments
         feedWatchdog();
         sendMachineStatusPing();
         lastPingTime = millis();
@@ -1107,6 +1172,7 @@ void setup() {
             digitalWrite(BLUE_LED_PIN, HIGH);
             
             fetchMachineInfoFromBackend(deviceMacAddress);
+            fetchMachineProducts();  // Get product_id for coin payments
             
             ArduinoOTA.setHostname(("Lyra-" + machineName).c_str());
             ArduinoOTA.setPassword("lyra2024");
@@ -1284,7 +1350,7 @@ void loop() {
         
         if (stock <= 0) {
             Serial2.print("9");
-            if (isNetworkConnected()) sendCoinPayment(1, 5);
+            if (isNetworkConnected()) sendCoinPayment(5);
         } else {
             Serial2.print("4");
             digitalWrite(BLUE_LED_PIN, LOW);
@@ -1292,8 +1358,11 @@ void loop() {
             digitalWrite(BLUE_LED_PIN, HIGH);
             delay(2900);
             
-            dispenseProductByMotor();
-            if (isNetworkConnected()) sendCoinPayment(1, 5);
+            // Dispense and sync stock (uses defaultProductId)
+            dispenseProductByMotor(defaultProductId);
+            
+            // Record coin payment in database
+            if (isNetworkConnected()) sendCoinPayment(5);
             
             Serial2.print("1");
             delay(3000);
