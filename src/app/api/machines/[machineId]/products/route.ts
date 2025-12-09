@@ -8,6 +8,14 @@ export async function GET(
   try {
     const { machineId } = await params;
 
+    // Validate machine ID
+    if (!machineId || machineId.trim().length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid machine ID' },
+        { status: 400 }
+      );
+    }
+
     const serviceSupabase = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -25,6 +33,29 @@ export async function GET(
         { success: false, error: 'Machine not found' },
         { status: 404 }
       );
+    }
+
+    // Update machine online status and last ping time
+    // Get firmware version from query params if provided
+    const firmwareVersion = request.nextUrl.searchParams.get('firmware');
+    
+    const updateData: any = {
+      asset_online: true,
+      last_ping: new Date().toISOString(),
+    };
+    
+    if (firmwareVersion) {
+      updateData.firmware_version = firmwareVersion;
+      console.log(`📡 Updated firmware version for ${machine.machine_id}: ${firmwareVersion}`);
+    }
+    
+    const { error: updateError } = await serviceSupabase
+      .from('vending_machines')
+      .update(updateData)
+      .eq('id', machine.id);
+    
+    if (updateError) {
+      console.error('Error updating machine:', updateError);
     }
 
     // Fetch products for this machine from machine_products junction table

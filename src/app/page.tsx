@@ -33,7 +33,15 @@ interface Machine {
   customer_name: string;
   status: string;
   asset_online: boolean;
+  last_ping?: string;
   firmware_version?: string;
+  wifi_rssi?: number;
+  free_heap?: number;
+  uptime?: number;
+  stock_level?: number;
+  connection_type?: string;
+  last_error?: string;
+  last_error_time?: string;
 }
 
 interface MachineProduct {
@@ -65,9 +73,18 @@ export default function Home() {
   const [showCart, setShowCart] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [error, setError] = useState<{ type: string; message: string } | null>(null);
 
   useEffect(() => {
     if (machineId) {
+      // Validate machine ID format (should not be empty or just whitespace)
+      if (machineId.trim().length === 0) {
+        setError({
+          type: 'invalid',
+          message: 'Invalid Machine ID'
+        });
+        return;
+      }
       fetchMachineAndProducts();
     }
 
@@ -149,15 +166,71 @@ export default function Home() {
   const fetchMachineAndProducts = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const response = await fetch(`/api/machines/${machineId}/products`);
       const data = await response.json();
       
-      if (data.success) {
-        setMachine(data.machine);
-        setProducts(data.products || []);
+      if (!response.ok) {
+        // Handle HTTP errors
+        if (response.status === 400) {
+          setError({
+            type: 'invalid',
+            message: 'Invalid Machine ID'
+          });
+        } else if (response.status === 404) {
+          setError({
+            type: 'not_found',
+            message: 'No Such Machine Available'
+          });
+        } else if (response.status >= 500) {
+          setError({
+            type: 'server_error',
+            message: 'Server Error. Please try again later.'
+          });
+        } else {
+          setError({
+            type: 'error',
+            message: data.error || 'Failed to load machine data'
+          });
+        }
+        return;
       }
+      
+      if (!data.success) {
+        setError({
+          type: 'error',
+          message: data.error || 'Failed to load machine data'
+        });
+        return;
+      }
+
+      // Check if machine exists
+      if (!data.machine) {
+        setError({
+          type: 'not_found',
+          message: 'No Such Machine Available'
+        });
+        return;
+      }
+      
+      // Check if machine is truly online (last ping within 2 minutes)
+      const machine = data.machine;
+      if (machine.last_ping) {
+        const lastPingTime = new Date(machine.last_ping).getTime();
+        const now = new Date().getTime();
+        const twoMinutes = 2 * 60 * 1000;
+        machine.asset_online = (now - lastPingTime) < twoMinutes;
+      }
+      
+      setMachine(machine);
+      setProducts(data.products || []);
     } catch (error) {
       console.error('Error fetching machine data:', error);
+      setError({
+        type: 'network_error',
+        message: 'Network Error. Please check your connection and try again.'
+      });
     } finally {
       setLoading(false);
     }
@@ -397,41 +470,130 @@ export default function Home() {
       );
     }
 
+    // Show error page if there's an error
+    if (error) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 flex items-center justify-center px-4">
+          <div className="max-w-2xl w-full">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 text-center border border-gray-100">
+              {/* Error Icon */}
+              <div className="mb-6">
+                {error.type === 'not_found' ? (
+                  <div className="w-24 h-24 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                    <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                ) : error.type === 'network_error' ? (
+                  <div className="w-24 h-24 mx-auto bg-orange-100 rounded-full flex items-center justify-center">
+                    <svg className="w-12 h-12 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
+                    <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              {/* Error Message */}
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                {error.message}
+              </h1>
+              
+              <p className="text-gray-600 mb-2">
+                {error.type === 'not_found' && (
+                  <>Machine ID: <span className="font-mono font-semibold text-gray-900">{machineId}</span> does not exist in our system.</>
+                )}
+                {error.type === 'network_error' && (
+                  <>Unable to connect to the server. Please check your internet connection.</>
+                )}
+                {error.type === 'server_error' && (
+                  <>Our servers are experiencing issues. We're working to fix it.</>
+                )}
+                {error.type === 'invalid' && (
+                  <>The machine ID provided is not valid. Please check and try again.</>
+                )}
+                {error.type === 'error' && (
+                  <>Something went wrong while loading the machine data.</>
+                )}
+              </p>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                {(error.type === 'network_error' || error.type === 'server_error' || error.type === 'error') && (
+                  <button
+                    onClick={() => fetchMachineAndProducts()}
+                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                  >
+                    Try Again
+                  </button>
+                )}
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="px-8 py-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-lg transition-colors border border-gray-300"
+                >
+                  Go to Home
+                </button>
+              </div>
+
+              {/* Additional Help */}
+              <div className="mt-8 pt-8 border-t border-gray-200">
+                <p className="text-sm text-gray-500 mb-2">Need help?</p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center text-sm">
+                  <a href="#contact" className="text-blue-600 hover:text-blue-700 font-medium">
+                    Contact Support
+                  </a>
+                  <span className="hidden sm:inline text-gray-300">|</span>
+                  <a href="#about" className="text-blue-600 hover:text-blue-700 font-medium">
+                    About Lyra
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <>
         <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <header className="bg-white border-b sticky top-0 z-10">
-          <div className="container mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
+          <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center justify-between gap-2">
               <button 
                 onClick={() => window.history.back()}
-                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-gray-900 transition-colors min-w-0"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Back
+                <span className="hidden sm:inline">Back</span>
               </button>
 
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-gray-900">Lyra</div>
-                  <div className="text-xs text-gray-500">Enterprises</div>
+                  <div className="text-base sm:text-lg font-bold text-gray-900">Lyra</div>
+                  <div className="text-[10px] sm:text-xs text-gray-500">Enterprises</div>
                 </div>
               </div>
 
               <button 
                 onClick={() => setShowCart(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-w-0 flex-shrink-0"
               >
-                <ShoppingCart className="w-5 h-5" />
-                Cart
+                <ShoppingCart className="w-5 h-5 flex-shrink-0" />
+                <span className="hidden sm:inline">Cart</span>
                 {getTotalItems() > 0 && (
                   <span className="bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
                     {getTotalItems()}
@@ -443,54 +605,65 @@ export default function Home() {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-6 py-8 max-w-6xl pb-32">
+        <main className="container mx-auto px-3 sm:px-6 py-4 sm:py-8 max-w-6xl pb-32">
           {/* Machine Info */}
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">{machine?.name || machineId}</h1>
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 break-words">{machine?.name || machineId}</h1>
             
-            <div className="grid grid-cols-3 gap-6">
-              <div className="bg-gray-50 rounded-lg p-4 border">
-                <div className="flex items-center gap-3 mb-2">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
+                <div className="flex items-center gap-2 sm:gap-3 mb-2">
                   {machine?.asset_online ? (
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Wifi className="w-5 h-5 text-green-600" />
+                    <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg flex-shrink-0">
+                      <Wifi className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                     </div>
                   ) : (
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <WifiOff className="w-5 h-5 text-red-600" />
+                    <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg flex-shrink-0">
+                      <WifiOff className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                     </div>
                   )}
-                  <span className="text-sm text-gray-600">Machine State</span>
+                  <span className="text-xs sm:text-sm text-gray-600">Machine State</span>
                 </div>
-                <div className={`text-lg font-semibold ${machine?.asset_online ? 'text-green-600' : 'text-red-600'}`}>
+                <div className={`text-base sm:text-lg font-semibold ${machine?.asset_online ? 'text-green-600' : 'text-red-600'}`}>
                   {machine?.asset_online ? 'Online' : 'Offline'}
                 </div>
+                {machine?.last_ping && (
+                  <div className="text-xs text-gray-500 mt-1 break-words">
+                    Last: {new Date(machine.last_ping).toLocaleString('en-IN', { 
+                      timeZone: 'Asia/Kolkata',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 border">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
+                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                  <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <span className="text-sm text-gray-600">Firmware Version</span>
+                  <span className="text-xs sm:text-sm text-gray-600">Firmware</span>
                 </div>
-                <div className="text-lg font-semibold text-blue-600">
+                <div className="text-base sm:text-lg font-semibold text-blue-600">
                   {machine?.firmware_version || 'Unknown'}
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 border">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
+                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                  <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                   </div>
-                  <span className="text-sm text-gray-600">Customer Name</span>
+                  <span className="text-xs sm:text-sm text-gray-600">Customer</span>
                 </div>
-                <div className="text-lg font-semibold text-gray-900">
+                <div className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                   {machine?.customer_name || 'N/A'}
                 </div>
               </div>
@@ -498,12 +671,12 @@ export default function Home() {
           </div>
 
           {/* Products Section */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Available Products</h2>
-              <div className="flex items-center gap-2 text-blue-600">
-                <Heart className="w-5 h-5 fill-current" />
-                <span className="font-semibold">{products.length} items</span>
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border">
+            <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Products</h2>
+              <div className="flex items-center gap-1.5 sm:gap-2 text-blue-600 flex-shrink-0">
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                <span className="text-sm sm:text-base font-semibold">{products.length}</span>
               </div>
             </div>
 
@@ -512,44 +685,42 @@ export default function Home() {
                 {products.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-gray-50 rounded-lg p-6 border hover:shadow-md transition-all"
+                    className="bg-gray-50 rounded-lg p-4 sm:p-6 border hover:shadow-md transition-all"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-start gap-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Package className="w-8 h-8 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-xl font-semibold text-gray-900 mb-1">
-                              {item.products.name}
-                            </h3>
-                            <p className="text-gray-600 text-sm mb-3">
-                              {item.products.description || 'Premium quality sanitary product'}
-                            </p>
-                            <div className="flex items-center gap-4">
-                              <div className="text-2xl font-bold text-gray-900">
-                                ₹{parseFloat(item.price).toFixed(0)}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${item.stock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                <span className={`text-sm font-medium ${item.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                  {item.stock > 0 ? `${item.stock} in stock` : 'Out of Stock'}
-                                </span>
-                              </div>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Package className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 break-words">
+                            {item.products.name}
+                          </h3>
+                          <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
+                            {item.products.description || 'Premium quality sanitary product'}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                            <div className="text-xl sm:text-2xl font-bold text-gray-900">
+                              ₹{parseFloat(item.price).toFixed(0)}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${item.stock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                              <span className={`text-xs sm:text-sm font-medium ${item.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {item.stock > 0 ? `${item.stock} in stock` : 'Out of Stock'}
+                              </span>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <button
                             onClick={() => toggleFavorite(item.product_id)}
-                            className="p-3 bg-white hover:bg-gray-100 rounded-lg border transition-colors"
+                            className="p-2 sm:p-3 bg-white hover:bg-gray-100 rounded-lg border transition-colors flex-shrink-0"
                           >
                             <Heart
-                              className={`w-6 h-6 ${
+                              className={`w-5 h-5 sm:w-6 sm:h-6 ${
                                 favorites.has(item.product_id)
                                   ? 'fill-pink-500 text-pink-500'
                                   : 'text-gray-400'
@@ -560,7 +731,7 @@ export default function Home() {
                           <button
                             onClick={() => addToCart(item)}
                             disabled={item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3}
-                            className={`flex-1 px-8 py-3 rounded-lg font-semibold transition-all ${
+                            className={`flex-1 px-4 sm:px-8 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-all ${
                               item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3
                                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                 : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -612,29 +783,120 @@ export default function Home() {
             )}
           </div>
 
+          {/* Machine Health Metrics */}
+          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border mt-4 sm:mt-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Health</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {/* WiFi Signal */}
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <Wifi className={`w-4 h-4 ${
+                    machine?.wifi_rssi == null ? 'text-gray-400' :
+                    machine.wifi_rssi > -50 ? 'text-green-600' :
+                    machine.wifi_rssi > -70 ? 'text-yellow-600' : 'text-red-600'
+                  }`} />
+                  <span className="text-xs text-gray-600">WiFi Signal</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {machine?.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'N/A'}
+                </div>
+                {machine?.wifi_rssi != null && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {machine.wifi_rssi > -50 ? 'Excellent' :
+                     machine.wifi_rssi > -70 ? 'Good' : 'Weak'}
+                  </div>
+                )}
+              </div>
+
+              {/* Stock Level */}
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className={`w-4 h-4 ${
+                    machine?.stock_level == null ? 'text-gray-400' :
+                    machine.stock_level > 20 ? 'text-green-600' :
+                    machine.stock_level > 10 ? 'text-yellow-600' : 'text-red-600'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                  <span className="text-xs text-gray-600">Stock Level</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {machine?.stock_level != null ? `${machine.stock_level} units` : 'N/A'}
+                </div>
+                {machine?.stock_level != null && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {machine.stock_level > 20 ? 'Full' :
+                     machine.stock_level > 10 ? 'Medium' :
+                     machine.stock_level > 0 ? 'Low' : 'Empty'}
+                  </div>
+                )}
+              </div>
+
+              {/* Uptime */}
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-xs text-gray-600">Uptime</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {machine?.uptime != null ? (
+                    (() => {
+                      const hours = Math.floor(machine.uptime / 3600000);
+                      const days = Math.floor(hours / 24);
+                      if (days > 0) return `${days}d ${hours % 24}h`;
+                      if (hours > 0) return `${hours}h ${Math.floor((machine.uptime % 3600000) / 60000)}m`;
+                      return `${Math.floor(machine.uptime / 60000)}m`;
+                    })()
+                  ) : 'N/A'}
+                </div>
+              </div>
+
+              {/* Memory */}
+              <div className="bg-gray-50 rounded-lg p-3 border">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                  </svg>
+                  <span className="text-xs text-gray-600">Free Memory</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {machine?.free_heap != null ? `${(machine.free_heap / 1024).toFixed(1)} KB` : 'N/A'}
+                </div>
+                {machine?.free_heap != null && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {machine.free_heap > 100000 ? 'Healthy' :
+                     machine.free_heap > 50000 ? 'Normal' : 'Low'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Sticky Pay Now Button */}
           {cart.size > 0 && (
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
-              <div className="container mx-auto px-6 py-4 max-w-6xl">
-                <div className="flex items-center justify-between gap-6">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
-                      <div className="text-xs text-gray-600 font-medium">Items in Cart</div>
-                      <div className="text-xl font-bold text-blue-600">
-                        {getTotalItems()} / 3
+              <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4 max-w-6xl">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                    <div className="bg-blue-50 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-blue-200">
+                      <div className="text-xs text-gray-600 font-medium">Items</div>
+                      <div className="text-base sm:text-xl font-bold text-blue-600">
+                        {getTotalItems()}/3
                       </div>
                     </div>
-                    <div className="bg-blue-50 px-6 py-2 rounded-lg border border-blue-200">
-                      <div className="text-xs text-gray-600 font-medium">Total Amount</div>
-                      <div className="text-2xl font-bold text-blue-600">
+                    <div className="bg-blue-50 px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg border border-blue-200">
+                      <div className="text-xs text-gray-600 font-medium">Total</div>
+                      <div className="text-lg sm:text-2xl font-bold text-blue-600">
                         ₹{getTotalAmount().toFixed(0)}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                     <button
                       onClick={() => setShowCart(true)}
-                      className="px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg font-semibold transition-all"
+                      className="hidden sm:block px-4 sm:px-6 py-2 sm:py-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg font-semibold transition-all text-sm sm:text-base"
                     >
                       View Cart
                     </button>
@@ -771,6 +1033,7 @@ export default function Home() {
             </div>
           )}
         </main>
+        <Footer />
       </div>
       </>
     );

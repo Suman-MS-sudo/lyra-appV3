@@ -38,6 +38,29 @@ export async function GET(request: NextRequest) {
 
     console.log('MAC lookup:', { macAddress, machine, error: machineError?.message });
 
+    // Update firmware version and last ping if provided
+    const firmwareVersion = searchParams.get('firmware');
+    if (machine && firmwareVersion) {
+      await supabase
+        .from('vending_machines')
+        .update({
+          firmware_version: firmwareVersion,
+          last_ping: new Date().toISOString(),
+          asset_online: true,
+        })
+        .eq('id', machine.id);
+      console.log(`📡 Updated firmware for ${machine.machine_id}: ${firmwareVersion}`);
+    } else if (machine) {
+      // Just update last_ping if no firmware version
+      await supabase
+        .from('vending_machines')
+        .update({
+          last_ping: new Date().toISOString(),
+          asset_online: true,
+        })
+        .eq('id', machine.id);
+    }
+
     if (machineError || !machine) {
       console.log(`Machine not found for MAC: ${macAddress}`);
       return successResponse({
