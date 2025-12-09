@@ -52,9 +52,9 @@ export async function GET(request: NextRequest) {
         .eq('id', machine.id);
     }
 
-    console.log('✅ Returning machine_id:', machine.machine_id);
+    console.log('✅ Returning machine UUID:', machine.id, 'Machine ID:', machine.machine_id);
     return successResponse({
-      machine_id: machine.machine_id,
+      machine_id: machine.id, // Return UUID, not machine_id string
       machine_name: machine.name
     });
   } catch (error) {
