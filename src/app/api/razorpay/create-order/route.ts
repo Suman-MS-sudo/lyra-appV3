@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { amount, currency = 'INR', machineId } = await request.json();
+    const { amount, currency = 'INR', machineId, userId } = await request.json();
 
-    // Get authenticated user
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not authenticated' },
-        { status: 401 }
-      );
-    }
+    // userId is optional - can be passed from authenticated context or omitted for guest purchases
 
     // Check if machine is online (last ping within 20 minutes)
     if (machineId) {
@@ -78,7 +68,7 @@ export async function POST(request: NextRequest) {
       currency,
       receipt: `receipt_${Date.now()}`,
       notes: {
-        user_id: user.id, // Store user ID in order metadata
+        user_id: userId || 'guest', // Store user ID if provided, otherwise 'guest'
         machine_id: machineId || '',
       },
     };
