@@ -33,24 +33,34 @@ export async function POST(request: NextRequest) {
     );
 
     // Get machine details
-    const { data: machine } = await serviceSupabase
+    const { data: machine, error: machineError } = await serviceSupabase
       .from('vending_machines')
-      .select('id, customer_id')
+      .select('id, customer_id, machine_id')
       .eq('machine_id', machineId)
       .single();
 
-    if (!machine) {
+    if (machineError || !machine) {
+      console.error('Machine lookup error:', machineError);
       return NextResponse.json(
-        { success: false, error: 'Machine not found' },
+        { success: false, error: 'Machine not found', details: machineError?.message },
         { status: 404 }
       );
     }
+
+    console.log('Machine found:', { id: machine.id, machine_id: machine.machine_id });
 
     // Calculate total amount
     const totalAmount = products.reduce(
       (sum: number, p: any) => sum + parseFloat(p.price) * p.quantity,
       0
     );
+
+    console.log('Creating transaction:', {
+      machine_id: machine.id,
+      customer_id: machine.customer_id,
+      total_amount: totalAmount,
+      products_count: products.length,
+    });
 
     // Create transaction
     const { data: transaction, error: txError } = await serviceSupabase
@@ -70,11 +80,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (txError) {
+      console.error('Transaction creation error:', txError);
       return NextResponse.json(
-        { success: false, error: 'Failed to create transaction' },
+        { success: false, error: 'Failed to create transaction', details: txError.message },
         { status: 500 }
       );
     }
+
+    console.log('Transaction created successfully:', transaction.id);
 
     // Update stock for each product
     for (const product of products) {
