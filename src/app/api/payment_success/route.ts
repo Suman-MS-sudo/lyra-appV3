@@ -129,17 +129,22 @@ export async function GET(request: NextRequest) {
 
     // Step 4: Mark transaction as dispensed
     // This prevents the ESP32 from dispensing the same payment multiple times
-    const { error: updateError } = await supabase
+    const { data: updateResult, error: updateError } = await supabase
       .from('transactions')
       .update({ 
         dispensed: true,
         dispensed_at: new Date().toISOString(),
       })
-      .eq('id', pendingPayment.id);
+      .eq('id', pendingPayment.id)
+      .select();
 
     if (updateError) {
-      console.error('Failed to mark transaction as dispensed:', updateError);
+      console.error('❌ CRITICAL: Failed to mark transaction as dispensed:', updateError);
+      console.error('Transaction ID:', pendingPayment.id);
       // Still return success to ESP32 - we'll fix the flag issue later
+    } else {
+      console.log('✅ Transaction marked as dispensed:', pendingPayment.id);
+      console.log('Update result:', updateResult);
     }
 
     // Step 5: Return payment success response
