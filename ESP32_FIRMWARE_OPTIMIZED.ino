@@ -767,10 +767,15 @@ void listenForOnlinePayment() {
     }
 #endif
     
+    Serial.println("🔍 Checking for payments...");
     String responseBody = "";
     int code = makeHTTPRequest(url, "GET", "", &responseBody);
     
+    Serial.printf("📡 Payment API response code: %d\n", code);
+    
     if (code == 200 && responseBody.length() > 0) {
+        Serial.printf("📦 Response body (%d bytes): %s\n", responseBody.length(), responseBody.c_str());
+        
         DynamicJsonDocument doc(2048);
         DeserializationError err = deserializeJson(doc, responseBody);
         if (!err) {
@@ -778,16 +783,25 @@ void listenForOnlinePayment() {
             JsonObject data = doc["data"];
             if (!data.isNull()) {
                 String status = data["status"] | "";
+                Serial.printf("📊 Payment status: %s\n", status.c_str());
+                
                 if (status == "success") {
                     Serial.println("💳 Payment detected from server!");
                     handlePaymentDocument(data);
+                } else {
+                    Serial.println("ℹ️ No pending payments");
                 }
+            } else {
+                Serial.println("⚠ No 'data' field in response");
             }
         } else {
             Serial.printf("⚠ JSON parse error: %s\n", err.c_str());
+            Serial.printf("Raw response: %s\n", responseBody.c_str());
         }
     } else if (code < 0) {
         Serial.println("⚠ Payment check failed (network error)");
+    } else {
+        Serial.printf("⚠ Unexpected response code: %d\n", code);
     }
 }
 
@@ -1238,11 +1252,14 @@ void loop() {
         ESP.restart();
     }
     
-    // Payment polling
+    // Payment polling every 4 seconds
     static unsigned long lastPaymentCheck = 0;
     if (millis() - lastPaymentCheck > 4000) {
         if (isNetworkConnected()) {
+            Serial.println("\n⏰ [Payment Poll Timer] Checking for payments...");
             listenForOnlinePayment();
+        } else {
+            Serial.println("⚠ [Payment Poll Timer] Network not connected, skipping payment check");
         }
         lastPaymentCheck = millis();
     }
@@ -1250,7 +1267,10 @@ void loop() {
     // Status ping every 5 minutes
     if (millis() - lastPingTime > 300000) {
         if (isNetworkConnected()) {
+            Serial.println("\n⏰ [Ping Timer] Sending machine status ping...");
             sendMachineStatusPing();
+        } else {
+            Serial.println("⚠ [Ping Timer] Network not connected, skipping ping");
         }
         lastPingTime = millis();
     }
