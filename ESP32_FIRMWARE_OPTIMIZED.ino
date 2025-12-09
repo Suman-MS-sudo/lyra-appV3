@@ -575,8 +575,15 @@ float getESP32Temperature() {
 float measureNetworkSpeed() {
     if (!isNetworkConnected()) return 0.0;
     
-    // Measure download speed with a small test request
-    String testUrl = SERVER_BASE + "/api/machine-ping";
+    // Measure download speed with a lightweight test endpoint
+    // Use GET to fetch machine info (doesn't create side effects)
+    String testUrl = SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(deviceMacAddress);
+    
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        testUrl = ETHERNET_SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(deviceMacAddress);
+    }
+#endif
     
     unsigned long startTime = millis();
     String responseBody = "";
@@ -585,11 +592,15 @@ float measureNetworkSpeed() {
     
     if (code <= 0 || responseBody.length() == 0) return 0.0;
     
-    // Calculate speed: bytes / time(ms) * 1000 / 1024 = KB/s
-    float timeSec = (endTime - startTime) / 1000.0;
-    if (timeSec == 0) timeSec = 0.001;
+    // Calculate speed: bytes / time(s) / 1024 = KB/s
+    float timeMs = (float)(endTime - startTime);
+    if (timeMs == 0) timeMs = 1.0;
     
-    float speedKBps = (responseBody.length() / timeSec) / 1024.0;
+    float speedKBps = (responseBody.length() / (timeMs / 1000.0)) / 1024.0;
+    
+    Serial.printf("📊 Network speed: %.2f KB/s (%d bytes in %d ms)\n", 
+                 speedKBps, responseBody.length(), (int)timeMs);
+    
     return speedKBps; // Returns KB/s
 }
 
