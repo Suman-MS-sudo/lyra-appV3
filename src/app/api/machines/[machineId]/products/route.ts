@@ -44,31 +44,11 @@ export async function GET(
       isOnline = (now - lastPingTime) < twentyMinutes;
     }
 
-    // Update machine.asset_online with calculated value
+    // Update machine.asset_online with calculated value (for response only, don't persist)
     machine.asset_online = isOnline;
 
-    // Update machine online status in database
-    // Get firmware version from query params if provided
-    const firmwareVersion = request.nextUrl.searchParams.get('firmware');
-    
-    const updateData: any = {
-      asset_online: isOnline,
-      last_ping: new Date().toISOString(),
-    };
-    
-    if (firmwareVersion) {
-      updateData.firmware_version = firmwareVersion;
-      console.log(`📡 Updated firmware version for ${machine.machine_id}: ${firmwareVersion}`);
-    }
-    
-    const { error: updateError } = await serviceSupabase
-      .from('vending_machines')
-      .update(updateData)
-      .eq('id', machine.id);
-    
-    if (updateError) {
-      console.error('Error updating machine:', updateError);
-    }
+    // NOTE: We do NOT update last_ping here - only /api/machine-ping updates machine status
+    // This endpoint is for fetching products, not for machine health updates
 
     // Fetch products for this machine from machine_products junction table
     const { data: machineProducts, error: productsError } = await serviceSupabase

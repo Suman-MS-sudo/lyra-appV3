@@ -42,14 +42,12 @@ export async function GET(request: NextRequest) {
       return errorResponse('Machine not found', 'MACHINE_NOT_FOUND', 404);
     }
 
-    // Update firmware if provided
+    // Update firmware version only (don't update last_ping - that's done by /api/machine-ping)
     if (firmware) {
       await supabase
         .from('vending_machines')
         .update({ 
-          firmware_version: firmware,
-          last_ping: new Date().toISOString(),
-          asset_online: true
+          firmware_version: firmware
         })
         .eq('id', machine.id);
     }
