@@ -665,16 +665,18 @@ void dispenseProductByMotor() {
         return;
     }
     
+    Serial.printf("🔄 Activating motor... (Stock before: %d)\n", stock);
     pinMode(TRANSISTOR_BASE, OUTPUT);
     digitalWrite(TRANSISTOR_BASE, HIGH);
     delay(2830);
     digitalWrite(TRANSISTOR_BASE, LOW);
     
     saveMotorStockToEEPROM(stock - 1);
-    Serial.printf("✅ Dispensed! Stock: %d\n", stock - 1);
+    Serial.printf("✅ Motor stopped! New stock: %d\n", stock - 1);
 }
 
 void dispenseAsCoinSequence() {
+    Serial.println("📺 Display: Dispensing (3)");
     Serial2.print("3");
     digitalWrite(BLUE_LED_PIN, LOW);
     delay(100);
@@ -683,8 +685,10 @@ void dispenseAsCoinSequence() {
     
     dispenseProductByMotor();
     
+    Serial.println("📺 Display: Thank You (1)");
     Serial2.print("1");
     delay(3000);
+    Serial.println("📺 Display: Please Take (5)");
     Serial2.print("5");
     delay(3000);
     
@@ -703,19 +707,51 @@ void handlePaymentDocument(JsonObject doc) {
         return;
     }
     
-    Serial.println("✅ Payment confirmed!");
+    // Extract payment details for logging
+    String transactionId = doc["transactionId"] | "unknown";
+    String razorpayOrderId = doc["razorpayOrderId"] | "unknown";
+    String razorpayPaymentId = doc["razorpayPaymentId"] | "unknown";
+    float amount = doc["amount"] | 0.0;
+    
+    Serial.println("\n========================================");
+    Serial.println("✅ ONLINE PAYMENT RECEIVED!");
+    Serial.println("========================================");
+    Serial.printf("💳 Transaction ID: %s\n", transactionId.c_str());
+    Serial.printf("🔖 Razorpay Order: %s\n", razorpayOrderId.c_str());
+    Serial.printf("💰 Payment ID: %s\n", razorpayPaymentId.c_str());
+    Serial.printf("₹  Amount: ₹%.2f\n", amount);
+    Serial.println("========================================\n");
     
     JsonArray products = doc["products"];
     if (!products.isNull()) {
+        int totalItems = 0;
+        Serial.println("📦 Products to dispense:");
+        
         for (JsonObject item : products) {
+            JsonObject product = item["product"];
+            String productName = product["name"] | "Unknown";
             int quantity = item["quantity"] | 1;
+            float price = item["price"] | 0.0;
+            
+            Serial.printf("   - %s x%d (₹%.2f each)\n", productName.c_str(), quantity, price);
+            totalItems += quantity;
+            
+            // Dispense each quantity
             for (int i = 0; i < quantity; i++) {
+                Serial.printf("\n🎰 Dispensing item %d/%d: %s\n", i + 1, quantity, productName.c_str());
                 dispenseAsCoinSequence();
+                Serial.println("✅ Item dispensed successfully!");
                 delay(500);
             }
         }
+        
+        Serial.println("\n========================================");
+        Serial.printf("🎉 COMPLETED! Dispensed %d item(s)\n", totalItems);
+        Serial.println("========================================\n");
     } else {
+        Serial.println("📦 Dispensing single item (no product details)");
         dispenseAsCoinSequence();
+        Serial.println("✅ Dispensing completed!\n");
     }
 }
 
@@ -738,8 +774,20 @@ void listenForOnlinePayment() {
         DynamicJsonDocument doc(2048);
         DeserializationError err = deserializeJson(doc, responseBody);
         if (!err) {
-            handlePaymentDocument(doc.as<JsonObject>());
+            // Check if there's a pending payment
+            JsonObject data = doc["data"];
+            if (!data.isNull()) {
+                String status = data["status"] | "";
+                if (status == "success") {
+                    Serial.println("💳 Payment detected from server!");
+                    handlePaymentDocument(data);
+                }
+            }
+        } else {
+            Serial.printf("⚠ JSON parse error: %s\n", err.c_str());
         }
+    } else if (code < 0) {
+        Serial.println("⚠ Payment check failed (network error)");
     }
 }
 
