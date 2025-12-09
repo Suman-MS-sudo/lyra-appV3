@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from('vending_machines')
         .update(updateData)
-        .eq('machine_id', machine_id);
+        .eq('id', machine_id);
 
       if (updateError) {
         console.error('Error updating machine ping:', updateError);
