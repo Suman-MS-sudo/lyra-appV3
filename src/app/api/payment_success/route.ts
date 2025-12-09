@@ -81,6 +81,8 @@ export async function GET(request: NextRequest) {
         razorpay_order_id,
         razorpay_payment_id,
         amount,
+        total_amount,
+        items,
         created_at,
         transaction_items (
           quantity,
@@ -110,15 +112,37 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 3: Format products for ESP32
-    const products = pendingPayment.transaction_items?.map((item: any) => ({
-      product: {
-        id: item.machine_products?.product?.id || 0,
-        name: item.machine_products?.product?.name || 'Unknown Product',
-        description: item.machine_products?.product?.description || '',
-      },
-      quantity: item.quantity,
-      price: parseFloat(item.price),
-    })) || [];
+    // Support both old format (transaction_items) and new format (items JSONB)
+    let products = [];
+    
+    if (pendingPayment.items && typeof pendingPayment.items === 'string') {
+      // New Razorpay format: items stored as JSONB array
+      try {
+        const itemsArray = JSON.parse(pendingPayment.items);
+        products = itemsArray.map((item: any) => ({
+          product: {
+            id: item.product_id || 0,
+            name: item.name || 'Unknown Product',
+            description: item.description || '',
+          },
+          quantity: item.quantity || 1,
+          price: parseFloat(item.price || 0),
+        }));
+      } catch (e) {
+        console.error('Failed to parse items JSONB:', e);
+      }
+    } else if (pendingPayment.transaction_items && pendingPayment.transaction_items.length > 0) {
+      // Old format: transaction_items relation
+      products = pendingPayment.transaction_items.map((item: any) => ({
+        product: {
+          id: item.machine_products?.product?.id || 0,
+          name: item.machine_products?.product?.name || 'Unknown Product',
+          description: item.machine_products?.product?.description || '',
+        },
+        quantity: item.quantity,
+        price: parseFloat(item.price),
+      }));
+    }
 
     // Step 4: Mark transaction as dispensed
     // This prevents the ESP32 from dispensing the same payment multiple times
@@ -136,7 +160,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Step 5: Return payment success response
-    return successResponse({
+    const responseData = {
       status: 'success',
       mac: macAddress,
       machineId: machine.machine_id,
@@ -144,10 +168,14 @@ export async function GET(request: NextRequest) {
       transactionId: pendingPayment.id,
       razorpayOrderId: pendingPayment.razorpay_order_id,
       razorpayPaymentId: pendingPayment.razorpay_payment_id,
-      amount: pendingPayment.amount,
+      amount: pendingPayment.total_amount || pendingPayment.amount,
       products,
       timestamp: pendingPayment.created_at,
-    });
+    };
+
+    console.log('💰 Returning payment to ESP32:', responseData);
+    
+    return successResponse(responseData);
 
   } catch (error: any) {
     console.error('Payment success API error:', error);
