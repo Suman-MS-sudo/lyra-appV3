@@ -24,7 +24,7 @@ export default async function CustomersPage() {
 
   if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch all non-admin, non-super_customer users as customers
+  // Fetch all organizations (super_customers) and their members
   const { data: customers } = await serviceSupabase
     .from('profiles')
     .select(`
@@ -33,7 +33,7 @@ export default async function CustomersPage() {
         name
       )
     `)
-    .not('account_type', 'in', ['admin', 'super_customer'])
+    .eq('account_type', 'super_customer')
     .order('created_at', { ascending: false });
 
   return (
@@ -46,8 +46,8 @@ export default async function CustomersPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-                <p className="text-sm text-gray-500">Manage customer accounts</p>
+                <h1 className="text-2xl font-bold text-gray-900">Organizations</h1>
+                <p className="text-sm text-gray-500">Manage organization accounts</p>
               </div>
             </div>
             <Link
@@ -55,7 +55,7 @@ export default async function CustomersPage() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <UserPlus className="h-4 w-4" />
-              Add Customer
+              Add Organization
             </Link>
           </div>
         </div>
