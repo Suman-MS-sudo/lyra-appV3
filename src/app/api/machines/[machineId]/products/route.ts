@@ -35,12 +35,24 @@ export async function GET(
       );
     }
 
-    // Update machine online status and last ping time
+    // Check if machine is truly online (last ping within 20 minutes)
+    let isOnline = false;
+    if (machine.last_ping) {
+      const lastPingTime = new Date(machine.last_ping).getTime();
+      const now = new Date().getTime();
+      const twentyMinutes = 20 * 60 * 1000; // 20 minutes in milliseconds
+      isOnline = (now - lastPingTime) < twentyMinutes;
+    }
+
+    // Update machine.asset_online with calculated value
+    machine.asset_online = isOnline;
+
+    // Update machine online status in database
     // Get firmware version from query params if provided
     const firmwareVersion = request.nextUrl.searchParams.get('firmware');
     
     const updateData: any = {
-      asset_online: true,
+      asset_online: isOnline,
       last_ping: new Date().toISOString(),
     };
     

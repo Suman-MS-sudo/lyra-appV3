@@ -36,7 +36,7 @@
 #define CURRENT_FIRMWARE_VERSION "V1.0.0"
 
 // ==================== WATCHDOG CONFIGURATION ====================
-#define WDT_TIMEOUT 30  // Watchdog timeout in seconds
+#define WDT_TIMEOUT 1800  // Watchdog timeout in seconds (30 minutes)
 
 // ==================== PIN DEFINITIONS ====================
 #define EEPROM_SIZE 256
@@ -231,7 +231,11 @@ bool macStringToBytes(const String &macStr, byte out[6]) {
 }
 
 void initializeWatchdog() {
-    Serial.println("🐕 Initializing Watchdog Timer (" + String(WDT_TIMEOUT) + "s timeout)...");
+    Serial.println("🐕 Initializing Watchdog Timer (" + String(WDT_TIMEOUT / 60) + " min timeout)...");
+    
+    // Deinitialize existing watchdog if already initialized (survives reboots)
+    esp_task_wdt_deinit();
+    delay(100);
     
     // Configure watchdog for newer ESP32 Arduino core
     esp_task_wdt_config_t wdt_config = {
@@ -243,7 +247,7 @@ void initializeWatchdog() {
     esp_task_wdt_init(&wdt_config);        // Initialize with config
     esp_task_wdt_add(NULL);                // Add current thread to WDT watch
     
-    Serial.println("✅ Watchdog Timer active");
+    Serial.println("✅ Watchdog Timer active (" + String(WDT_TIMEOUT / 60) + " minutes)");
 }
 
 void feedWatchdog() {
@@ -993,14 +997,20 @@ void setup() {
     
     // Try Ethernet first
 #ifdef USE_ETHERNET
+    Serial.println("🔌 Attempting Ethernet connection (this may take a moment)...");
+    feedWatchdog();  // Feed watchdog before slow Ethernet init
     if (initializeEthernet()) {
         Serial.println("✅ Using Ethernet");
         SERVER_BASE = ETHERNET_SERVER_BASE;
+        feedWatchdog();  // Feed after Ethernet init
         fetchMachineInfoFromBackend(deviceMacAddress);
+        feedWatchdog();
         sendMachineStatusPing();
         lastPingTime = millis();
         return;
     }
+    Serial.println("⚠️ Ethernet not available, falling back to WiFi");
+    feedWatchdog();  // Feed after Ethernet attempt
 #endif
     
     // Fall back to WiFi
@@ -1014,6 +1024,7 @@ void setup() {
         int attempts = 0;
         while (WiFi.status() != WL_CONNECTED && attempts < 20) {
             delay(500);
+            feedWatchdog();  // Feed watchdog during WiFi connection
             attempts++;
         }
         

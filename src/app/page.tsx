@@ -402,12 +402,20 @@ export default function Home() {
       const orderRes = await fetch('/api/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, machineId: machine?.machine_id }),
       });
 
       if (!orderRes.ok) {
         const errorData = await orderRes.json();
         console.error('Order creation failed:', errorData);
+        
+        // Handle offline machine error
+        if (errorData.offline) {
+          alert(`❌ Machine Offline\n\n${errorData.error}\n\nThe vending machine is currently not responding. Please try again in a few minutes or contact support if the issue persists.`);
+          setIsProcessing(false);
+          return;
+        }
+        
         throw new Error(errorData.error || `Server error: ${orderRes.status}`);
       }
 
