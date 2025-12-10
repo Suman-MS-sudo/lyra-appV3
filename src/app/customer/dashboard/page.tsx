@@ -55,8 +55,10 @@ export default async function CustomerDashboard() {
 
   // Find favorite item (most purchased product)
   const productCounts = transactions?.reduce((acc: any, tx) => {
-    if (tx.products?.name) {
-      acc[tx.products.name] = (acc[tx.products.name] || 0) + (tx.quantity || 1);
+    // Handle products as array (from join)
+    const product = Array.isArray(tx.products) ? tx.products[0] : tx.products;
+    if (product?.name) {
+      acc[product.name] = (acc[product.name] || 0) + (tx.quantity || 1);
     }
     return acc;
   }, {}) || {};
