@@ -31,7 +31,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
   const [onlineFilter, setOnlineFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
   // Get unique customers
   const customers = useMemo(() => {
