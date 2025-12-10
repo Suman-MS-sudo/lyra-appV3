@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard } from 'lucide-react';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard, Building2, Activity, AlertCircle, Package } from 'lucide-react';
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -13,77 +14,187 @@ export default async function CustomerDashboard() {
     redirect('/login');
   }
 
+  // Use service role for comprehensive queries
+  const serviceSupabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   // Fetch user profile
-  const { data: profile } = await supabase
+  const { data: profile } = await serviceSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single();
 
-  // Fetch user's transactions with product and machine details
-  const { data: transactions } = await supabase
-    .from('transactions')
-    .select(`
-      id,
-      amount,
-      quantity,
-      status,
-      payment_method,
-      created_at,
-      products (
-        name,
-        sku
-      ),
-      vending_machines (
-        name,
-        location
-      )
-    `)
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(10);
+  // Fetch customer's vending machines
+  const { data: customerMachines } = await serviceSupabase
+    .from('vending_machines')
+    .select('id, name, location, status, asset_online, stock_level')
+    .eq('customer_id', user.id);
 
-  // Calculate stats
-  const totalPurchases = transactions?.length || 0;
-  
-  const totalSpent = transactions?.reduce((sum, tx) => {
-    if (tx.status === 'completed' || tx.status === 'paid') {
-      return sum + parseFloat(tx.amount || '0');
+  const machineIds = customerMachines?.map(m => m.id) || [];
+
+  // Fetch all transactions and coin payments for customer's machines
+  const [
+    { data: onlineTransactions },
+    { data: coinPayments }
+  ] = await Promise.all([
+    serviceSupabase
+      .from('transactions')
+      .select(`
+        id,
+        amount,
+        quantity,
+        status,
+        payment_status,
+        payment_method,
+        created_at,
+        vending_machine_id,
+        products (name, sku),
+        vending_machines (name, location)
+      `)
+      .in('vending_machine_id', machineIds)
+      .order('created_at', { ascending: false }),
+    serviceSupabase
+      .from('coin_payments')
+      .select(`
+        id,
+        amount_in_paisa,
+        quantity,
+        dispensed,
+        created_at,
+        machine_id,
+        products (name),
+        vending_machines (name, location)
+      `)
+      .in('machine_id', machineIds)
+      .order('created_at', { ascending: false })
+  ]);
+
+  // Calculate comprehensive stats
+  const totalMachines = customerMachines?.length || 0;
+  const onlineMachines = customerMachines?.filter(m => m.asset_online).length || 0;
+  const lowStockMachines = customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0;
+
+  // Transaction stats
+  const totalOnlineTransactions = onlineTransactions?.length || 0;
+  const totalCoinTransactions = coinPayments?.length || 0;
+  const totalTransactions = totalOnlineTransactions + totalCoinTransactions;
+
+  // Revenue calculations
+  const onlineRevenue = onlineTransactions?.reduce((sum, tx) => {
+    if (tx.payment_status === 'paid') {
+      return sum + parseFloat(tx.amount || 0);
     }
     return sum;
   }, 0) || 0;
 
-  // Find favorite item (most purchased product)
-  const productCounts = transactions?.reduce((acc: any, tx) => {
-    // Handle products as array (from join)
-    const product = Array.isArray(tx.products) ? tx.products[0] : tx.products;
-    if (product?.name) {
-      acc[product.name] = (acc[product.name] || 0) + (tx.quantity || 1);
-    }
-    return acc;
-  }, {}) || {};
+  const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue = onlineRevenue + coinRevenue;
 
-  const favoriteItem = Object.keys(productCounts).length > 0
-    ? Object.entries(productCounts).reduce((a: any, b: any) => a[1] > b[1] ? a : b)
-    : null;
+  // Product analytics
+  const productStats = new Map<string, { count: number; revenue: number }>();
+  
+  onlineTransactions?.forEach(tx => {
+    if (tx.payment_status === 'paid') {
+      const productName = tx.products?.name || 'Unknown';
+      const current = productStats.get(productName) || { count: 0, revenue: 0 };
+      productStats.set(productName, {
+        count: current.count + (tx.quantity || 1),
+        revenue: current.revenue + parseFloat(tx.amount || 0)
+      });
+    }
+  });
 
-  // Calculate coin vs online payments
-  const coinTransactions = transactions?.filter(tx => tx.payment_method === 'coin') || [];
-  const onlineTransactions = transactions?.filter(tx => tx.payment_method === 'razorpay' || tx.payment_method === 'online') || [];
+  coinPayments?.forEach(tx => {
+    const productName = tx.products?.name || 'Unknown';
+    const current = productStats.get(productName) || { count: 0, revenue: 0 };
+    productStats.set(productName, {
+      count: current.count + (tx.quantity || 1),
+      revenue: current.revenue + (tx.amount_in_paisa / 100)
+    });
+  });
+
+  const topProducts = Array.from(productStats.entries())
+    .sort((a, b) => b[1].revenue - a[1].revenue)
+    .slice(0, 5);
+
+  // Machine performance
+  const machineStats = new Map<string, { count: number; revenue: number }>();
   
-  const coinSpent = coinTransactions.reduce((sum, tx) => {
-    if (tx.status === 'completed' || tx.status === 'paid') {
-      return sum + parseFloat(tx.amount || '0');
+  onlineTransactions?.forEach(tx => {
+    if (tx.payment_status === 'paid') {
+      const machineName = tx.vending_machines?.name || 'Unknown';
+      const current = machineStats.get(machineName) || { count: 0, revenue: 0 };
+      machineStats.set(machineName, {
+        count: current.count + 1,
+        revenue: current.revenue + parseFloat(tx.amount || 0)
+      });
     }
-    return sum;
-  }, 0);
-  
-  const onlineSpent = onlineTransactions.reduce((sum, tx) => {
-    if (tx.status === 'completed' || tx.status === 'paid') {
-      return sum + parseFloat(tx.amount || '0');
-    }
-    return sum;
-  }, 0);
+  });
+
+  coinPayments?.forEach(tx => {
+    const machineName = tx.vending_machines?.name || 'Unknown';
+    const current = machineStats.get(machineName) || { count: 0, revenue: 0 };
+    machineStats.set(machineName, {
+      count: current.count + 1,
+      revenue: current.revenue + (tx.amount_in_paisa / 100)
+    });
+  });
+
+  const topMachines = Array.from(machineStats.entries())
+    .sort((a, b) => b[1].revenue - a[1].revenue)
+    .slice(0, 5);
+
+  // Daily revenue for last 7 days
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    return date.toISOString().split('T')[0];
+  });
+
+  const dailyRevenue = last7Days.map(date => {
+    const dayOnline = onlineTransactions?.filter(tx => 
+      tx.created_at.startsWith(date) && tx.payment_status === 'paid'
+    ) || [];
+    const dayCoin = coinPayments?.filter(tx => 
+      tx.created_at.startsWith(date)
+    ) || [];
+    
+    const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+    const coinRev = dayCoin.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+    
+    return {
+      date,
+      revenue: onlineRev + coinRev,
+      count: dayOnline.length + dayCoin.length
+    };
+  });
+
+  const maxDailyRevenue = Math.max(...dailyRevenue.map(d => d.revenue), 1);
+
+  // Recent transactions (combined)
+  const allTransactions = [
+    ...(onlineTransactions?.slice(0, 5).map(tx => ({
+      id: tx.id,
+      type: 'online' as const,
+      amount: parseFloat(tx.amount || 0),
+      product: tx.products?.name || 'Unknown',
+      machine: tx.vending_machines?.name || 'Unknown',
+      created_at: tx.created_at,
+      status: tx.payment_status
+    })) || []),
+    ...(coinPayments?.slice(0, 5).map(tx => ({
+      id: tx.id,
+      type: 'coin' as const,
+      amount: tx.amount_in_paisa / 100,
+      product: tx.products?.name || 'Unknown',
+      machine: tx.vending_machines?.name || 'Unknown',
+      created_at: tx.created_at,
+      status: 'paid'
+    })) || [])
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
 
   // Format time ago
   const formatTimeAgo = (dateString: string) => {
@@ -124,133 +235,188 @@ export default async function CustomerDashboard() {
           <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             My Dashboard
           </h2>
-          <p className="text-gray-600">Welcome back! Here's your activity</p>
+          <p className="text-gray-600">Monitor your vending machine performance</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          <div className="group relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <ShoppingBag className="w-6 h-6" />
-                </div>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Building2 className="w-4 h-4 text-blue-600" />
               </div>
-              <div className="text-sm font-medium opacity-90 mb-1">Total Purchases</div>
-              <div className="text-4xl font-bold">{totalPurchases}</div>
-              <div className="text-sm opacity-75 mt-2">All time</div>
             </div>
+            <div className="text-sm text-gray-600 mb-1">Machines</div>
+            <div className="text-2xl font-bold text-gray-900">{totalMachines}</div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Activity className="w-4 h-4 text-green-600" />
               </div>
-              <div className="text-sm font-medium opacity-90 mb-1">Total Spent</div>
-              <div className="text-4xl font-bold">₹{totalSpent.toFixed(2)}</div>
-              <div className="text-sm opacity-75 mt-2">All transactions</div>
             </div>
+            <div className="text-sm text-gray-600 mb-1">Online</div>
+            <div className="text-2xl font-bold text-green-600">{onlineMachines}</div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Coins className="w-6 h-6" />
-                </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-orange-600" />
               </div>
-              <div className="text-sm font-medium opacity-90 mb-1">Coin Payments</div>
-              <div className="text-4xl font-bold">₹{coinSpent.toFixed(2)}</div>
-              <div className="text-sm opacity-75 mt-2">{coinTransactions.length} transactions</div>
             </div>
+            <div className="text-sm text-gray-600 mb-1">Low Stock</div>
+            <div className="text-2xl font-bold text-orange-600">{lowStockMachines}</div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <CreditCard className="w-6 h-6" />
-                </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <ShoppingBag className="w-4 h-4 text-purple-600" />
               </div>
-              <div className="text-sm font-medium opacity-90 mb-1">Online Payments</div>
-              <div className="text-4xl font-bold">₹{onlineSpent.toFixed(2)}</div>
-              <div className="text-sm opacity-75 mt-2">{onlineTransactions.length} transactions</div>
             </div>
+            <div className="text-sm text-gray-600 mb-1">Transactions</div>
+            <div className="text-2xl font-bold text-gray-900">{totalTransactions}</div>
           </div>
 
-          <div className="group relative bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Heart className="w-6 h-6" />
-                </div>
-              </div>
-              <div className="text-sm font-medium opacity-90 mb-1">Favorite Item</div>
-              <div className="text-2xl font-bold truncate">
-                {favoriteItem ? favoriteItem[0] : 'N/A'}
-              </div>
-              <div className="text-sm opacity-75 mt-2">
-                {favoriteItem ? `${favoriteItem[1]} purchases` : 'No purchases yet'}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
               </div>
             </div>
+            <div className="text-sm text-gray-600 mb-1">Revenue</div>
+            <div className="text-2xl font-bold text-emerald-600">₹{totalRevenue.toFixed(2)}</div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Coins className="w-4 h-4 text-amber-600" />
+              </div>
+            </div>
+            <div className="text-sm text-gray-600 mb-1">Coin Sales</div>
+            <div className="text-2xl font-bold text-amber-600">₹{coinRevenue.toFixed(2)}</div>
           </div>
         </div>
 
-        {/* Recent Purchases */}
-        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200/50 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Clock className="w-6 h-6 text-blue-600" />
-            <h3 className="text-xl font-semibold text-gray-900">Recent Purchases</h3>
+        {/* Revenue Chart & Top Products */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Daily Revenue Chart */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold mb-6 text-gray-900">Daily Revenue (Last 7 Days)</h3>
+            <div className="h-64 flex items-end justify-between gap-2">
+              {dailyRevenue.map((day, index) => {
+                const heightPercent = maxDailyRevenue > 0 ? (day.revenue / maxDailyRevenue) * 100 : 0;
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="w-full bg-gradient-to-t from-blue-500 to-purple-500 rounded-t-lg hover:from-blue-600 hover:to-purple-600 transition-all relative group"
+                      style={{ height: `${Math.max(heightPercent, 2)}%` }}>
+                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        ₹{day.revenue.toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center mt-4 text-sm text-gray-500">
+              Total: ₹{dailyRevenue.reduce((sum, d) => sum + d.revenue, 0).toFixed(2)} • {dailyRevenue.reduce((sum, d) => sum + d.count, 0)} transactions
+            </div>
           </div>
 
-          {!transactions || transactions.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingBag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg font-medium">No purchases yet</p>
-              <p className="text-gray-400 text-sm mt-2">Your purchase history will appear here</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {transactions.map((transaction: any) => (
-                <div 
-                  key={transaction.id} 
-                  className="flex items-center justify-between py-4 px-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 border border-transparent hover:border-gray-200"
-                >
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-900">
-                      {transaction.products?.name || 'Unknown Product'}
-                      {transaction.quantity > 1 && (
-                        <span className="ml-2 text-sm text-gray-500">x{transaction.quantity}</span>
-                      )}
+          {/* Top Products */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold mb-6 text-gray-900">Top Products by Revenue</h3>
+            {topProducts.length > 0 ? (
+              <div className="space-y-4">
+                {topProducts.map(([product, stats], index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{product}</div>
+                        <div className="text-xs text-gray-500">{stats.count} units sold</div>
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500 mt-1">
-                      {transaction.vending_machines?.location || 'Unknown Location'} • {formatTimeAgo(transaction.created_at)}
-                    </div>
-                    <div className="mt-1">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        transaction.status === 'completed' || transaction.status === 'paid'
-                          ? 'bg-green-100 text-green-700'
-                          : transaction.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
-                      }`}>
-                        {transaction.status}
-                      </span>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">₹{stats.revenue.toFixed(2)}</div>
                     </div>
                   </div>
-                  <div className="font-bold text-lg text-gray-900">₹{parseFloat(transaction.amount).toFixed(2)}</div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">No product data available</div>
+            )}
+          </div>
+        </div>
+
+        {/* Top Machines & Recent Transactions */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Top Machines */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold mb-6 text-gray-900">Top Machines by Revenue</h3>
+            {topMachines.length > 0 ? (
+              <div className="space-y-4">
+                {topMachines.map(([machine, stats], index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{machine}</div>
+                        <div className="text-xs text-gray-500">{stats.count} transactions</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">₹{stats.revenue.toFixed(2)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">No machine data available</div>
+            )}
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold mb-6 text-gray-900">Recent Transactions</h3>
+            {allTransactions.length > 0 ? (
+              <div className="space-y-4">
+                {allTransactions.map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className={`p-2 rounded-lg ${tx.type === 'coin' ? 'bg-amber-100' : 'bg-blue-100'}`}>
+                        {tx.type === 'coin' ? (
+                          <Coins className="w-4 h-4 text-amber-600" />
+                        ) : (
+                          <CreditCard className="w-4 h-4 text-blue-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{tx.product}</div>
+                        <div className="text-xs text-gray-500">{tx.machine} • {formatTimeAgo(tx.created_at)}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">₹{tx.amount.toFixed(2)}</div>
+                      <div className={`text-xs ${tx.type === 'coin' ? 'text-amber-600' : 'text-blue-600'}`}>
+                        {tx.type === 'coin' ? 'Coin' : 'Online'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">No transactions yet</div>
+            )}
+          </div>
         </div>
       </main>
     </div>
