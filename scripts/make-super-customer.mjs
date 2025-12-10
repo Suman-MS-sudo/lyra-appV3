@@ -32,7 +32,7 @@ console.log(`🔧 Updating ${email} to super_customer...\n`);
 const { data: updated, error } = await supabase
   .from('profiles')
   .update({ 
-    role: 'admin',
+    role: 'customer',
     account_type: 'super_customer' 
   })
   .eq('email', email)
@@ -49,6 +49,7 @@ console.log('   Email:', updated.email);
 console.log('   Role:', updated.role);
 console.log('   Account Type:', updated.account_type);
 console.log('\n📝 Super Customer will:');
-console.log('   - Login as Admin');
-console.log('   - See admin dashboard');
+console.log('   - Login as Customer');
+console.log('   - See customer dashboard');
 console.log('   - Only see machines assigned to their user ID');
+console.log('   - Have enhanced permissions vs regular customers');
