@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const macAddress = searchParams.get('mac');
 
     if (!macAddress) {
-      return errorResponse('MAC address is required', 400);
+      return errorResponse('MAC address is required', 'MISSING_MAC', 400);
     }
 
     // Use service role to bypass RLS (ESP32 endpoint doesn't have user context)
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     return successResponse(responseData);
 
   } catch (error: any) {
-    console.error('Payment success API error:', error);
-    return errorResponse(error.message || 'Internal server error', 500);
+    console.error('Payment success error:', error);
+    return errorResponse(error.message || 'Internal server error', 'INTERNAL_ERROR', 500);
   }
 }
