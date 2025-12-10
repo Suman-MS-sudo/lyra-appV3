@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
@@ -15,6 +16,37 @@ export async function middleware(request: NextRequest) {
     redirectUrl.pathname = '/login';
     redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Role-based route protection
+  if (user && isProtectedRoute) {
+    const serviceSupabase = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: profile } = await serviceSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+    const isCustomerRoute = request.nextUrl.pathname.startsWith('/customer');
+
+    // Redirect customers trying to access admin routes
+    if (isAdminRoute && profile?.role === 'customer') {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/customer/dashboard';
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Redirect admins trying to access customer routes
+    if (isCustomerRoute && profile?.role === 'admin') {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/admin/dashboard';
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return supabaseResponse;

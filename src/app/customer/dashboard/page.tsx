@@ -20,12 +20,17 @@ export default async function CustomerDashboard() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Fetch user profile
+  // Fetch user profile and verify role
   const { data: profile } = await serviceSupabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single();
+
+  // Redirect admins to admin dashboard
+  if (profile?.role === 'admin') {
+    redirect('/admin/dashboard');
+  }
 
   // Fetch customer's vending machines
   const { data: customerMachines } = await serviceSupabase

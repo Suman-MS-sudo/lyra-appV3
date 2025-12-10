@@ -30,8 +30,28 @@ export default function LoginPage() {
 
       if (signInError) throw signInError;
 
-      // Redirect based on user type
-      if (userType === 'admin') {
+      // Fetch user's actual role from database
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError);
+        throw new Error('Unable to fetch user profile');
+      }
+
+      // Verify the selected user type matches the actual role
+      if (profile.role !== userType) {
+        setError(`Invalid login type. You are registered as ${profile.role}. Please select the correct login type.`);
+        await supabase.auth.signOut(); // Sign out to prevent confusion
+        setIsLoading(false);
+        return;
+      }
+
+      // Redirect based on actual role
+      if (profile.role === 'admin') {
         router.push('/admin/dashboard');
       } else {
         router.push('/customer/dashboard');
