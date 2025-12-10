@@ -7,10 +7,20 @@ export function createClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Missing Supabase environment variables:', {
       url: !!supabaseUrl,
-      key: !!supabaseAnonKey
+      key: !!supabaseAnonKey,
+      urlValue: supabaseUrl,
+      keyPrefix: supabaseAnonKey?.substring(0, 20)
     });
-    throw new Error('Missing Supabase environment variables');
+    throw new Error('Missing Supabase environment variables. Please check your .env.local file.');
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  console.log('Creating Supabase client with URL:', supabaseUrl);
+
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
 }

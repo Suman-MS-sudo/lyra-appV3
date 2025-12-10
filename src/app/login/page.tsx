@@ -20,37 +20,79 @@ export default function LoginPage() {
     setError('');
 
     try {
-      console.log('Attempting login...');
+      console.log('Attempting login...', { email, userType });
+      
+      // Test if Supabase client is created successfully
+      try {
+        const testClient = createClient();
+        console.log('Supabase client created successfully');
+      } catch (clientError) {
+        console.error('Failed to create Supabase client:', clientError);
+        throw new Error('Configuration error: Unable to initialize authentication. Please contact support.');
+      }
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log('Login response:', { data, error: signInError });
+      console.log('Login response:', { 
+        success: !!data?.user, 
+        userId: data?.user?.id,
+        error: signInError?.message 
+      });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        // Provide more specific error messages
+        if (signInError.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password. Please try again.');
+        }
+        if (signInError.message.includes('Email not confirmed')) {
+          throw new Error('Please verify your email address before logging in.');
+        }
+        throw signInError;
+      }
+
+      if (!data?.user) {
+        throw new Error('Login failed: No user data returned');
+      }
 
       // Fetch user's actual role from database
+      console.log('Fetching user profile...');
+      
+      // Wait a moment for session to be established
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError) {
+      console.log('Profile fetch result:', { profile, profileError, hasProfile: !!profile });
+
+      if (profileError && profileError.code !== 'PGRST116') {
         console.error('Profile fetch error:', profileError);
-        throw new Error('Unable to fetch user profile');
+        throw new Error(`Unable to fetch user profile: ${profileError.message || 'Unknown error'}`);
       }
+
+      if (!profile) {
+        console.error('No profile found for user:', data.user.id);
+        throw new Error('User profile not found. Your account may not be set up correctly. Please contact support.');
+      }
+
+      console.log('User role:', profile.role, 'Selected type:', userType);
 
       // Verify the selected user type matches the actual role
       if (profile.role !== userType) {
-        setError(`Invalid login type. You are registered as ${profile.role}. Please select the correct login type.`);
+        setError(`Invalid login type. You are registered as a ${profile.role}. Please select the correct login type above.`);
         await supabase.auth.signOut(); // Sign out to prevent confusion
         setIsLoading(false);
         return;
       }
 
       // Redirect based on actual role
+      console.log('Redirecting to dashboard...');
       if (profile.role === 'admin') {
         router.push('/admin/dashboard');
       } else {
@@ -58,10 +100,14 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.message?.includes('fetch')) {
-        setError('Network error: Unable to connect to authentication server. Please check your internet connection.');
+      
+      // Provide user-friendly error messages
+      if (err.message?.includes('fetch') || err.message?.includes('network')) {
+        setError('Network error: Unable to connect to the server. Please check your internet connection and try again.');
+      } else if (err.message?.includes('Configuration error')) {
+        setError(err.message);
       } else {
-        setError(err.message || 'An error occurred during login');
+        setError(err.message || 'An unexpected error occurred during login. Please try again.');
       }
     } finally {
       setIsLoading(false);
