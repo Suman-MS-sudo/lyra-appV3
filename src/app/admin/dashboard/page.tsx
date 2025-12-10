@@ -34,7 +34,7 @@ export default async function AdminDashboard() {
   // Fetch user profile and verify role
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('role')
+    .select('role, account_type')
     .eq('id', user.id)
     .single();
 
@@ -42,6 +42,22 @@ export default async function AdminDashboard() {
   if (profile?.role === 'customer') {
     redirect('/customer/dashboard');
   }
+
+  // Determine if user is super_customer (should only see their machines)
+  const isSuperCustomer = profile?.account_type === 'super_customer';
+  
+  // Build query filters based on account type
+  const machinesQuery = serviceSupabase.from('vending_machines');
+  const machinesSelect = isSuperCustomer 
+    ? machinesQuery.select('*', { count: 'exact', head: true }).eq('customer_id', user.id)
+    : machinesQuery.select('*', { count: 'exact', head: true });
+
+  // Get machine IDs for filtering transactions if super_customer
+  const { data: userMachines } = isSuperCustomer
+    ? await serviceSupabase.from('vending_machines').select('id').eq('customer_id', user.id)
+    : { data: null };
+  
+  const machineIds = userMachines?.map(m => m.id) || [];
 
   // Fetch dashboard stats and products
   const [
@@ -55,14 +71,26 @@ export default async function AdminDashboard() {
     { data: coinPayments },
     { data: products }
   ] = await Promise.all([
-    serviceSupabase.from('vending_machines').select('*', { count: 'exact', head: true }),
+    machinesSelect,
     serviceSupabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
-    serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }),
-    serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
-    serviceSupabase.from('vending_machines').select('name, location').order('created_at', { ascending: false }).limit(3),
-    serviceSupabase.from('transactions').select('amount, created_at, products(name)').order('created_at', { ascending: false }).limit(3),
-    serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid'),
-    serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed'),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }).in('vending_machine_id', machineIds)
+      : serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }).in('machine_id', machineIds)
+      : serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
+    isSuperCustomer
+      ? serviceSupabase.from('vending_machines').select('name, location').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(3)
+      : serviceSupabase.from('vending_machines').select('name, location').order('created_at', { ascending: false }).limit(3),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('transactions').select('amount, created_at, products(name)').in('vending_machine_id', machineIds).order('created_at', { ascending: false }).limit(3)
+      : serviceSupabase.from('transactions').select('amount, created_at, products(name)').order('created_at', { ascending: false }).limit(3),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid').in('vending_machine_id', machineIds)
+      : serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid'),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed').in('machine_id', machineIds)
+      : serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed'),
     serviceSupabase.from('products').select('id, name, sku, price').order('created_at', { ascending: false }),
   ]);
 
