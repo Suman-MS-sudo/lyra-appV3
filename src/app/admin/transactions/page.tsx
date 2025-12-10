@@ -24,45 +24,71 @@ export default async function TransactionsPage() {
 
   if (profile?.role !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch transactions with related data
-  const { data: transactions } = await serviceSupabase
-    .from('transactions')
-    .select(`
-      *,
-      products (name),
-      profiles (email),
-      vending_machines!transactions_vending_machine_id_fkey (name, location)
-    `)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  // Fetch both online transactions and coin payments
+  const [
+    { data: transactions },
+    { data: coinPayments }
+  ] = await Promise.all([
+    serviceSupabase
+      .from('transactions')
+      .select(`
+        *,
+        products (name),
+        profiles (email),
+        vending_machines!transactions_vending_machine_id_fkey (name, location)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    serviceSupabase
+      .from('coin_payments')
+      .select(`
+        *,
+        products (name),
+        vending_machines (name, location)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50)
+  ]);
 
-  // Calculate analytics
-  const totalRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  // Calculate analytics from both sources
+  const onlineRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue = onlineRevenue + coinRevenue;
+  
+  const totalTransactionCount = (transactions?.length || 0) + (coinPayments?.length || 0);
   const paidTransactions = transactions?.filter(tx => tx.payment_status === 'paid') || [];
   const pendingTransactions = transactions?.filter(tx => tx.payment_status === 'pending') || [];
   const failedTransactions = transactions?.filter(tx => tx.payment_status === 'failed') || [];
 
-  // Revenue by product
+  // Revenue by product (combine both sources)
   const productRevenue = new Map<string, number>();
   transactions?.forEach(tx => {
     const productName = tx.products?.name || 'Unknown';
     productRevenue.set(productName, (productRevenue.get(productName) || 0) + parseFloat(tx.amount || 0));
   });
+  coinPayments?.forEach(tx => {
+    const productName = tx.products?.name || 'Unknown';
+    productRevenue.set(productName, (productRevenue.get(productName) || 0) + (tx.amount_in_paisa / 100));
+  });
   const topProducts = Array.from(productRevenue.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Revenue by machine
+  // Revenue by machine (combine both sources)
   const machineRevenue = new Map<string, number>();
   transactions?.forEach(tx => {
     const machineName = tx.vending_machines?.name || 'Unknown';
     machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + parseFloat(tx.amount || 0));
   });
+  coinPayments?.forEach(tx => {
+    const machineName = tx.vending_machines?.name || 'Unknown';
+    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + (tx.amount_in_paisa / 100));
+  });
   const topMachines = Array.from(machineRevenue.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Daily revenue for last 7 days
+  // Daily revenue for last 7 days (combine both sources)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
@@ -70,13 +96,20 @@ export default async function TransactionsPage() {
   });
 
   const dailyRevenue = last7Days.map(date => {
-    const dayTransactions = transactions?.filter(tx => 
+    const dayOnlineTransactions = transactions?.filter(tx => 
       tx.created_at.startsWith(date) && tx.payment_status === 'paid'
     ) || [];
+    const dayCoinPayments = coinPayments?.filter(tx => 
+      tx.created_at.startsWith(date)
+    ) || [];
+    
+    const onlineRev = dayOnlineTransactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+    const coinRev = dayCoinPayments.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+    
     return {
       date,
-      revenue: dayTransactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0),
-      count: dayTransactions.length
+      revenue: onlineRev + coinRev,
+      count: dayOnlineTransactions.length + dayCoinPayments.length
     };
   });
 
@@ -124,7 +157,7 @@ export default async function TransactionsPage() {
               <DollarSign className="h-5 w-5 text-green-600" />
             </div>
             <div className="text-3xl font-bold text-green-600">₹{totalRevenue.toFixed(2)}</div>
-            <div className="text-xs text-gray-500 mt-1">{paidTransactions.length} paid transactions</div>
+            <div className="text-xs text-gray-500 mt-1">{totalTransactionCount} paid transactions</div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -132,7 +165,7 @@ export default async function TransactionsPage() {
               <span className="text-sm text-gray-600">Total Transactions</span>
               <ShoppingCart className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="text-3xl font-bold text-gray-900">{transactions?.length || 0}</div>
+            <div className="text-3xl font-bold text-gray-900">{totalTransactionCount}</div>
             <div className="text-xs text-gray-500 mt-1">Last 50 transactions</div>
           </div>
 
@@ -286,14 +319,59 @@ export default async function TransactionsPage() {
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
+                {/* Coin Payments */}
+                {coinPayments && coinPayments.map((txn: any) => (
+                  <tr key={`coin-${txn.id}`} className="hover:bg-blue-50 transition">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+                        {new Date(txn.created_at).toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm">
+                        <User className="h-4 w-4 mr-2 text-gray-400" />
+                        <div className="font-medium text-gray-900">Coin Payment</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {txn.products?.name || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div>{txn.vending_machines?.name || 'Unknown'}</div>
+                      <div className="text-xs">{txn.vending_machines?.location}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center text-sm font-medium text-gray-900">
+                        <IndianRupee className="h-4 w-4 mr-1" />
+                        {(txn.amount_in_paisa / 100).toFixed(2)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Coin
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Dispensed
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                
+                {/* Online Transactions */}
                 {transactions && transactions.length > 0 ? (
                   transactions.map((txn: any) => (
-                    <tr key={txn.id} className="hover:bg-blue-50 transition">
+                    <tr key={`online-${txn.id}`} className="hover:bg-blue-50 transition">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2 text-gray-400" />
@@ -315,21 +393,28 @@ export default async function TransactionsPage() {
                         {txn.vending_machines?.name || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm font-semibold text-gray-900">
-                          <IndianRupee className="h-4 w-4" />
+                        <div className="flex items-center text-sm font-medium text-gray-900">
+                          <IndianRupee className="h-4 w-4 mr-1" />
                           {parseFloat(txn.amount).toFixed(2)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(txn.payment_status || 'pending')}`}>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Online
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(txn.payment_status || 'pending')}`}>
                           {txn.payment_status || 'pending'}
                         </span>
                       </td>
                     </tr>
                   ))
-                ) : (
+                ) : null}
+                
+                {!transactions?.length && !coinPayments?.length && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                       No transactions found
                     </td>
                   </tr>
