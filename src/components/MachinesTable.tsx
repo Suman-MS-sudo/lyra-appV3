@@ -196,12 +196,12 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
               >
-                <option value="all">All Status</option>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
-                <option value="maintenance">Maintenance</option>
+                <option value="all" className="text-gray-900">All Status</option>
+                <option value="online" className="text-gray-900">Online</option>
+                <option value="offline" className="text-gray-900">Offline</option>
+                <option value="maintenance" className="text-gray-900">Maintenance</option>
               </select>
             </div>
             
@@ -210,11 +210,11 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
               <select
                 value={customerFilter}
                 onChange={(e) => setCustomerFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
               >
-                <option value="all">All Customers</option>
+                <option value="all" className="text-gray-900">All Customers</option>
                 {customers.map(customer => (
-                  <option key={customer} value={customer}>{customer}</option>
+                  <option key={customer} value={customer} className="text-gray-900">{customer}</option>
                 ))}
               </select>
             </div>
@@ -224,11 +224,11 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
               <select
                 value={onlineFilter}
                 onChange={(e) => setOnlineFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
               >
-                <option value="all">All</option>
-                <option value="online">Connected</option>
-                <option value="offline">Disconnected</option>
+                <option value="all" className="text-gray-900">All</option>
+                <option value="online" className="text-gray-900">Connected</option>
+                <option value="offline" className="text-gray-900">Disconnected</option>
               </select>
             </div>
           </div>
@@ -246,12 +246,12 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
             setItemsPerPage(Number(e.target.value));
             setCurrentPage(1);
           }}
-          className="px-3 py-1 border border-gray-300 rounded-lg"
+          className="px-3 py-1 border border-gray-300 rounded-lg text-gray-900 bg-white"
         >
-          <option value={25}>25 per page</option>
-          <option value={50}>50 per page</option>
-          <option value={100}>100 per page</option>
-          <option value={250}>250 per page</option>
+          <option value={25} className="text-gray-900">25 per page</option>
+          <option value={50} className="text-gray-900">50 per page</option>
+          <option value={100} className="text-gray-900">100 per page</option>
+          <option value={250} className="text-gray-900">250 per page</option>
         </select>
       </div>
 

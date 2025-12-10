@@ -25,6 +25,21 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Ensure proper text colors for form elements */
+input,
+textarea,
+select,
+option {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
+/* Dark text for inputs */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important;
+}
+
 /* Smooth scroll behavior for anchor links */
 html {
   scroll-behavior: smooth;
