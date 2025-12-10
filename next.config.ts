@@ -2,7 +2,24 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactCompiler: true,
+  // Temporarily disable React Compiler to speed up build
+  // reactCompiler: true,
+  
+  // Force dynamic rendering for all pages to avoid build-time API calls
+  experimental: {
+    dynamicIO: true,
+  },
+  
+  // Add logging to see build progress
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+  
+  // Reduce build optimization for faster builds
+  productionBrowserSourceMaps: false,
+  
   async headers() {
     return [
       {

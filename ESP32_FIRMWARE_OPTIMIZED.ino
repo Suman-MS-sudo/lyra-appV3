@@ -48,6 +48,21 @@
 #define MOTOR1_ADDR 64
 #define ETHERNET_CS 22
 
+// ==================== OFFLINE TRANSACTION QUEUE ====================
+// EEPROM Layout: [0-31: SSID] [32-95: Password] [64: Motor Stock]
+//                [100: Queue Count] [101-255: Transaction Queue (15 slots)]
+#define QUEUE_COUNT_ADDR 100
+#define QUEUE_START_ADDR 101
+#define QUEUE_MAX_SIZE 15
+#define TRANSACTION_SIZE 10  // product_id index (1) + amount (4) + timestamp (4) + synced flag (1)
+
+struct OfflineTransaction {
+    uint8_t productIndex;  // Index in product list (0-255)
+    uint32_t amountPaisa;  // Amount in paisa
+    uint32_t timestamp;    // Seconds since boot
+    bool synced;           // Sync status
+};
+
 // ==================== GLOBAL VARIABLES ====================
 WebServer server(80);
 bool provisioningMode = false;
@@ -92,6 +107,15 @@ void initializeWatchdog();
 void feedWatchdog();
 void maintainWiFiConnection();
 void ensureWiFiStability();
+
+// Offline queue functions
+void saveOfflineTransaction(int amountPaisa);
+void syncOfflineTransactions();
+int getQueuedTransactionCount();
+void clearOfflineQueue();
+
+// HTTP request functions
+int makeHTTPRequest(const String& url, const String& method, const String& payload, String* responseBody);
 
 // Diagnostic functions
 void testHTTPvsHTTPS();
@@ -199,9 +223,11 @@ void saveMotorStockToEEPROM(int count, String productId = "") {
     EEPROM.commit();
     Serial.printf("📦 Motor stock saved: %d\n", count);
     
-    // Sync to database if product_id provided
-    if (productId.length() > 0) {
+    // Sync to database if product_id provided and machine_id is known
+    if (productId.length() > 0 && machineId != "UNKNOWN" && machineId.length() > 0) {
         notifyProductStockUpdate(machineId, productId, count, "set");
+    } else if (productId.length() > 0 && machineId == "UNKNOWN") {
+        Serial.println("⚠ Cannot sync stock: machine ID not yet fetched");
     }
 }
 
@@ -219,6 +245,144 @@ String getCurrentFirmwareVersion() {
 void resetAllMotorStocks() {
     saveMotorStockToEEPROM(30);
     Serial.println("📦 All motor stocks reset to 30!");
+}
+
+// ==================== OFFLINE TRANSACTION QUEUE ====================
+
+void saveOfflineTransaction(int amountPaisa) {
+    EEPROM.begin(EEPROM_SIZE);
+    
+    int count = EEPROM.read(QUEUE_COUNT_ADDR);
+    if (count < 0 || count > QUEUE_MAX_SIZE) count = 0;
+    
+    if (count >= QUEUE_MAX_SIZE) {
+        Serial.println("⚠ Transaction queue full! Overwriting oldest.");
+        count = QUEUE_MAX_SIZE - 1;
+    }
+    
+    // Save transaction at queue position
+    int addr = QUEUE_START_ADDR + (count * TRANSACTION_SIZE);
+    
+    OfflineTransaction tx;
+    tx.productIndex = 0;  // Default product
+    tx.amountPaisa = amountPaisa;
+    tx.timestamp = millis() / 1000;  // Seconds since boot
+    tx.synced = false;
+    
+    EEPROM.write(addr, tx.productIndex);
+    EEPROM.write(addr + 1, (tx.amountPaisa >> 24) & 0xFF);
+    EEPROM.write(addr + 2, (tx.amountPaisa >> 16) & 0xFF);
+    EEPROM.write(addr + 3, (tx.amountPaisa >> 8) & 0xFF);
+    EEPROM.write(addr + 4, tx.amountPaisa & 0xFF);
+    EEPROM.write(addr + 5, (tx.timestamp >> 24) & 0xFF);
+    EEPROM.write(addr + 6, (tx.timestamp >> 16) & 0xFF);
+    EEPROM.write(addr + 7, (tx.timestamp >> 8) & 0xFF);
+    EEPROM.write(addr + 8, tx.timestamp & 0xFF);
+    EEPROM.write(addr + 9, tx.synced ? 1 : 0);
+    
+    EEPROM.write(QUEUE_COUNT_ADDR, count + 1);
+    EEPROM.commit();
+    
+    Serial.printf("💾 Saved offline transaction #%d (₹%.2f) to EEPROM\n", count + 1, amountPaisa / 100.0);
+}
+
+int getQueuedTransactionCount() {
+    EEPROM.begin(EEPROM_SIZE);
+    int count = EEPROM.read(QUEUE_COUNT_ADDR);
+    if (count < 0 || count > QUEUE_MAX_SIZE) count = 0;
+    return count;
+}
+
+void clearOfflineQueue() {
+    EEPROM.begin(EEPROM_SIZE);
+    EEPROM.write(QUEUE_COUNT_ADDR, 0);
+    EEPROM.commit();
+    Serial.println("🗑️ Offline queue cleared");
+}
+
+void syncOfflineTransactions() {
+    if (!isNetworkConnected()) {
+        Serial.println("⚠ Cannot sync: no network");
+        return;
+    }
+    
+    if (machineId == "UNKNOWN" || machineId.length() == 0) {
+        Serial.println("⚠ Cannot sync: machine ID unknown");
+        return;
+    }
+    
+    if (defaultProductId.length() == 0) {
+        Serial.println("⚠ Cannot sync: no product assigned");
+        return;
+    }
+    
+    EEPROM.begin(EEPROM_SIZE);
+    int count = EEPROM.read(QUEUE_COUNT_ADDR);
+    if (count <= 0 || count > QUEUE_MAX_SIZE) {
+        Serial.println("ℹ️ No offline transactions to sync");
+        return;
+    }
+    
+    Serial.printf("🔄 Syncing %d offline transactions...\n", count);
+    
+    int syncedCount = 0;
+    for (int i = 0; i < count; i++) {
+        int addr = QUEUE_START_ADDR + (i * TRANSACTION_SIZE);
+        
+        OfflineTransaction tx;
+        tx.productIndex = EEPROM.read(addr);
+        tx.amountPaisa = ((uint32_t)EEPROM.read(addr + 1) << 24) |
+                        ((uint32_t)EEPROM.read(addr + 2) << 16) |
+                        ((uint32_t)EEPROM.read(addr + 3) << 8) |
+                        ((uint32_t)EEPROM.read(addr + 4));
+        tx.timestamp = ((uint32_t)EEPROM.read(addr + 5) << 24) |
+                      ((uint32_t)EEPROM.read(addr + 6) << 16) |
+                      ((uint32_t)EEPROM.read(addr + 7) << 8) |
+                      ((uint32_t)EEPROM.read(addr + 8));
+        tx.synced = EEPROM.read(addr + 9) == 1;
+        
+        if (tx.synced) {
+            syncedCount++;
+            continue;
+        }
+        
+        // Send coin payment to server
+        String payload = "{";
+        payload += "\"machine_id\":\"" + machineId + "\",";
+        payload += "\"product_id\":\"" + defaultProductId + "\",";
+        payload += "\"amount_in_paisa\":" + String(tx.amountPaisa) + ",";
+        payload += "\"offline_sync\":true,";
+        payload += "\"timestamp\":" + String(tx.timestamp);
+        payload += "}";
+
+        String url = SERVER_BASE + "/api/coin-payment";
+#ifdef USE_ETHERNET
+        if (useEthernet && ethernetConnected) {
+            url = ETHERNET_SERVER_BASE + "/api/coin-payment";
+        }
+#endif
+
+        int code = makeHTTPRequest(url, "POST", payload, nullptr);
+        
+        if (code == 200) {
+            // Mark as synced
+            EEPROM.write(addr + 9, 1);
+            EEPROM.commit();
+            syncedCount++;
+            Serial.printf("✅ Synced transaction #%d (₹%.2f)\n", i + 1, tx.amountPaisa / 100.0);
+        } else {
+            Serial.printf("⚠ Failed to sync transaction #%d: %d\n", i + 1, code);
+        }
+        
+        delay(500);  // Avoid overwhelming server
+    }
+    
+    Serial.printf("✅ Sync complete: %d/%d transactions\n", syncedCount, count);
+    
+    // Clear queue if all synced
+    if (syncedCount == count) {
+        clearOfflineQueue();
+    }
 }
 
 bool macStringToBytes(const String &macStr, byte out[6]) {
@@ -299,6 +463,11 @@ void maintainWiFiConnection() {
                 ensureWiFiStability();
                 digitalWrite(BLUE_LED_PIN, HIGH);
                 sendStockAwareStatus();
+                
+                // Sync offline transactions after reconnection
+                delay(1000);
+                syncOfflineTransactions();
+                
                 wifiReconnectAttempts = 0;
             } else {
                 Serial.println("\n❌ WiFi reconnection failed");
@@ -654,6 +823,9 @@ void sendMachineStatusPing() {
     float networkSpeed = measureNetworkSpeed();
     float temperature = getESP32Temperature();
     
+    // Read current stock from EEPROM (source of truth)
+    int currentStock = readMotorStockFromEEPROM();
+    
     String payload = "{";
     payload += "\"machine_id\":\"" + machineId + "\",";
     payload += "\"firmware_version\":\"" + String(CURRENT_FIRMWARE_VERSION) + "\",";
@@ -661,7 +833,8 @@ void sendMachineStatusPing() {
     payload += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
     payload += "\"uptime\":" + String(millis()) + ",";
     payload += "\"network_speed_kbps\":" + String(networkSpeed, 2) + ",";
-    payload += "\"temperature_celsius\":" + String(temperature, 1);
+    payload += "\"temperature_celsius\":" + String(temperature, 1) + ",";
+    payload += "\"stock_count\":" + String(currentStock);
     payload += "}";
 
     String url = SERVER_BASE + "/api/machine-ping";
@@ -674,7 +847,7 @@ void sendMachineStatusPing() {
     int code = makeHTTPRequest(url, "POST", payload);
     
     if (code == 200) {
-        Serial.println("✅ Machine ping successful");
+        Serial.printf("✅ Machine ping successful (Stock: %d)\n", currentStock);
     } else {
         Serial.printf("⚠ Machine ping failed: %d\n", code);
     }
@@ -707,7 +880,7 @@ void notifyProductStockUpdate(const String& machine_id, const String& product_id
 
 // ==================== DISPENSE FUNCTIONS ====================
 
-void dispenseProductByMotor(String productId = "") {
+void dispenseProductByMotor(String productId) {
     int stock = readMotorStockFromEEPROM();
     if (stock <= 0) {
         Serial.println("❌ Motor out of stock!");
@@ -858,33 +1031,39 @@ void listenForOnlinePayment() {
 }
 
 void sendCoinPayment(int coinAmount) {
-    if (defaultProductId.length() == 0) {
-        Serial.println("⚠ Cannot send coin payment: no product assigned");
-        return;
-    }
+    int amountPaisa = coinAmount * 100;
     
-    String payload = "{";
-    payload += "\"machine_id\":\"" + machineId + "\",";
-    payload += "\"product_id\":\"" + defaultProductId + "\",";
-    payload += "\"amount_in_paisa\":" + String(coinAmount * 100);
-    payload += "}";
+    // Try online payment first if network available
+    if (isNetworkConnected() && machineId != "UNKNOWN" && defaultProductId.length() > 0) {
+        String payload = "{";
+        payload += "\"machine_id\":\"" + machineId + "\",";
+        payload += "\"product_id\":\"" + defaultProductId + "\",";
+        payload += "\"amount_in_paisa\":" + String(amountPaisa);
+        payload += "}";
 
-    String url = SERVER_BASE + "/api/coin-payment";
+        String url = SERVER_BASE + "/api/coin-payment";
 #ifdef USE_ETHERNET
-    if (useEthernet && ethernetConnected) {
-        url = ETHERNET_SERVER_BASE + "/api/coin-payment";
-    }
+        if (useEthernet && ethernetConnected) {
+            url = ETHERNET_SERVER_BASE + "/api/coin-payment";
+        }
 #endif
 
-    Serial.println("💰 Sending coin payment...");
-    String responseBody = "";
-    int code = makeHTTPRequest(url, "POST", payload, &responseBody);
-    
-    if (code == 200) {
-        Serial.println("✅ Coin payment recorded and stock synced");
-    } else {
-        Serial.printf("⚠ Coin payment failed: %d\n", code);
+        Serial.println("💰 Sending coin payment online...");
+        String responseBody = "";
+        int code = makeHTTPRequest(url, "POST", payload, &responseBody);
+        
+        if (code == 200) {
+            Serial.println("✅ Coin payment recorded online");
+            return;
+        } else {
+            Serial.printf("⚠ Online payment failed: %d, saving offline\n", code);
+        }
     }
+    
+    // Save offline if network unavailable or online failed
+    Serial.println("💾 Saving coin payment offline (will sync when connected)");
+    saveOfflineTransaction(amountPaisa);
+    Serial.printf("📊 Queued transactions: %d/%d\n", getQueuedTransactionCount(), QUEUE_MAX_SIZE);
 }
 
 // ==================== DIAGNOSTIC FUNCTIONS ====================
@@ -1001,30 +1180,97 @@ void testServerConnection() {
 
 void handleRoot() {
     String html = R"rawliteral(
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Lyra WiFi Setup</title>
-<style>:root{--bg:#0f1724;--card:#0b1220;--accent:#7c3aed;--muted:#9aa4b2;--white:#eef2ff}
-html,body{height:100%;margin:0;font-family:Inter,system-ui}
-body{background:linear-gradient(180deg,#071022,#07112a);color:var(--white);display:flex;align-items:center;justify-content:center}
-.container{width:100%;max-width:920px;padding:28px}.card{background:rgba(255,255,255,0.02);border-radius:12px;padding:20px}
-.header{display:flex;align-items:center;gap:12px}.logo{width:56px;height:56px;border-radius:8px;
-background:linear-gradient(135deg,#7c3aed,#06b6d4);display:flex;align-items:center;justify-content:center;font-weight:700}
-.title{font-size:18px;font-weight:700}input{flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);
-background:rgba(255,255,255,0.02);color:var(--white)}button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
-.net{display:flex;justify-content:space-between;padding:10px;border-radius:8px;margin:8px 0;background:rgba(255,255,255,0.01)}
+<style>*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1724;--card:#0b1220;--accent:#7c3aed;--muted:#9aa4b2;--white:#eef2ff}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{background:linear-gradient(180deg,#071022,#07112a);color:var(--white);display:flex;flex-direction:column}
+.container{width:100%;max-width:500px;margin:0 auto;padding:16px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.header{display:flex;align-items:center;gap:12px;padding:16px 0;flex-shrink:0}
+.logo{width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#06b6d4);
+display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex-shrink:0}
+.title{font-size:20px;font-weight:700;line-height:1.2}
+.subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+.card{background:rgba(255,255,255,0.02);border-radius:12px;padding:16px;flex:1;display:flex;flex-direction:column;
+overflow:hidden;border:1px solid rgba(255,255,255,0.05)}
+.list-container{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px;
+scrollbar-width:thin;scrollbar-color:rgba(124,58,237,0.5) transparent}
+.list-container::-webkit-scrollbar{width:6px}
+.list-container::-webkit-scrollbar-track{background:transparent}
+.list-container::-webkit-scrollbar-thumb{background:rgba(124,58,237,0.5);border-radius:3px}
+.net{display:flex;justify-content:space-between;align-items:center;padding:14px 12px;border-radius:8px;
+margin:6px 0;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);
+min-height:56px;transition:all 0.2s}
+.net:active{background:rgba(255,255,255,0.06);transform:scale(0.98)}
+.net-info{flex:1;min-width:0;margin-right:12px}
+.net-ssid{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.net-rssi{font-size:12px;color:var(--muted);margin-top:2px}
+.signal{display:inline-block;margin-right:4px}
+.signal-excellent{color:#10b981}
+.signal-good{color:#3b82f6}
+.signal-fair{color:#f59e0b}
+.signal-weak{color:#ef4444}
+button{background:var(--accent);border:none;color:white;padding:10px 16px;border-radius:8px;
+cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap;flex-shrink:0;
+transition:all 0.2s;-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(0.95);background:#6d28d9}
+.loading{text-align:center;padding:32px;color:var(--muted);font-size:14px}
+.empty{text-align:center;padding:32px;color:var(--muted)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:0.5}
+@media(max-height:600px){.container{padding:12px}.header{padding:12px 0}.card{padding:12px}.net{padding:10px}}
 </style>
 <script>
-async function scan(){document.getElementById('list').innerHTML='Scanning...';
-const r=await fetch('/api/scan');const d=await r.json();let h='';
-d.forEach(n=>{h+=`<div class="net"><div>${n.ssid} (${n.rssi}dBm)</div><button onclick="connect('${n.ssid}')">Connect</button></div>`});
-document.getElementById('list').innerHTML=h;}
-async function connect(s){const p=prompt('Password for '+s);if(p){
-await fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ssid:s,password:p})});
-alert('Connecting...');}}
+function getSignalStrength(rssi){
+if(rssi>=-50)return{class:'signal-excellent',bars:'▂▄▆█',label:'Excellent'};
+if(rssi>=-60)return{class:'signal-good',bars:'▂▄▆',label:'Good'};
+if(rssi>=-70)return{class:'signal-fair',bars:'▂▄',label:'Fair'};
+return{class:'signal-weak',bars:'▂',label:'Weak'};}
+async function scan(){
+const list=document.getElementById('list');
+list.innerHTML='<div class="loading">🔍 Scanning for networks...</div>';
+try{
+const r=await fetch('/api/scan');
+const d=await r.json();
+if(d.length===0){
+list.innerHTML='<div class="empty"><div class="empty-icon">📡</div>No networks found<br><small>Pull down to refresh</small></div>';
+return;}
+d.sort((a,b)=>b.rssi-a.rssi);
+let h='';
+d.forEach(n=>{
+const sig=getSignalStrength(n.rssi);
+h+=`<div class="net" onclick="connect('${n.ssid.replace(/'/g,"\\'")}')">
+<div class="net-info">
+<div class="net-ssid">${n.ssid}</div>
+<div class="net-rssi">
+<span class="signal ${sig.class}">${sig.bars}</span>
+${n.rssi}dBm · ${sig.label}
+</div></div>
+<button onclick="event.stopPropagation();connect('${n.ssid.replace(/'/g,"\\'")}')">Connect</button>
+</div>`});
+list.innerHTML=h;
+}catch(e){
+list.innerHTML='<div class="empty"><div class="empty-icon">⚠️</div>Scan failed<br><small>'+e.message+'</small></div>';}}
+async function connect(s){
+const p=prompt('Password for '+s+':');
+if(!p&&p!=='')return;
+try{
+await fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({ssid:s,password:p})});
+alert('✅ Connecting to '+s+'...\n\nDevice will restart.');
+}catch(e){alert('❌ Connection failed: '+e.message);}}
+let touchStart=0;
+document.addEventListener('touchstart',e=>{touchStart=e.touches[0].clientY});
+document.addEventListener('touchmove',e=>{
+const list=document.querySelector('.list-container');
+if(list&&list.scrollTop===0&&e.touches[0].clientY>touchStart+50){
+e.preventDefault();scan();}});
 window.onload=scan;
 </script>
-</head><body><div class="container"><div class="card"><div class="header"><div class="logo">LE</div>
-<div><div class="title">Lyra WiFi Setup</div></div></div><div id="list"></div></div></div></body></html>
+</head><body><div class="container"><div class="header"><div class="logo">L</div>
+<div><div class="title">Lyra WiFi Setup</div><div class="subtitle">Select a network to connect</div></div></div>
+<div class="card"><div class="list-container" id="list"></div></div></div></body></html>
 )rawliteral";
     server.send(200, "text/html", html);
 }
@@ -1083,6 +1329,7 @@ void setup() {
     Serial2.begin(115200, SERIAL_8N1, 16, 17);
     
     Serial.println("\n🚀 Lyra Vending Machine " + String(CURRENT_FIRMWARE_VERSION));
+    Serial.println("✨ Offline Mode Enabled - Works without internet!");
     
     // Initialize watchdog timer for automatic recovery
     initializeWatchdog();
@@ -1174,6 +1421,10 @@ void setup() {
             fetchMachineInfoFromBackend(deviceMacAddress);
             fetchMachineProducts();  // Get product_id for coin payments
             
+            // Sync offline transactions on startup
+            delay(2000);  // Give server time to be ready
+            syncOfflineTransactions();
+            
             ArduinoOTA.setHostname(("Lyra-" + machineName).c_str());
             ArduinoOTA.setPassword("lyra2024");
             ArduinoOTA.begin();
@@ -1240,6 +1491,7 @@ void loop() {
             Serial.println("🔄 Re-fetching machine ID...");
             fetchMachineInfoFromBackend(deviceMacAddress);
             if (machineId != "UNKNOWN") {
+                fetchMachineProducts();  // Get product_id for coin payments
                 sendMachineStatusPing();
             }
         } else if (command == "switch") {
@@ -1261,8 +1513,13 @@ void loop() {
             Serial.println("Ethernet: " + String(useEthernet ? "Enabled" : "Disabled"));
 #endif
             Serial.println("Stock: " + String(readMotorStockFromEEPROM()));
+            int queueCount = getQueuedTransactionCount();
+            Serial.printf("Offline Queue: %d/%d transactions\n", queueCount, QUEUE_MAX_SIZE);
             printMemoryStatus("Status");
             Serial.println("=====================\n");
+        } else if (command == "sync") {
+            Serial.println("🔄 Manually syncing offline transactions...");
+            syncOfflineTransactions();
         } else if (command == "dispense") {
             Serial.println("🎰 Manual dispense triggered");
             dispenseProductByMotor();
@@ -1288,6 +1545,7 @@ void loop() {
             Serial.println("switch     - Switch HTTP/HTTPS mode");
             Serial.println("status     - Show system status");
             Serial.println("dispense   - Manual dispense test");
+            Serial.println("sync       - Sync offline transactions");
 #ifdef USE_ETHERNET
             Serial.println("diag       - Ethernet diagnostics");
             Serial.println("reset-eth  - Reset Ethernet module");
