@@ -1,4 +1,4 @@
--- Create organizations table for partner organization management
+-- Create organizations table for partner organization management (if not exists)
 CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
@@ -13,14 +13,57 @@ CREATE TABLE IF NOT EXISTS organizations (
     gstin TEXT,
     pan TEXT,
     notes TEXT,
-    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Create index for faster lookups
+-- Add missing columns if they don't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='is_active') THEN
+        ALTER TABLE organizations ADD COLUMN is_active BOOLEAN DEFAULT true;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='city') THEN
+        ALTER TABLE organizations ADD COLUMN city TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='state') THEN
+        ALTER TABLE organizations ADD COLUMN state TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='zip_code') THEN
+        ALTER TABLE organizations ADD COLUMN zip_code TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='country') THEN
+        ALTER TABLE organizations ADD COLUMN country TEXT DEFAULT 'India';
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='gstin') THEN
+        ALTER TABLE organizations ADD COLUMN gstin TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='pan') THEN
+        ALTER TABLE organizations ADD COLUMN pan TEXT;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='organizations' AND column_name='notes') THEN
+        ALTER TABLE organizations ADD COLUMN notes TEXT;
+    END IF;
+END $$;
+
+-- Create indexes if they don't exist
 CREATE INDEX IF NOT EXISTS idx_organizations_super_customer ON organizations(super_customer_id);
-CREATE INDEX IF NOT EXISTS idx_organizations_active ON organizations(is_active);
+CREATE INDEX IF NOT EXISTS idx_organizations_active ON organizations(is_active) WHERE is_active = true;
 
 -- Add RLS policies
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;

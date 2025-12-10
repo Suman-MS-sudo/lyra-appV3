@@ -20,10 +20,13 @@ export default function LoginPage() {
     setError('');
 
     try {
+      console.log('Attempting login...');
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      console.log('Login response:', { data, error: signInError });
 
       if (signInError) throw signInError;
 
@@ -34,7 +37,12 @@ export default function LoginPage() {
         router.push('/customer/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+      console.error('Login error:', err);
+      if (err.message?.includes('fetch')) {
+        setError('Network error: Unable to connect to authentication server. Please check your internet connection.');
+      } else {
+        setError(err.message || 'An error occurred during login');
+      }
     } finally {
       setIsLoading(false);
     }
