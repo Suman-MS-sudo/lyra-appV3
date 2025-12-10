@@ -36,33 +36,31 @@ export default async function AdminDashboard() {
     { count: totalMachines },
     { count: totalUsers },
     { count: totalTransactions },
+    { count: totalCoinPayments },
     { data: recentMachines },
     { data: recentTransactions },
     { data: paidTx },
-    { data: allTransactions },
+    { data: coinPayments },
     { data: products }
   ] = await Promise.all([
     serviceSupabase.from('vending_machines').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
     serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }),
+    serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('vending_machines').select('name, location').order('created_at', { ascending: false }).limit(3),
     serviceSupabase.from('transactions').select('amount, created_at, products(name)').order('created_at', { ascending: false }).limit(3),
     serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid'),
-    serviceSupabase.from('transactions').select('amount, payment_method').eq('payment_status', 'paid'),
+    serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed'),
     serviceSupabase.from('products').select('id, name, sku, price').order('created_at', { ascending: false }),
   ]);
 
   // Calculate revenue by payment method
-  const totalRevenue = paidTx?.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  const onlineRevenue = paidTx?.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  const coinRevenue = (coinPayments?.reduce((sum: number, tx: any) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100; // Convert paisa to rupees
   
-  const coinTransactions = allTransactions?.filter((tx: any) => tx.payment_method === 'coin') || [];
-  const onlineTransactions = allTransactions?.filter((tx: any) => tx.payment_method === 'razorpay' || tx.payment_method === 'online') || [];
-  
-  const coinRevenue = coinTransactions.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0);
-  const onlineRevenue = onlineTransactions.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0);
-  
-  const coinCount = coinTransactions.length;
-  const onlineCount = onlineTransactions.length;
+  const totalRevenue = onlineRevenue + coinRevenue;
+  const onlineCount = totalTransactions || 0;
+  const coinCount = totalCoinPayments || 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -153,7 +151,7 @@ export default async function AdminDashboard() {
               </div>
               <div>
                 <div className="text-sm text-gray-600 mb-1">Transactions</div>
-                <div className="text-3xl font-bold text-gray-900">{totalTransactions || 0}</div>
+                <div className="text-3xl font-bold text-gray-900">{(totalTransactions || 0) + (totalCoinPayments || 0)}</div>
               </div>
             </div>
           </div>
