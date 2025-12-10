@@ -133,7 +133,7 @@ export default async function AdminDashboard() {
               <p className="text-sm text-gray-500 mt-1">Welcome back! Here's what's happening today.</p>
             </div>
             <form action="/api/auth/logout" method="POST">
-              <button className="px-4 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
                 Logout
               </button>
             </form>

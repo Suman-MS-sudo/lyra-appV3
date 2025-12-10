@@ -223,10 +223,10 @@ export default async function CustomerDashboard() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
             <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">{user.email}</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-900 font-medium hidden sm:block">{user.email}</span>
             <form action="/api/auth/logout" method="POST">
-              <button className="px-4 py-2 text-sm bg-gradient-to-r from-gray-100 to-gray-50 hover:from-gray-200 hover:to-gray-100 rounded-lg transition-all shadow-sm">
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
                 Logout
               </button>
             </form>
