@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { ShoppingBag, TrendingUp, Heart, Clock } from 'lucide-react';
+import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard } from 'lucide-react';
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -67,6 +67,24 @@ export default async function CustomerDashboard() {
     ? Object.entries(productCounts).reduce((a: any, b: any) => a[1] > b[1] ? a : b)
     : null;
 
+  // Calculate coin vs online payments
+  const coinTransactions = transactions?.filter(tx => tx.payment_method === 'coin') || [];
+  const onlineTransactions = transactions?.filter(tx => tx.payment_method === 'razorpay' || tx.payment_method === 'online') || [];
+  
+  const coinSpent = coinTransactions.reduce((sum, tx) => {
+    if (tx.status === 'completed' || tx.status === 'paid') {
+      return sum + parseFloat(tx.amount || '0');
+    }
+    return sum;
+  }, 0);
+  
+  const onlineSpent = onlineTransactions.reduce((sum, tx) => {
+    if (tx.status === 'completed' || tx.status === 'paid') {
+      return sum + parseFloat(tx.amount || '0');
+    }
+    return sum;
+  }, 0);
+
   // Format time ago
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -110,7 +128,7 @@ export default async function CustomerDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <div className="group relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
             <div className="relative">
@@ -136,6 +154,34 @@ export default async function CustomerDashboard() {
               <div className="text-sm font-medium opacity-90 mb-1">Total Spent</div>
               <div className="text-4xl font-bold">₹{totalSpent.toFixed(2)}</div>
               <div className="text-sm opacity-75 mt-2">All transactions</div>
+            </div>
+          </div>
+
+          <div className="group relative bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Coins className="w-6 h-6" />
+                </div>
+              </div>
+              <div className="text-sm font-medium opacity-90 mb-1">Coin Payments</div>
+              <div className="text-4xl font-bold">₹{coinSpent.toFixed(2)}</div>
+              <div className="text-sm opacity-75 mt-2">{coinTransactions.length} transactions</div>
+            </div>
+          </div>
+
+          <div className="group relative bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 text-white overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+              </div>
+              <div className="text-sm font-medium opacity-90 mb-1">Online Payments</div>
+              <div className="text-4xl font-bold">₹{onlineSpent.toFixed(2)}</div>
+              <div className="text-sm opacity-75 mt-2">{onlineTransactions.length} transactions</div>
             </div>
           </div>
 

@@ -10,7 +10,9 @@ import {
   Clock, 
   CheckCircle2,
   ArrowUpRight,
-  Activity
+  Activity,
+  Coins,
+  CreditCard
 } from 'lucide-react';
 
 export default async function AdminDashboard() {
@@ -37,6 +39,7 @@ export default async function AdminDashboard() {
     { data: recentMachines },
     { data: recentTransactions },
     { data: paidTx },
+    { data: allTransactions },
     { data: products }
   ] = await Promise.all([
     serviceSupabase.from('vending_machines').select('*', { count: 'exact', head: true }),
@@ -45,11 +48,21 @@ export default async function AdminDashboard() {
     serviceSupabase.from('vending_machines').select('name, location').order('created_at', { ascending: false }).limit(3),
     serviceSupabase.from('transactions').select('amount, created_at, products(name)').order('created_at', { ascending: false }).limit(3),
     serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid'),
+    serviceSupabase.from('transactions').select('amount, payment_method').eq('payment_status', 'paid'),
     serviceSupabase.from('products').select('id, name, sku, price').order('created_at', { ascending: false }),
   ]);
 
-  // Calculate revenue
+  // Calculate revenue by payment method
   const totalRevenue = paidTx?.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  
+  const coinTransactions = allTransactions?.filter((tx: any) => tx.payment_method === 'coin') || [];
+  const onlineTransactions = allTransactions?.filter((tx: any) => tx.payment_method === 'razorpay' || tx.payment_method === 'online') || [];
+  
+  const coinRevenue = coinTransactions.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0);
+  const onlineRevenue = onlineTransactions.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0);
+  
+  const coinCount = coinTransactions.length;
+  const onlineCount = onlineTransactions.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,6 +154,69 @@ export default async function AdminDashboard() {
               <div>
                 <div className="text-sm text-gray-600 mb-1">Transactions</div>
                 <div className="text-3xl font-bold text-gray-900">{totalTransactions || 0}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Method Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Coin Transactions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-100 rounded-lg">
+                <Coins className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Coin Transactions</div>
+                <div className="text-2xl font-bold text-gray-900">{coinCount}</div>
+                <div className="text-xs text-gray-500 mt-1">₹{coinRevenue.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Online Transactions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Online Transactions</div>
+                <div className="text-2xl font-bold text-gray-900">{onlineCount}</div>
+                <div className="text-xs text-gray-500 mt-1">₹{onlineRevenue.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Coin Revenue % */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-yellow-100 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Coin Revenue %</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {totalRevenue > 0 ? ((coinRevenue / totalRevenue) * 100).toFixed(1) : '0'}%
+                </div>
+                <div className="text-xs text-gray-500 mt-1">of total revenue</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Online Revenue % */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-indigo-100 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 mb-1">Online Revenue %</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {totalRevenue > 0 ? ((onlineRevenue / totalRevenue) * 100).toFixed(1) : '0'}%
+                </div>
+                <div className="text-xs text-gray-500 mt-1">of total revenue</div>
               </div>
             </div>
           </div>
