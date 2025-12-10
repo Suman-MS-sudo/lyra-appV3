@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard, Building2, Activity, AlertCircle, Package } from 'lucide-react';
+import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard, Building2, Activity, AlertCircle, Package, Settings, Users } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -31,6 +32,9 @@ export default async function CustomerDashboard() {
   if (profile?.role === 'admin') {
     redirect('/admin/dashboard');
   }
+
+  // Check if user is super_customer for enhanced permissions
+  const isSuperCustomer = profile?.account_type === 'super_customer';
 
   // Fetch customer's vending machines
   const { data: customerMachines } = await serviceSupabase
@@ -232,6 +236,29 @@ export default async function CustomerDashboard() {
             </form>
           </div>
         </div>
+        
+        {/* Navigation for Super Customers */}
+        {isSuperCustomer && (
+          <div className="px-6 py-3 border-t border-gray-200/50">
+            <nav className="flex items-center gap-2 overflow-x-auto">
+              <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+                Dashboard
+              </Link>
+              <Link href="/admin/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />Machines</span>
+              </Link>
+              <Link href="/admin/products" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                <span className="flex items-center gap-2"><Package className="w-4 h-4" />Products</span>
+              </Link>
+              <Link href="/admin/transactions" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                <span className="flex items-center gap-2"><Activity className="w-4 h-4" />Transactions</span>
+              </Link>
+              <Link href="/admin/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                <span className="flex items-center gap-2"><Users className="w-4 h-4" />Users</span>
+              </Link>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
