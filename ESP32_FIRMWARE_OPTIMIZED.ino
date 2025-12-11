@@ -907,7 +907,18 @@ void sendMachineStatusPing() {
     String payload = "{";
     payload += "\"machine_id\":\"" + machineId + "\",";
     payload += "\"firmware_version\":\"" + String(CURRENT_FIRMWARE_VERSION) + "\",";
+    
+    // Only send WiFi RSSI if using WiFi, otherwise send null
+#ifdef USE_ETHERNET
+    if (useEthernet) {
+        payload += "\"wifi_rssi\":null,";
+    } else {
+        payload += "\"wifi_rssi\":" + String(WiFi.RSSI()) + ",";
+    }
+#else
     payload += "\"wifi_rssi\":" + String(WiFi.RSSI()) + ",";
+#endif
+    
     payload += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
     payload += "\"uptime\":" + String(millis()) + ",";
     payload += "\"network_speed_kbps\":" + String(networkSpeed, 2) + ",";

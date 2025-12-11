@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
 
       // Update stock count if provided (sync from ESP32's EEPROM)
       if (stock_count !== undefined && stock_count !== null) {
-        updateData.stock = stock_count;
-        console.log(`📦 Updating stock from machine: ${stock_count}`);
+        updateData.stock_level = stock_count;
+        console.log(`📦 Updating stock_level from machine: ${stock_count}`);
       }
 
       const { error: updateError } = await supabase
