@@ -8,6 +8,8 @@
     "dev:proxy": "node scripts/proxy-server.mjs",
     "setup:certs": "node scripts/generate-certs.mjs",
     "build": "NODE_OPTIONS='--max-old-space-size=4096' NEXT_TELEMETRY_DISABLED=1 next build",
+    "build:fast": "NODE_OPTIONS='--max-old-space-size=4096' SKIP_TYPE_CHECK=true NEXT_TELEMETRY_DISABLED=1 next build",
+    "typecheck": "tsc --noEmit",
     "start": "next start -p 443",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop all",

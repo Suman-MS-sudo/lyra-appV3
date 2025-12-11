@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // Temporarily disable React Compiler to speed up build
   // reactCompiler: true,
   
+  // Skip TypeScript type checking during build (run separately with `npm run lint`)
+  typescript: {
+    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
+  },
+  
   // Add logging to see build progress
   logging: {
     fetches: {

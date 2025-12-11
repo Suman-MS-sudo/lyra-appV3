@@ -254,6 +254,7 @@ String getCurrentFirmwareVersion() {
 void resetAllMotorStocks() {
     saveMotorStockToEEPROM(30, defaultProductId);
     Serial.println("📦 All motor stocks reset to 30!");
+    sendMachineStatusPing();  // Sync new stock to database
 }
 
 // ==================== OFFLINE TRANSACTION QUEUE ====================
@@ -1650,6 +1651,7 @@ void loop() {
         Serial2.print("8");
         delay(1000);
         sendStockAwareStatus();
+        sendMachineStatusPing();  // Sync new stock to database
     }
     
     // WiFi reset button
