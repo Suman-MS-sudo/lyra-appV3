@@ -107,7 +107,7 @@ export default async function CustomerDashboard() {
   
   onlineTransactions?.forEach(tx => {
     if (tx.payment_status === 'paid') {
-      const productName = tx.products?.name || 'Unknown';
+      const productName = (tx.products as any)?.name || 'Unknown';
       const current = productStats.get(productName) || { count: 0, revenue: 0 };
       productStats.set(productName, {
         count: current.count + (tx.quantity || 1),
@@ -117,7 +117,7 @@ export default async function CustomerDashboard() {
   });
 
   coinPayments?.forEach(tx => {
-    const productName = tx.products?.name || 'Unknown';
+    const productName = (tx.products as any)?.name || 'Unknown';
     const current = productStats.get(productName) || { count: 0, revenue: 0 };
     productStats.set(productName, {
       count: current.count + (tx.quantity || 1),
