@@ -807,23 +807,29 @@ function HomeContent() {
           <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border mt-4 sm:mt-6">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Health</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {/* WiFi Signal */}
+              {/* WiFi Signal / Network Status */}
               <div className="bg-gray-50 rounded-lg p-3 border">
                 <div className="flex items-center gap-2 mb-1">
                   <Wifi className={`w-4 h-4 ${
-                    machine?.wifi_rssi == null ? 'text-gray-400' :
+                    machine?.wifi_rssi == null ? 'text-blue-600' :
                     machine.wifi_rssi > -50 ? 'text-green-600' :
                     machine.wifi_rssi > -70 ? 'text-yellow-600' : 'text-red-600'
                   }`} />
-                  <span className="text-xs text-gray-600">WiFi Signal</span>
+                  <span className="text-xs text-gray-600">
+                    {machine?.wifi_rssi == null ? 'Network' : 'WiFi Signal'}
+                  </span>
                 </div>
                 <div className="text-sm font-semibold text-gray-900">
-                  {machine?.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'N/A'}
+                  {machine?.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'Ethernet'}
                 </div>
-                {machine?.wifi_rssi != null && (
+                {machine?.wifi_rssi != null ? (
                   <div className="text-xs text-gray-500 mt-0.5">
                     {machine.wifi_rssi > -50 ? 'Excellent' :
                      machine.wifi_rssi > -70 ? 'Good' : 'Weak'}
+                  </div>
+                ) : (
+                  <div className="text-xs text-blue-600 mt-0.5">
+                    Connected
                   </div>
                 )}
               </div>
