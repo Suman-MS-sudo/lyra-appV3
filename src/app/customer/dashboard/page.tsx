@@ -144,7 +144,7 @@ export default async function CustomerDashboard() {
   });
 
   coinPayments?.forEach(tx => {
-    const machineName = tx.vending_machines?.name || 'Unknown';
+    const machineName = (tx.vending_machines as any)?.name || 'Unknown';
     const current = machineStats.get(machineName) || { count: 0, revenue: 0 };
     machineStats.set(machineName, {
       count: current.count + 1,
