@@ -1688,8 +1688,8 @@ void loop() {
         lastPaymentCheck = millis();
     }
     
-    // Status ping every 5 minutes
-    if (millis() - lastPingTime > 300000) {
+    // Status ping every 2 minutes
+    if (millis() - lastPingTime > 120000) {
         if (isNetworkConnected()) {
             Serial.println("\n⏰ [Ping Timer] Sending machine status ping...");
             sendMachineStatusPing();
