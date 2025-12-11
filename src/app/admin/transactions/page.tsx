@@ -18,36 +18,56 @@ export default async function TransactionsPage() {
 
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('role')
+    .select('role, account_type')
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'admin') redirect('/customer/dashboard');
+  // Allow both admins and super_customers
+  const isAdmin = profile?.account_type === 'admin';
+  const isSuperCustomer = profile?.role === 'customer' && profile?.account_type === 'super_customer';
+  
+  if (!isAdmin && !isSuperCustomer) {
+    redirect('/customer/dashboard');
+  }
 
-  // Fetch both online transactions and coin payments
+  // For super_customers, get their machine IDs first
+  let machineIds: string[] = [];
+  if (isSuperCustomer) {
+    const { data: userMachines } = await serviceSupabase
+      .from('vending_machines')
+      .select('id')
+      .eq('customer_id', user.id);
+    machineIds = userMachines?.map(m => m.id) || [];
+  }
+
+  // Fetch both online transactions and coin payments - filter for super_customers
+  const transactionsQuery = serviceSupabase
+    .from('transactions')
+    .select(`
+      *,
+      products (name),
+      profiles (email),
+      vending_machines!transactions_vending_machine_id_fkey (name, location)
+    `);
+  
+  const coinPaymentsQuery = serviceSupabase
+    .from('coin_payments')
+    .select(`
+      *,
+      products (name),
+      vending_machines (name, location)
+    `);
+
   const [
     { data: transactions },
     { data: coinPayments }
   ] = await Promise.all([
-    serviceSupabase
-      .from('transactions')
-      .select(`
-        *,
-        products (name),
-        profiles (email),
-        vending_machines!transactions_vending_machine_id_fkey (name, location)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50),
-    serviceSupabase
-      .from('coin_payments')
-      .select(`
-        *,
-        products (name),
-        vending_machines (name, location)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50)
+    isSuperCustomer && machineIds.length > 0
+      ? transactionsQuery.in('vending_machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
+      : transactionsQuery.order('created_at', { ascending: false }).limit(50),
+    isSuperCustomer && machineIds.length > 0
+      ? coinPaymentsQuery.in('vending_machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
+      : coinPaymentsQuery.order('created_at', { ascending: false }).limit(50)
   ]);
 
   // Calculate analytics from both sources

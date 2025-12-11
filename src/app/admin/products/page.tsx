@@ -18,17 +18,34 @@ export default async function ProductsPage() {
 
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('account_type')
+    .select('account_type, role')
     .eq('id', user.id)
     .single();
 
-  if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
+  // Allow both admins and super_customers
+  const isAdmin = profile?.account_type === 'admin';
+  const isSuperCustomer = profile?.role === 'customer' && profile?.account_type === 'super_customer';
+  
+  if (!isAdmin && !isSuperCustomer) {
+    redirect('/customer/dashboard');
+  }
 
-  // Fetch products
-  const { data: products } = await serviceSupabase
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // For super_customers, get their machine IDs first
+  let machineIds: string[] = [];
+  if (isSuperCustomer) {
+    const { data: userMachines } = await serviceSupabase
+      .from('vending_machines')
+      .select('id')
+      .eq('customer_id', user.id);
+    machineIds = userMachines?.map(m => m.id) || [];
+  }
+
+  // Fetch products - filter by vending_machine_id for super_customers
+  const productsQuery = serviceSupabase.from('products').select('*');
+  
+  const { data: products } = isSuperCustomer && machineIds.length > 0
+    ? await productsQuery.in('vending_machine_id', machineIds).order('created_at', { ascending: false })
+    : await productsQuery.order('created_at', { ascending: false });
 
   return (
     <div className="min-h-screen bg-gray-50">

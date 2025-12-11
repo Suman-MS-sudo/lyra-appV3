@@ -46,7 +46,15 @@
 #define BLUE_LED_PIN 2
 #define RESET_PIN 21
 #define MOTOR1_ADDR 64
-#define ETHERNET_CS 22
+
+// Ethernet Module Pins - HARDWIRED ON PCB
+// Module: HANRUN HR911105A (ENC28J60 based)
+// Scanner found hardware (status: Unknown 10) - module is detected but not fully recognized
+// PCB configuration - CANNOT BE CHANGED
+#define ETHERNET_CS 22     // Chip Select - HARDWIRED ON PCB
+#define SPI_SCK 18         // Clock
+#define SPI_MISO 19        // Master In Slave Out (SO on HR911105A)
+#define SPI_MOSI 23        // Master Out Slave In (SI on HR911105A)
 
 // ==================== OFFLINE TRANSACTION QUEUE ====================
 // EEPROM Layout: [0-31: SSID] [32-95: Password] [64: Motor Stock]
@@ -76,7 +84,7 @@ unsigned long wifiReconnectAttempts = 0;
 
 // Server configuration
 String SERVER_BASE = "https://lyra-app.co.in";  // Production HTTPS server
-String ETHERNET_SERVER_BASE = "http://lyra-app.co.in";  // Production HTTP for Ethernet
+String ETHERNET_SERVER_BASE = "http://lyra-app.co.in:8080";  // Production HTTP proxy for Ethernet
 
 // Ethernet globals
 #ifdef USE_ETHERNET
@@ -129,6 +137,7 @@ int makeEthernetHTTPRequest(const String& url, const String& method = "GET", con
 bool initializeEthernet();
 void checkEthernetLinkStatus();
 void printEthernetDiagnostics();
+void scanEthernetPins();
 void resetEthernetModule();
 bool downloadFirmwareOverEthernet(const String& firmwareUrl, int expectedSize = 0);
 #endif
@@ -243,7 +252,7 @@ String getCurrentFirmwareVersion() {
 }
 
 void resetAllMotorStocks() {
-    saveMotorStockToEEPROM(30);
+    saveMotorStockToEEPROM(30, defaultProductId);
     Serial.println("📦 All motor stocks reset to 30!");
 }
 
@@ -533,7 +542,9 @@ bool isHTTPS(const String& url) {
 bool isNetworkConnected() {
 #ifdef USE_ETHERNET
     if (useEthernet) {
-        return ethernetConnected && (Ethernet.linkStatus() == LinkON);
+        // UIPEthernet/ENC28J60 doesn't support linkStatus() - just check if we have an IP
+        IPAddress ip = Ethernet.localIP();
+        return ethernetConnected && (ip != IPAddress(0,0,0,0));
     }
 #endif
     return WiFi.status() == WL_CONNECTED;
@@ -597,8 +608,48 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
         host = host.substring(0, colonIdx);
     }
 
-    if (!ethClient.connect(host.c_str(), port)) {
-        Serial.println("❌ Ethernet connection failed");
+    // Verify Ethernet is still connected
+    IPAddress ip = Ethernet.localIP();
+    if (ip == IPAddress(0,0,0,0) || ip[0] == 0) {
+        Serial.println("❌ Ethernet has no valid IP!");
+        ethernetConnected = false;
+        useEthernet = false;
+        sendStockAwareErrorStatus();  // Update display to show network error
+        return -1;
+    }
+    
+    // Skip link status check - UIPEthernet/ENC28J60 doesn't support it
+    // The IP check above is sufficient to verify connectivity
+
+    // Try to connect with retries
+    Serial.printf("🔌 Connecting to %s:%d... ", host.c_str(), port);
+    bool connected = false;
+    
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (ethClient.connect(host.c_str(), port)) {
+            connected = true;
+            Serial.println("✅");
+            break;
+        }
+        
+        if (attempt < 2) {
+            ethClient.stop();
+            delay(500);
+        }
+    }
+    
+    if (!connected) {
+        Serial.println("❌ Failed!");
+        Serial.printf("   Host: %s, Port: %d\n", host.c_str(), port);
+        Serial.printf("   Local IP: %s\n", Ethernet.localIP().toString().c_str());
+        Serial.printf("   Gateway: %s\n", Ethernet.gatewayIP().toString().c_str());
+        
+        // Mark as disconnected and switch to WiFi
+        ethernetConnected = false;
+        useEthernet = false;
+        Serial.println("   💡 Switching to WiFi...");
+        sendStockAwareErrorStatus();  // Update display to show network error
+        
         return -1;
     }
 
@@ -666,7 +717,15 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
 int makeHTTPRequest(const String& url, const String& method = "GET", const String& payload = "", String* responseBody = nullptr) {
 #ifdef USE_ETHERNET
     if (useEthernet && ethernetConnected) {
-        return makeEthernetHTTPRequest(url, method, payload, responseBody);
+        int result = makeEthernetHTTPRequest(url, method, payload, responseBody);
+        
+        // If Ethernet request failed and we're now switched to WiFi, retry with WiFi
+        if (result < 0 && !useEthernet) {
+            Serial.println("🔄 Retrying with WiFi...");
+            // Fall through to WiFi request below
+        } else {
+            return result;
+        }
     }
 #endif
     
@@ -698,6 +757,24 @@ void getMACAddress() {
     mac.toUpperCase();
     deviceMacAddress = mac;
     Serial.println("📱 MAC: " + deviceMacAddress);
+    
+#ifdef USE_ETHERNET
+    // Set Ethernet MAC based on WiFi MAC (slightly modified to avoid conflicts)
+    uint8_t wifiMAC[6];
+    esp_wifi_get_mac(WIFI_IF_STA, wifiMAC);
+    
+    // Use WiFi MAC but increment last byte by 1 for Ethernet
+    ethernetMAC[0] = wifiMAC[0];
+    ethernetMAC[1] = wifiMAC[1];
+    ethernetMAC[2] = wifiMAC[2];
+    ethernetMAC[3] = wifiMAC[3];
+    ethernetMAC[4] = wifiMAC[4];
+    ethernetMAC[5] = wifiMAC[5] + 1;
+    
+    Serial.printf("📡 Ethernet MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                 ethernetMAC[0], ethernetMAC[1], ethernetMAC[2],
+                 ethernetMAC[3], ethernetMAC[4], ethernetMAC[5]);
+#endif
 }
 
 String fetchMachineInfoFromBackend(const String& mac) {
@@ -1312,6 +1389,7 @@ void handleAPIConnect() {
 
 void startProvisioning() {
     provisioningMode = true;
+    sendStockAwareErrorStatus();  // Show "No Internet" on display
     WiFi.mode(WIFI_AP);
     WiFi.softAP("ESP32_WIFI", "password123");
     Serial.println("📡 Provisioning: http://192.168.4.1");
@@ -1392,9 +1470,11 @@ void setup() {
         feedWatchdog();
         sendMachineStatusPing();
         lastPingTime = millis();
+        sendStockAwareStatus();  // Show QR code on display
         return;
     }
     Serial.println("⚠️ Ethernet not available, falling back to WiFi");
+    sendStockAwareErrorStatus();  // Show "No Internet" on display
     feedWatchdog();  // Feed after Ethernet attempt
 #endif
     
@@ -1433,9 +1513,13 @@ void setup() {
             lastPingTime = millis();
             sendStockAwareStatus();
         } else {
+            Serial.println("❌ WiFi connection failed");
+            sendStockAwareErrorStatus();  // Show "No Internet" on display
             startProvisioning();
         }
     } else {
+        Serial.println("❌ No WiFi credentials saved");
+        sendStockAwareErrorStatus();  // Show "No Internet" on display
         startProvisioning();
     }
 }
@@ -1526,6 +1610,8 @@ void loop() {
 #ifdef USE_ETHERNET
         } else if (command == "diag") {
             printEthernetDiagnostics();
+        } else if (command == "scan-eth") {
+            scanEthernetPins();
         } else if (command == "reset-eth") {
             resetEthernetModule();
             if (initializeEthernet()) {
@@ -1548,6 +1634,7 @@ void loop() {
             Serial.println("sync       - Sync offline transactions");
 #ifdef USE_ETHERNET
             Serial.println("diag       - Ethernet diagnostics");
+            Serial.println("scan-eth   - Scan for Ethernet CS pin");
             Serial.println("reset-eth  - Reset Ethernet module");
 #endif
             Serial.println("help       - Show this help");
@@ -1559,7 +1646,7 @@ void loop() {
     static unsigned long lastResetDebounce = 0;
     if (digitalRead(RESET_PIN) == LOW && millis() - lastResetDebounce > 300) {
         lastResetDebounce = millis();
-        saveMotorStockToEEPROM(30);
+        saveMotorStockToEEPROM(30, defaultProductId);
         Serial2.print("8");
         delay(1000);
         sendStockAwareStatus();
@@ -1636,56 +1723,216 @@ void loop() {
 // ==================== ETHERNET FUNCTIONS ====================
 
 bool initializeEthernet() {
+    unsigned long startTime = millis();
     Serial.println("🔌 Initializing Ethernet...");
     
-    pinMode(ETHERNET_CS, OUTPUT);
-    digitalWrite(ETHERNET_CS, HIGH);
+    // Print pin configuration
+    Serial.printf("📌 Ethernet Pins - CS:%d, MOSI:%d, MISO:%d, SCK:%d\n", 
+                 ETHERNET_CS, SPI_MOSI, SPI_MISO, SPI_SCK);
     
-    SPI.begin();
+    // CRITICAL: Reset module completely first
+    pinMode(ETHERNET_CS, OUTPUT);
+    digitalWrite(ETHERNET_CS, LOW);
+    delay(10);
+    digitalWrite(ETHERNET_CS, HIGH);
+    delay(500);  // Give module time to reset completely
+    
+    // End any existing SPI session to clear buffers
+    SPI.end();
+    delay(100);
+    
+    // Initialize SPI with explicit pins and CLEAN state
+    Serial.println("🔧 Initializing SPI bus...");
+    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
-    SPI.setFrequency(8000000);
+    SPI.setFrequency(4000000);  // Reduce to 4MHz for more reliable communication
+    delay(200);
     
+    // Initialize Ethernet controller with clean buffers
+    Serial.println("🔧 Initializing Ethernet controller...");
     Ethernet.init(ETHERNET_CS);
+    delay(200);
     
-    Ethernet.begin(ethernetMAC);
-    delay(2000);
+    // Hardware detection (informational only)
+    Serial.print("🔍 Detecting Ethernet hardware... ");
+    uint8_t hwStatus = Ethernet.hardwareStatus();
     
-    if (Ethernet.localIP() != IPAddress(0,0,0,0)) {
-        Serial.println("✅ Ethernet DHCP: " + Ethernet.localIP().toString());
-        ethernetConnected = true;
-        useEthernet = true;
-        digitalWrite(BLUE_LED_PIN, HIGH);
-        return true;
+    if (hwStatus == EthernetNoHardware) {
+        Serial.println("❌ No hardware detected");
+        Serial.println("   Check wiring and power (3.3V)");
+        return false;
+    } else {
+        switch (hwStatus) {
+            case EthernetW5100:
+                Serial.println("✅ ENC28J60 Detected");
+                break;
+            case EthernetW5200:
+                Serial.println("✅ W5200 Detected");
+                break;
+            case EthernetW5500:
+                Serial.println("✅ W5500 Detected");
+                break;
+            default:
+                Serial.printf("⚠️ Unknown chip (status: %d) - Continuing anyway\n", hwStatus);
+                break;
+        }
     }
     
-    Serial.println("❌ Ethernet failed");
+    // CRITICAL: Clear any stale data in buffers before DHCP
+    // Reset the ENC28J60 chip completely
+    Serial.println("🧹 Clearing buffers and resetting chip...");
+    digitalWrite(ETHERNET_CS, LOW);
+    delay(50);
+    digitalWrite(ETHERNET_CS, HIGH);
+    delay(200);
+    
+    // Reinitialize after reset
+    Ethernet.init(ETHERNET_CS);
+    delay(200);
+    
+    // Check for physical link before attempting DHCP
+    Serial.println("🔍 Checking for Ethernet cable...");
+    EthernetLinkStatus linkStatus = Ethernet.linkStatus();
+    
+    if (linkStatus == LinkOFF) {
+        Serial.println("❌ No Ethernet cable detected - skipping DHCP");
+        Serial.println("📶 Will use WiFi fallback");
+        return false;
+    }
+    
+    Serial.println("✅ Ethernet cable connected");
+    
+    // Start DHCP with LONGER timeouts and CLEAN state
+    Serial.println("🌐 Requesting DHCP with extended timeout...");
+    
+    // Try DHCP with longer timeouts (reduced to 2 attempts to prevent watchdog reset)
+    for (int attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+            Serial.printf("   Retry attempt %d/2...\n", attempt + 1);
+            
+            // Full reset between attempts
+            SPI.end();
+            delay(100);
+            SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
+            SPI.setBitOrder(MSBFIRST);
+            SPI.setDataMode(SPI_MODE0);
+            SPI.setFrequency(4000000);
+            delay(100);
+            Ethernet.init(ETHERNET_CS);
+            delay(200);
+        }
+        
+        // Start DHCP - UIPEthernet doesn't support timeout params, just MAC
+        Ethernet.begin(ethernetMAC);
+        
+        // Poll for DHCP response with timeout (max 5 seconds)
+        unsigned long dhcpStart = millis();
+        IPAddress checkIP;
+        bool gotIP = false;
+        
+        while (millis() - dhcpStart < 5000) {
+            yield();  // Feed the watchdog
+            checkIP = Ethernet.localIP();
+            if (checkIP != IPAddress(0,0,0,0) && checkIP[0] != 0) {
+                gotIP = true;
+                break;
+            }
+            delay(100);  // Check every 100ms (also feeds watchdog)
+        }
+        
+        if (gotIP) {
+            // DHCP succeeded, now validate the IP
+            delay(500);  // Let it settle
+            IPAddress ip = Ethernet.localIP();
+            IPAddress gateway = Ethernet.gatewayIP();
+            IPAddress dns = Ethernet.dnsServerIP();
+            
+            Serial.println("✅ DHCP Response Received!");
+            Serial.printf("   IP: %s\n", ip.toString().c_str());
+            Serial.printf("   Gateway: %s\n", gateway.toString().c_str());
+            Serial.printf("   DNS: %s\n", dns.toString().c_str());
+            
+            // Validate IP is in private network range
+            bool validIP = false;
+            if (ip[0] == 10) {
+                validIP = true;  // 10.0.0.0/8
+            } else if (ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31) {
+                validIP = true;  // 172.16.0.0/12
+            } else if (ip[0] == 192 && ip[1] == 168) {
+                validIP = true;  // 192.168.0.0/16
+            }
+            
+            if (validIP && ip != IPAddress(0,0,0,0)) {
+                Serial.println("✅ IP validated - Ethernet ready!");
+                Serial.println("🔧 Subnet: " + Ethernet.subnetMask().toString());
+                
+                ethernetConnected = true;
+                useEthernet = true;
+                digitalWrite(BLUE_LED_PIN, HIGH);
+                
+                Serial.printf("   ⏱️ Total time: %lu ms\n", millis() - startTime);
+                return true;
+            } else {
+                Serial.printf("❌ Invalid IP received: %s\n", ip.toString().c_str());
+                Serial.println("   This is corrupted data from DHCP bug");
+            }
+        }
+        
+        delay(1000);  // Wait between attempts
+    }
+    
+    Serial.println("❌ DHCP failed after 3 attempts");
+    Serial.printf("   ⏱️ Total time: %lu ms\n", millis() - startTime);
+    Serial.println("   💡 Falling back to WiFi...");
+    
+    return false;
+    
+    // Check link status (reuse variable from earlier)
+    Serial.print("🔗 Link Status: ");
+    switch (Ethernet.linkStatus()) {
+        case Unknown:
+            Serial.println("Unknown (module may not support link detection)");
+            break;
+        case LinkON:
+            Serial.println("✅ Cable Connected (but DHCP failed)");
+            Serial.println("   Try: Check router/switch DHCP settings");
+            break;
+        case LinkOFF:
+            Serial.println("❌ No Cable Detected");
+            Serial.println("   Fix: Connect Ethernet cable");
+            break;
+        default:
+            Serial.printf("Other (status: %d)\n", Ethernet.linkStatus());
+            break;
+    }
+    
     return false;
 }
 
 void checkEthernetLinkStatus() {
-    if (!useEthernet) return;
+    if (!useEthernet) {
+        // Skip hotplug detection - UIPEthernet doesn't support linkStatus()
+        return;
+    }
     
     static unsigned long lastCheck = 0;
-    static uint8_t lastStatus = Unknown;
     
-    if (millis() - lastCheck > 30000) {
-        uint8_t status = Ethernet.linkStatus();
-        if (status != lastStatus) {
-            if (status == LinkOFF) {
-                Serial.println("❌ Ethernet disconnected");
-                ethernetConnected = false;
-                sendStockAwareErrorStatus();
-            } else if (status == LinkON) {
-                Serial.println("✅ Ethernet reconnected");
-                Ethernet.begin(ethernetMAC);
-                if (Ethernet.localIP() != IPAddress(0,0,0,0)) {
-                    ethernetConnected = true;
-                    sendStockAwareStatus();
-                }
-            }
+    if (millis() - lastCheck > 5000) {  // Check every 5 seconds
+        // Maintain DHCP lease (harmless for static IP)
+        Ethernet.maintain();
+        
+        IPAddress ip = Ethernet.localIP();
+        
+        // Check if we lost IP address (only reliable check for ENC28J60)
+        if (ip == IPAddress(0,0,0,0) || ip[0] == 0) {
+            Serial.println("⚠️ Ethernet lost IP address!");
+            Serial.println("   🔄 Switching to WiFi...");
+            ethernetConnected = false;
+            useEthernet = false;
+            sendStockAwareErrorStatus();
         }
-        lastStatus = status;
+        
         lastCheck = millis();
     }
 }
@@ -1721,6 +1968,57 @@ void printEthernetDiagnostics() {
     Serial.printf("Connected: %s\n", ethernetConnected ? "Yes" : "No");
     Serial.printf("Use Ethernet: %s\n", useEthernet ? "Yes" : "No");
     Serial.println("============================\n");
+}
+
+void scanEthernetPins() {
+    Serial.println("\n🔍 === ETHERNET PIN SCANNER ===");
+    Serial.println("Testing common CS pin configurations...\n");
+    
+    int testPins[] = {5, 15, 22, 33, 4, 16, 17};
+    int numPins = sizeof(testPins) / sizeof(testPins[0]);
+    
+    for (int i = 0; i < numPins; i++) {
+        int csPin = testPins[i];
+        Serial.printf("📌 Testing CS pin %d... ", csPin);
+        
+        pinMode(csPin, OUTPUT);
+        digitalWrite(csPin, HIGH);
+        delay(50);
+        
+        SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, csPin);
+        SPI.setBitOrder(MSBFIRST);
+        SPI.setDataMode(SPI_MODE0);
+        SPI.setFrequency(8000000);
+        delay(50);
+        
+        Ethernet.init(csPin);
+        delay(50);
+        
+        uint8_t hwStatus = Ethernet.hardwareStatus();
+        
+        if (hwStatus != EthernetNoHardware) {
+            Serial.println("✅ FOUND!");
+            Serial.printf("   Hardware: ");
+            switch (hwStatus) {
+                case EthernetW5100: Serial.println("ENC28J60/W5100"); break;
+                case EthernetW5200: Serial.println("W5200"); break;
+                case EthernetW5500: Serial.println("W5500"); break;
+                default: Serial.printf("Unknown (%d)\n", hwStatus); break;
+            }
+            Serial.printf("   ⚠️ UPDATE FIRMWARE: #define ETHERNET_CS %d\n", csPin);
+        } else {
+            Serial.println("❌ No hardware");
+        }
+        
+        SPI.end();
+        delay(100);
+    }
+    
+    Serial.println("\n=================================");
+    Serial.println("Current configuration:");
+    Serial.printf("  CS=%d, SCK=%d, MISO=%d, MOSI=%d\n", 
+                 ETHERNET_CS, SPI_SCK, SPI_MISO, SPI_MOSI);
+    Serial.println("=================================\n");
 }
 
 void resetEthernetModule() {

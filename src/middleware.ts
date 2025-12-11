@@ -27,15 +27,16 @@ export async function middleware(request: NextRequest) {
 
     const { data: profile } = await serviceSupabase
       .from('profiles')
-      .select('role')
+      .select('role, account_type')
       .eq('id', user.id)
       .single();
 
     const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
     const isCustomerRoute = request.nextUrl.pathname.startsWith('/customer');
+    const isSuperCustomer = profile?.account_type === 'super_customer';
 
-    // Redirect customers trying to access admin routes
-    if (isAdminRoute && profile?.role === 'customer') {
+    // Redirect regular customers (not super_customers) trying to access admin routes
+    if (isAdminRoute && profile?.role === 'customer' && !isSuperCustomer) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/customer/dashboard';
       return NextResponse.redirect(redirectUrl);

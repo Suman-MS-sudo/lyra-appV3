@@ -19,17 +19,24 @@ export default async function MachinesPage() {
 
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('account_type')
+    .select('account_type, role')
     .eq('id', user.id)
     .single();
 
-  if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
+  // Allow both admins and super_customers (customers with account_type: super_customer)
+  const isAdmin = profile?.account_type === 'admin';
+  const isSuperCustomer = profile?.role === 'customer' && profile?.account_type === 'super_customer';
+  
+  if (!isAdmin && !isSuperCustomer) {
+    redirect('/customer/dashboard');
+  }
 
-  // Fetch vending machines
-  const { data: machines } = await serviceSupabase
-    .from('vending_machines')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // Fetch vending machines - filter by customer_id for super_customers
+  const machinesQuery = serviceSupabase.from('vending_machines').select('*');
+  
+  const { data: machines } = isSuperCustomer
+    ? await machinesQuery.eq('customer_id', user.id).order('created_at', { ascending: false })
+    : await machinesQuery.order('created_at', { ascending: false });
 
   return (
     <div className="min-h-screen bg-gray-50">

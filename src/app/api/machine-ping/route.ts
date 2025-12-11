@@ -26,13 +26,15 @@ export async function POST(request: NextRequest) {
       free_heap,
       uptime,
       network_speed_kbps,
-      temperature_celsius
+      temperature_celsius,
+      stock_count
     } = body;
 
     console.log('📡 Machine ping received:', {
       machine_id,
       firmware_version,
-      wifi_rssi
+      wifi_rssi,
+      stock_count
     });
 
     // Update machine record with latest ping data
@@ -47,6 +49,12 @@ export async function POST(request: NextRequest) {
         network_speed: network_speed_kbps || null,
         temperature: temperature_celsius || null
       };
+
+      // Update stock count if provided (sync from ESP32's EEPROM)
+      if (stock_count !== undefined && stock_count !== null) {
+        updateData.stock = stock_count;
+        console.log(`📦 Updating stock from machine: ${stock_count}`);
+      }
 
       const { error: updateError } = await supabase
         .from('vending_machines')
