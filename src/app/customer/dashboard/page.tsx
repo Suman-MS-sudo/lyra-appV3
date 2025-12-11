@@ -189,8 +189,8 @@ export default async function CustomerDashboard() {
       id: tx.id,
       type: 'online' as const,
       amount: parseFloat(tx.amount || 0),
-      product: tx.products?.name || 'Unknown',
-      machine: tx.vending_machines?.name || 'Unknown',
+      product: (tx.products as any)?.name || 'Unknown',
+      machine: (tx.vending_machines as any)?.name || 'Unknown',
       created_at: tx.created_at,
       status: tx.payment_status
     })) || []),
@@ -198,8 +198,8 @@ export default async function CustomerDashboard() {
       id: tx.id,
       type: 'coin' as const,
       amount: tx.amount_in_paisa / 100,
-      product: tx.products?.name || 'Unknown',
-      machine: tx.vending_machines?.name || 'Unknown',
+      product: (tx.products as any)?.name || 'Unknown',
+      machine: (tx.vending_machines as any)?.name || 'Unknown',
       created_at: tx.created_at,
       status: 'paid'
     })) || [])
