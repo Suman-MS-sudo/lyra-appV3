@@ -53,17 +53,17 @@ export default async function CustomerDashboard() {
       .from('transactions')
       .select(`
         id,
-        amount,
+        total_amount,
+        items,
         quantity,
         status,
         payment_status,
         payment_method,
         created_at,
-        vending_machine_id,
-        products (name, sku),
-        vending_machines (name, location)
+        machine_id,
+        vending_machines!transactions_machine_id_fkey (name, location)
       `)
-      .in('vending_machine_id', machineIds)
+      .in('machine_id', machineIds)
       .order('created_at', { ascending: false }),
     serviceSupabase
       .from('coin_payments')
@@ -94,7 +94,7 @@ export default async function CustomerDashboard() {
   // Revenue calculations
   const onlineRevenue = onlineTransactions?.reduce((sum, tx) => {
     if (tx.payment_status === 'paid') {
-      return sum + parseFloat(tx.amount || 0);
+      return sum + parseFloat(tx.total_amount || 0);
     }
     return sum;
   }, 0) || 0;
@@ -107,11 +107,15 @@ export default async function CustomerDashboard() {
   
   onlineTransactions?.forEach(tx => {
     if (tx.payment_status === 'paid') {
-      const productName = (tx.products as any)?.name || 'Unknown';
-      const current = productStats.get(productName) || { count: 0, revenue: 0 };
-      productStats.set(productName, {
-        count: current.count + (tx.quantity || 1),
-        revenue: current.revenue + parseFloat(tx.amount || 0)
+      const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+      const revenue = parseFloat(tx.total_amount || 0);
+      items.forEach((item: any) => {
+        const productName = item.name || 'Unknown';
+        const current = productStats.get(productName) || { count: 0, revenue: 0 };
+        productStats.set(productName, {
+          count: current.count + (item.quantity || 1),
+          revenue: current.revenue + revenue
+        });
       });
     }
   });
@@ -138,7 +142,7 @@ export default async function CustomerDashboard() {
       const current = machineStats.get(machineName) || { count: 0, revenue: 0 };
       machineStats.set(machineName, {
         count: current.count + 1,
-        revenue: current.revenue + parseFloat(tx.amount || 0)
+        revenue: current.revenue + parseFloat(tx.total_amount || 0)
       });
     }
   });
@@ -171,7 +175,7 @@ export default async function CustomerDashboard() {
       tx.created_at.startsWith(date)
     ) || [];
     
-    const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+    const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
     const coinRev = dayCoin.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
     
     return {
@@ -185,15 +189,19 @@ export default async function CustomerDashboard() {
 
   // Recent transactions (combined)
   const allTransactions = [
-    ...(onlineTransactions?.slice(0, 5).map(tx => ({
-      id: tx.id,
-      type: 'online' as const,
-      amount: parseFloat(tx.amount || 0),
-      product: (tx.products as any)?.name || 'Unknown',
-      machine: (tx.vending_machines as any)?.name || 'Unknown',
-      created_at: tx.created_at,
-      status: tx.payment_status
-    })) || []),
+    ...(onlineTransactions?.slice(0, 5).map(tx => {
+      const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+      const productNames = items.map((item: any) => item.name).join(', ') || 'Unknown';
+      return {
+        id: tx.id,
+        type: 'online' as const,
+        amount: parseFloat(tx.total_amount || 0),
+        product: productNames,
+        machine: (tx.vending_machines as any)?.name || 'Unknown',
+        created_at: tx.created_at,
+        status: tx.payment_status
+      };
+    }) || []),
     ...(coinPayments?.slice(0, 5).map(tx => ({
       id: tx.id,
       type: 'coin' as const,

@@ -74,7 +74,7 @@ export default async function AdminDashboard() {
     machinesSelect,
     serviceSupabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
     isSuperCustomer && machineIds.length > 0
-      ? serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }).in('vending_machine_id', machineIds)
+      ? serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }).in('machine_id', machineIds)
       : serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }),
     isSuperCustomer && machineIds.length > 0
       ? serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }).in('machine_id', machineIds)
@@ -83,11 +83,11 @@ export default async function AdminDashboard() {
       ? serviceSupabase.from('vending_machines').select('name, location').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(3)
       : serviceSupabase.from('vending_machines').select('name, location').order('created_at', { ascending: false }).limit(3),
     isSuperCustomer && machineIds.length > 0
-      ? serviceSupabase.from('transactions').select('amount, created_at, products(name)').in('vending_machine_id', machineIds).order('created_at', { ascending: false }).limit(3)
-      : serviceSupabase.from('transactions').select('amount, created_at, products(name)').order('created_at', { ascending: false }).limit(3),
+      ? serviceSupabase.from('transactions').select('total_amount, created_at, items').in('machine_id', machineIds).order('created_at', { ascending: false }).limit(3)
+      : serviceSupabase.from('transactions').select('total_amount, created_at, items').order('created_at', { ascending: false }).limit(3),
     isSuperCustomer && machineIds.length > 0
-      ? serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid').in('vending_machine_id', machineIds)
-      : serviceSupabase.from('transactions').select('amount').eq('payment_status', 'paid'),
+      ? serviceSupabase.from('transactions').select('total_amount').eq('payment_status', 'paid').in('machine_id', machineIds)
+      : serviceSupabase.from('transactions').select('total_amount').eq('payment_status', 'paid'),
     isSuperCustomer && machineIds.length > 0
       ? serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed').in('machine_id', machineIds)
       : serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed'),
@@ -95,7 +95,7 @@ export default async function AdminDashboard() {
   ]);
 
   // Calculate revenue by payment method
-  const onlineRevenue = paidTx?.reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  const onlineRevenue = paidTx?.reduce((sum: number, tx: any) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
   const coinRevenue = (coinPayments?.reduce((sum: number, tx: any) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100; // Convert paisa to rupees
   
   const totalRevenue = onlineRevenue + coinRevenue;
@@ -311,14 +311,15 @@ export default async function AdminDashboard() {
             </div>
             <div className="divide-y divide-gray-100">
               {recentTransactions && recentTransactions.length > 0 ? (
-                recentTransactions.map((tx: any, i: number) => (
+                recentTransactions.map((tx: any, i: number) => {
+                  const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+                  const productNames = items.map((item: any) => item.name).join(', ') || 'Product';
+                  return (
                   <div key={i} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900">
-                          {Array.isArray(tx.products)
-                            ? tx.products.map((p: any) => p.name).join(', ')
-                            : tx.products?.name || 'Product'}
+                          {productNames}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                           <Clock className="w-3 h-3" />
@@ -327,12 +328,12 @@ export default async function AdminDashboard() {
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-bold text-gray-900">
-                          ₹{parseFloat(tx.amount || 0).toFixed(2)}
+                          ₹{parseFloat(tx.total_amount || 0).toFixed(2)}
                         </div>
                       </div>
                     </div>
                   </div>
-                ))
+                )})
               ) : (
                 <div className="px-6 py-12 text-center text-gray-400">
                   <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />

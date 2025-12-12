@@ -47,42 +47,46 @@ export default async function AnalyticsPage() {
     serviceSupabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
     serviceSupabase
       .from('transactions')
-      .select('id, amount, payment_status, created_at, vending_machines!transactions_vending_machine_id_fkey(name), products(name)')
+      .select('id, total_amount, items, payment_status, created_at, vending_machines!transactions_machine_id_fkey(name)')
       .order('created_at', { ascending: false })
       .limit(10),
     serviceSupabase
       .from('transactions')
-      .select('product_id, products(name), amount')
+      .select('items, total_amount')
       .limit(100),
     serviceSupabase
       .from('vending_machines')
-      .select('id, name, machine_id, transactions!transactions_vending_machine_id_fkey(amount)')
+      .select('id, name, machine_id, transactions!transactions_machine_id_fkey(total_amount)')
       .limit(10),
   ]);
 
   // Calculate total revenue
   const { data: allTransactions } = await serviceSupabase
     .from('transactions')
-    .select('amount, payment_status')
+    .select('total_amount, payment_status')
     .eq('payment_status', 'paid');
 
-  const totalRevenue = allTransactions?.reduce((sum, tx) => sum + (parseFloat(tx.amount?.toString() || '0')), 0) || 0;
+  const totalRevenue = allTransactions?.reduce((sum, tx) => sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0;
 
   // Calculate product sales
   const productSales = new Map<string, { name: string; count: number; revenue: number }>();
   topProducts?.forEach((tx: any) => {
-    const productName = tx.products?.name || 'Unknown';
-    const existing = productSales.get(productName);
-    if (existing) {
-      existing.count++;
-      existing.revenue += parseFloat(tx.amount?.toString() || '0');
-    } else {
-      productSales.set(productName, {
-        name: productName,
-        count: 1,
-        revenue: parseFloat(tx.amount?.toString() || '0'),
-      });
-    }
+    const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+    const revenue = parseFloat(tx.total_amount?.toString() || '0');
+    items.forEach((item: any) => {
+      const productName = item.name || 'Unknown';
+      const existing = productSales.get(productName);
+      if (existing) {
+        existing.count++;
+        existing.revenue += revenue;
+      } else {
+        productSales.set(productName, {
+          name: productName,
+          count: 1,
+          revenue: revenue,
+        });
+      }
+    });
   });
 
   const topProductsList = Array.from(productSales.values())
@@ -94,7 +98,7 @@ export default async function AnalyticsPage() {
     name: machine.name,
     machineId: machine.machine_id,
     revenue: machine.transactions?.reduce((sum: number, tx: any) => 
-      sum + (parseFloat(tx.amount?.toString() || '0')), 0) || 0,
+      sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0,
     count: machine.transactions?.length || 0,
   })).sort((a: any, b: any) => b.revenue - a.revenue) || [];
 
@@ -236,14 +240,17 @@ export default async function AnalyticsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {recentTransactions && recentTransactions.length > 0 ? (
-                  recentTransactions.map((tx: any) => (
+                  recentTransactions.map((tx: any) => {
+                    const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+                    const productNames = items.map((item: any) => item.name).join(', ') || 'N/A';
+                    return (
                     <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-6 text-sm text-gray-900">
                         {new Date(tx.created_at).toLocaleDateString()}
                       </td>
                       <td className="py-4 px-6 text-sm text-gray-900">{tx.vending_machines?.name || 'N/A'}</td>
-                      <td className="py-4 px-6 text-sm text-gray-900">{tx.products?.name || 'N/A'}</td>
-                      <td className="py-4 px-6 text-sm font-semibold text-gray-900">₹{parseFloat(tx.amount || 0).toFixed(2)}</td>
+                      <td className="py-4 px-6 text-sm text-gray-900">{productNames}</td>
+                      <td className="py-4 px-6 text-sm font-semibold text-gray-900">₹{parseFloat(tx.total_amount || 0).toFixed(2)}</td>
                       <td className="py-4 px-6">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -258,7 +265,7 @@ export default async function AnalyticsPage() {
                         </span>
                       </td>
                     </tr>
-                  ))
+                  )})
                 ) : (
                   <tr>
                     <td colSpan={5} className="text-center py-12 text-gray-500">

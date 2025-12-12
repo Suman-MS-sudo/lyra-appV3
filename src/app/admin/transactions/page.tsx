@@ -45,9 +45,8 @@ export default async function TransactionsPage() {
     .from('transactions')
     .select(`
       *,
-      products (name),
       profiles (email),
-      vending_machines!transactions_vending_machine_id_fkey (name, location)
+      vending_machines!transactions_machine_id_fkey (name, location)
     `);
   
   const coinPaymentsQuery = serviceSupabase
@@ -63,15 +62,15 @@ export default async function TransactionsPage() {
     { data: coinPayments }
   ] = await Promise.all([
     isSuperCustomer && machineIds.length > 0
-      ? transactionsQuery.in('vending_machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
+      ? transactionsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
       : transactionsQuery.order('created_at', { ascending: false }).limit(50),
     isSuperCustomer && machineIds.length > 0
-      ? coinPaymentsQuery.in('vending_machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
+      ? coinPaymentsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
       : coinPaymentsQuery.order('created_at', { ascending: false }).limit(50)
   ]);
 
   // Calculate analytics from both sources
-  const onlineRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0) || 0;
+  const onlineRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
   const totalRevenue = onlineRevenue + coinRevenue;
   
@@ -83,8 +82,11 @@ export default async function TransactionsPage() {
   // Revenue by product (combine both sources)
   const productRevenue = new Map<string, number>();
   transactions?.forEach(tx => {
-    const productName = tx.products?.name || 'Unknown';
-    productRevenue.set(productName, (productRevenue.get(productName) || 0) + parseFloat(tx.amount || 0));
+    const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+    items.forEach((item: any) => {
+      const productName = item.name || 'Unknown';
+      productRevenue.set(productName, (productRevenue.get(productName) || 0) + parseFloat(tx.total_amount || 0));
+    });
   });
   coinPayments?.forEach(tx => {
     const productName = tx.products?.name || 'Unknown';
@@ -98,7 +100,7 @@ export default async function TransactionsPage() {
   const machineRevenue = new Map<string, number>();
   transactions?.forEach(tx => {
     const machineName = tx.vending_machines?.name || 'Unknown';
-    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + parseFloat(tx.amount || 0));
+    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + parseFloat(tx.total_amount || 0));
   });
   coinPayments?.forEach(tx => {
     const machineName = tx.vending_machines?.name || 'Unknown';
@@ -123,7 +125,7 @@ export default async function TransactionsPage() {
       tx.created_at.startsWith(date)
     ) || [];
     
-    const onlineRev = dayOnlineTransactions.reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+    const onlineRev = dayOnlineTransactions.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
     const coinRev = dayCoinPayments.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
     
     return {
@@ -390,7 +392,10 @@ export default async function TransactionsPage() {
                 
                 {/* Online Transactions */}
                 {transactions && transactions.length > 0 ? (
-                  transactions.map((txn: any) => (
+                  transactions.map((txn: any) => {
+                    const items = typeof txn.items === 'string' ? JSON.parse(txn.items) : txn.items || [];
+                    const productNames = items.map((item: any) => item.name).join(', ') || 'N/A';
+                    return (
                     <tr key={`online-${txn.id}`} className="hover:bg-blue-50 transition">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex items-center">
@@ -402,12 +407,12 @@ export default async function TransactionsPage() {
                         <div className="flex items-center text-sm">
                           <User className="h-4 w-4 mr-2 text-gray-400" />
                           <div className="font-medium text-gray-900">
-                            {txn.profiles?.email || 'Unknown'}
+                            {txn.profiles?.email || 'Guest'}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900">{txn.products?.name || 'N/A'}</span>
+                        <span className="text-sm font-medium text-gray-900">{productNames}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {txn.vending_machines?.name || 'N/A'}
@@ -415,7 +420,7 @@ export default async function TransactionsPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm font-medium text-gray-900">
                           <IndianRupee className="h-4 w-4 mr-1" />
-                          {parseFloat(txn.amount).toFixed(2)}
+                          {parseFloat(txn.total_amount || 0).toFixed(2)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -429,7 +434,7 @@ export default async function TransactionsPage() {
                         </span>
                       </td>
                     </tr>
-                  ))
+                  )})
                 ) : null}
                 
                 {!transactions?.length && !coinPayments?.length && (
