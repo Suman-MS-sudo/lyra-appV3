@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ArrowLeft, Plus, Building2, MapPin } from 'lucide-react';
+import { ArrowLeft, Plus, Building2, MapPin, Pencil, Trash2 } from 'lucide-react';
 
 export default async function OrganizationsPage() {
   const supabase = await createClient();
@@ -100,8 +100,25 @@ export default async function OrganizationsPage() {
                   </div>
                 )}
 
-                <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
-                  Created {new Date(org.created_at).toLocaleDateString()}
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                  <span className="text-xs text-gray-500">
+                    Created {new Date(org.created_at).toLocaleDateString()}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/organizations/${org.id}/edit`}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit organization"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                    <button
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete organization"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

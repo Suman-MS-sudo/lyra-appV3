@@ -128,9 +128,12 @@ export default async function ProductsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button className="text-blue-600 hover:text-blue-800 font-medium">
+                      <Link
+                        href={`/admin/products/${product.id}/edit`}
+                        className="text-blue-600 hover:text-blue-800 font-medium"
+                      >
                         Edit
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))

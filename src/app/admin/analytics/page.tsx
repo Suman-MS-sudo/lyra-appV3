@@ -249,7 +249,11 @@ export default async function AnalyticsPage() {
               <DollarSign className="h-5 w-5 text-green-600" />
             </div>
             <div className="text-3xl font-bold text-green-600">₹{totalRevenue.toFixed(2)}</div>
-            <div className="text-xs text-gray-500 mt-1">From all transactions</div>
+            <div className="text-xs text-gray-500 mt-1 flex items-center gap-3">
+              <span className="text-blue-600">₹{onlineRevenue.toFixed(2)} online</span>
+              <span>•</span>
+              <span className="text-amber-600">₹{coinRevenue.toFixed(2)} coin</span>
+            </div>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-2">
@@ -257,7 +261,11 @@ export default async function AnalyticsPage() {
               <ShoppingCart className="h-5 w-5 text-blue-600" />
             </div>
             <div className="text-3xl font-bold text-gray-900">{(totalTransactions || 0) + (totalCoinPayments || 0)}</div>
-            <div className="text-xs text-gray-500 mt-1">All time</div>
+            <div className="text-xs text-gray-500 mt-1 flex items-center gap-3">
+              <span className="text-blue-600">{totalTransactions || 0} online</span>
+              <span>•</span>
+              <span className="text-amber-600">{totalCoinPayments || 0} coin</span>
+            </div>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <div className="flex items-center justify-between mb-2">
