@@ -34,14 +34,17 @@ export default async function AnalyticsPage() {
   // Fetch analytics data using service role
   const [
     { count: totalTransactions },
+    { count: totalCoinPayments },
     { count: totalMachines },
     { count: totalProducts },
     { count: totalCustomers },
     { data: recentTransactions },
     { data: topProducts },
     { data: machineStats },
+    { data: coinPayments },
   ] = await Promise.all([
     serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }),
+    serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('vending_machines').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('products').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
@@ -58,18 +61,26 @@ export default async function AnalyticsPage() {
       .from('vending_machines')
       .select('id, name, machine_id, transactions!transactions_machine_id_fkey(total_amount)')
       .limit(10),
+    serviceSupabase
+      .from('coin_payments')
+      .select('amount_in_paisa, product_id, machine_id, products(name), vending_machines(name)')
+      .limit(100),
   ]);
 
-  // Calculate total revenue
+  // Calculate total revenue from both sources
   const { data: allTransactions } = await serviceSupabase
     .from('transactions')
     .select('total_amount, payment_status')
     .eq('payment_status', 'paid');
 
-  const totalRevenue = allTransactions?.reduce((sum, tx) => sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0;
+  const onlineRevenue = allTransactions?.reduce((sum, tx) => sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0;
+  const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue = onlineRevenue + coinRevenue;
 
-  // Calculate product sales
+  // Calculate product sales from both online and coin payments
   const productSales = new Map<string, { name: string; count: number; revenue: number }>();
+  
+  // Add online transactions
   topProducts?.forEach((tx: any) => {
     const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
     const revenue = parseFloat(tx.total_amount?.toString() || '0');
@@ -89,18 +100,60 @@ export default async function AnalyticsPage() {
     });
   });
 
+  // Add coin payments
+  coinPayments?.forEach((tx: any) => {
+    const productName = tx.products?.name || 'Unknown';
+    const revenue = (tx.amount_in_paisa || 0) / 100;
+    const existing = productSales.get(productName);
+    if (existing) {
+      existing.count++;
+      existing.revenue += revenue;
+    } else {
+      productSales.set(productName, {
+        name: productName,
+        count: 1,
+        revenue: revenue,
+      });
+    }
+  });
+
   const topProductsList = Array.from(productSales.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // Calculate machine revenue
-  const machineRevenue = machineStats?.map((machine: any) => ({
-    name: machine.name,
-    machineId: machine.machine_id,
-    revenue: machine.transactions?.reduce((sum: number, tx: any) => 
-      sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0,
-    count: machine.transactions?.length || 0,
-  })).sort((a: any, b: any) => b.revenue - a.revenue) || [];
+  // Calculate machine revenue from both online and coin payments
+  const machineRevenueMap = new Map<string, { name: string; revenue: number; count: number }>();
+  
+  // Add online transactions
+  machineStats?.forEach((machine: any) => {
+    const revenue = machine.transactions?.reduce((sum: number, tx: any) => 
+      sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0;
+    machineRevenueMap.set(machine.name, {
+      name: machine.name,
+      revenue: revenue,
+      count: machine.transactions?.length || 0,
+    });
+  });
+
+  // Add coin payments
+  coinPayments?.forEach((tx: any) => {
+    const machineName = tx.vending_machines?.name || 'Unknown';
+    const revenue = (tx.amount_in_paisa || 0) / 100;
+    const existing = machineRevenueMap.get(machineName);
+    if (existing) {
+      existing.revenue += revenue;
+      existing.count++;
+    } else {
+      machineRevenueMap.set(machineName, {
+        name: machineName,
+        revenue: revenue,
+        count: 1,
+      });
+    }
+  });
+
+  const machineRevenue = Array.from(machineRevenueMap.values())
+    .sort((a, b) => b.revenue - a.revenue);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -138,7 +191,7 @@ export default async function AnalyticsPage() {
               <span className="text-sm text-gray-600">Total Transactions</span>
               <ShoppingCart className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="text-3xl font-bold text-gray-900">{totalTransactions || 0}</div>
+            <div className="text-3xl font-bold text-gray-900">{(totalTransactions || 0) + (totalCoinPayments || 0)}</div>
             <div className="text-xs text-gray-500 mt-1">All time</div>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
