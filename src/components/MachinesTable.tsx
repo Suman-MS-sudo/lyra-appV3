@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Download, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Search, Filter, Download, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle, Clock, Edit2, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface Machine {
   id: string;
@@ -25,6 +26,7 @@ interface MachinesTableProps {
 }
 
 export default function MachinesTable({ machines }: MachinesTableProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [customerFilter, setCustomerFilter] = useState<string>('all');
@@ -32,6 +34,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [showFilters, setShowFilters] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Get unique customers
   const customers = useMemo(() => {
@@ -80,6 +83,34 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
     }[status] || 'bg-gray-100 text-gray-800';
     
     return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>{status}</span>;
+  };
+
+  const handleDelete = async (machineId: string, machineName: string) => {
+    if (!confirm(`Are you sure you want to delete "${machineName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingId(machineId);
+    
+    try {
+      const response = await fetch(`/api/machines/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ machineId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete machine');
+      }
+
+      alert('Machine deleted successfully');
+      router.refresh();
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete machine. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const exportToCSV = () => {
@@ -300,12 +331,23 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
                     {machine.last_sync ? new Date(machine.last_sync).toLocaleString() : 'Never'}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/machines/${machine.id}`}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      View
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/admin/machines/${machine.id}/edit`}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit machine"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(machine.id, machine.name)}
+                        disabled={deletingId === machine.id}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete machine"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
