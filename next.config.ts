@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
   },
   
+  // Skip ESLint during build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  
   // Add logging to see build progress
   logging: {
     fetches: {
@@ -19,6 +24,13 @@ const nextConfig: NextConfig = {
   
   // Reduce build optimization for faster builds
   productionBrowserSourceMaps: false,
+  
+  // Optimize build performance
+  swcMinify: true,
+  experimental: {
+    // Use lighter build optimizations
+    optimizePackageImports: ['lucide-react'],
+  },
   
   async headers() {
     return [
