@@ -45,7 +45,7 @@ export default async function TransactionsPage() {
     .from('transactions')
     .select(`
       *,
-      profiles (email),
+      profiles!transactions_customer_id_fkey (email),
       vending_machines!transactions_machine_id_fkey (name, location)
     `);
   
