@@ -18,18 +18,44 @@ const port = 443;
 
 // Path to SSL certificates
 const certsDir = join(process.cwd(), 'certs');
-const keyPath = join(certsDir, 'localhost-key.pem');
-const certPath = join(certsDir, 'localhost.pem');
 
-// Generate certificates if they don't exist
-if (!existsSync(keyPath) || !existsSync(certPath)) {
-  console.log('🔐 Generating SSL certificates...');
-  try {
-    execSync('node scripts/generate-certs.mjs', { stdio: 'inherit' });
-  } catch (error) {
-    console.error('Failed to generate certificates');
+// Try production certificates first, fallback to localhost
+let keyPath, certPath;
+
+if (process.env.NODE_ENV === 'production') {
+  // Production: Use Let's Encrypt certificates
+  keyPath = join(certsDir, 'lyra-app-key.pem');
+  certPath = join(certsDir, 'lyra-app.pem');
+  
+  if (!existsSync(keyPath) || !existsSync(certPath)) {
+    console.error('❌ Production certificates not found!');
+    console.error('Expected:');
+    console.error('  - ' + keyPath);
+    console.error('  - ' + certPath);
+    console.error('\nRun these commands on the server:');
+    console.error('  sudo certbot certonly --standalone -d lyra-app.co.in -d www.lyra-app.co.in');
+    console.error('  sudo cp /etc/letsencrypt/live/lyra-app.co.in/privkey.pem certs/lyra-app-key.pem');
+    console.error('  sudo cp /etc/letsencrypt/live/lyra-app.co.in/fullchain.pem certs/lyra-app.pem');
+    console.error('  sudo chown suman:suman certs/lyra-app*.pem');
     process.exit(1);
   }
+  console.log('🔒 Using production SSL certificates');
+} else {
+  // Development: Use self-signed certificates
+  keyPath = join(certsDir, 'localhost-key.pem');
+  certPath = join(certsDir, 'localhost.pem');
+  
+  // Generate certificates if they don't exist
+  if (!existsSync(keyPath) || !existsSync(certPath)) {
+    console.log('🔐 Generating SSL certificates...');
+    try {
+      execSync('node scripts/generate-certs.mjs', { stdio: 'inherit' });
+    } catch (error) {
+      console.error('Failed to generate certificates');
+      process.exit(1);
+    }
+  }
+  console.log('🔓 Using development SSL certificates (localhost)');
 }
 
 // Read SSL certificates
