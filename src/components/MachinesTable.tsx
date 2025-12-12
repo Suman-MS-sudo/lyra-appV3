@@ -85,6 +85,26 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
     return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>{status}</span>;
   };
 
+  // Format date consistently between server and client
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    // For older dates, use ISO format to avoid timezone issues
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
+
   const handleDelete = async (machineId: string, machineName: string) => {
     if (!confirm(`Are you sure you want to delete "${machineName}"? This action cannot be undone.`)) {
       return;
@@ -328,7 +348,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {machine.last_sync ? new Date(machine.last_sync).toLocaleString() : 'Never'}
+                    {machine.last_sync ? formatDate(machine.last_sync) : 'Never'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

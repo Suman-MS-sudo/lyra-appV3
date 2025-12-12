@@ -19,8 +19,8 @@ export default function EditMachineForm({ machine, customers }: EditMachineFormP
     mac_id: machine.mac_id || '',
     location: machine.location || '',
     status: machine.status || 'offline',
-    machine_type: machine.machine_type || 'snacks',
-    product_type: machine.product_type || 'snacks',
+    machine_type: machine.machine_type || '',
+    product_type: machine.product_type || '',
     customer_id: machine.customer_id || '',
   });
 
@@ -132,18 +132,14 @@ export default function EditMachineForm({ machine, customers }: EditMachineFormP
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Machine Type *
             </label>
-            <select
+            <input
+              type="text"
               value={formData.machine_type}
               onChange={(e) => setFormData({ ...formData, machine_type: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-            >
-              <option value="snacks" className="text-gray-900">Snacks</option>
-              <option value="beverages" className="text-gray-900">Beverages</option>
-              <option value="combo" className="text-gray-900">Combo</option>
-              <option value="fresh_food" className="text-gray-900">Fresh Food</option>
-              <option value="health" className="text-gray-900">Health Products</option>
-            </select>
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., SNVM_WF_SL30"
+            />
           </div>
 
           {/* Product Type */}
@@ -151,18 +147,14 @@ export default function EditMachineForm({ machine, customers }: EditMachineFormP
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Product Type *
             </label>
-            <select
+            <input
+              type="text"
               value={formData.product_type}
               onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-            >
-              <option value="snacks" className="text-gray-900">Snacks</option>
-              <option value="beverages" className="text-gray-900">Beverages</option>
-              <option value="combo" className="text-gray-900">Combo</option>
-              <option value="fresh_food" className="text-gray-900">Fresh Food</option>
-              <option value="health" className="text-gray-900">Health Products</option>
-            </select>
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., SANITARY PAD"
+            />
           </div>
 
           {/* Status */}
