@@ -27,6 +27,19 @@ export default async function TransactionsPage() {
     redirect('/customer/dashboard');
   }
 
+  // Determine if user is super_customer (should only see their machines)
+  const isSuperCustomer = profile?.account_type === 'super_customer';
+  
+  // Get machine IDs for super customers
+  let machineIds: string[] = [];
+  if (isSuperCustomer) {
+    const { data: machines } = await serviceSupabase
+      .from('vending_machines')
+      .select('id')
+      .eq('customer_id', user.id);
+    machineIds = machines?.map((m: any) => m.id) || [];
+  }
+
   // Fetch all transactions for admin
   const transactionsQuery = serviceSupabase
     .from('transactions')

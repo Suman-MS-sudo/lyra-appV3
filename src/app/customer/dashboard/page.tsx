@@ -39,8 +39,15 @@ export default async function CustomerDashboard() {
 
   // Fetch customer's vending machines
   // Super customers see all machines in their organization, regular users see only their assigned machines
-  let customerMachines;
-  let orgUsersWithMachines = [];
+  let customerMachines: any[] | null | undefined;
+  let orgUsersWithMachines: Array<{
+    id: string;
+    email: string;
+    full_name: string | null;
+    account_type: string;
+    machines: any[];
+    machineCount: number;
+  }> = [];
   
   if (isSuperCustomer && profile?.organization_id) {
     // Get all machines owned by super customer AND machines owned by users in this organization
@@ -421,7 +428,7 @@ export default async function CustomerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {customerMachines?.filter(m => m.status !== 'online' && m.status !== 'active').length > 0 ? (
+                    {(customerMachines?.filter(m => m.status !== 'online' && m.status !== 'active').length ?? 0) > 0 ? (
                       customerMachines
                         ?.filter(m => m.status !== 'online' && m.status !== 'active')
                         .map((machine) => (
@@ -468,7 +475,7 @@ export default async function CustomerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length > 0 ? (
+                    {(customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length ?? 0) > 0 ? (
                       customerMachines
                         ?.filter(m => m.stock_level !== null && m.stock_level < 5)
                         .sort((a, b) => (a.stock_level || 0) - (b.stock_level || 0))

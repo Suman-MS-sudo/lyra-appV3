@@ -46,13 +46,21 @@ export default async function AdminDashboard() {
   // Determine if user is super_customer (should only see their machines)
   const isSuperCustomer = profile?.account_type === 'super_customer';
   
+  // Get machine IDs for super customers
+  let machineIds: string[] = [];
+  if (isSuperCustomer) {
+    const { data: machines } = await serviceSupabase
+      .from('vending_machines')
+      .select('id')
+      .eq('customer_id', user.id);
+    machineIds = machines?.map((m: any) => m.id) || [];
+  }
+  
   // Build query filters based on account type
   const machinesQuery = serviceSupabase.from('vending_machines');
   const machinesSelect = isSuperCustomer 
     ? machinesQuery.select('*', { count: 'exact', head: true }).eq('customer_id', user.id)
     : machinesQuery.select('*', { count: 'exact', head: true });
-
-// No need for machine filtering - admin sees all data
 
   // Fetch dashboard stats and products
   const [
