@@ -22,25 +22,12 @@ export default async function TransactionsPage() {
     .eq('id', user.id)
     .single();
 
-  // Allow both admins and super_customers
-  const isAdmin = profile?.account_type === 'admin';
-  const isSuperCustomer = profile?.role === 'customer' && profile?.account_type === 'super_customer';
-  
-  if (!isAdmin && !isSuperCustomer) {
+  // Only allow admins
+  if (profile?.role !== 'admin') {
     redirect('/customer/dashboard');
   }
 
-  // For super_customers, get their machine IDs first
-  let machineIds: string[] = [];
-  if (isSuperCustomer) {
-    const { data: userMachines } = await serviceSupabase
-      .from('vending_machines')
-      .select('id')
-      .eq('customer_id', user.id);
-    machineIds = userMachines?.map(m => m.id) || [];
-  }
-
-  // Fetch both online transactions and coin payments - filter for super_customers
+  // Fetch all transactions for admin
   const transactionsQuery = serviceSupabase
     .from('transactions')
     .select(`

@@ -52,12 +52,7 @@ export default async function AdminDashboard() {
     ? machinesQuery.select('*', { count: 'exact', head: true }).eq('customer_id', user.id)
     : machinesQuery.select('*', { count: 'exact', head: true });
 
-  // Get machine IDs for filtering transactions if super_customer
-  const { data: userMachines } = isSuperCustomer
-    ? await serviceSupabase.from('vending_machines').select('id').eq('customer_id', user.id)
-    : { data: null };
-  
-  const machineIds = userMachines?.map(m => m.id) || [];
+// No need for machine filtering - admin sees all data
 
   // Fetch dashboard stats and products
   const [

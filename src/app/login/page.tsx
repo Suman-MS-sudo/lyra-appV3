@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -13,6 +13,30 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const supabase = createClient();
+
+  // Handle password recovery tokens
+  useEffect(() => {
+    const handleRecovery = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+
+      if (type === 'recovery' && accessToken) {
+        // Set the session with the recovery token
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: hashParams.get('refresh_token') || '',
+        });
+
+        if (!error) {
+          // Redirect to reset password page
+          router.push('/reset-password');
+        }
+      }
+    };
+
+    handleRecovery();
+  }, [router, supabase.auth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

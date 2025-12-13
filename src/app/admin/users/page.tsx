@@ -20,30 +20,24 @@ export default async function UsersPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Check if user is admin or super_customer using service role to bypass RLS
+  // Check if user is admin using service role to bypass RLS
   const { data: profile } = await serviceSupabase
     .from('profiles')
     .select('role, account_type')
     .eq('id', user.id)
     .single();
 
-  // Allow both admins and super_customers
-  const isAdmin = profile?.account_type === 'admin';
-  const isSuperCustomer = profile?.role === 'customer' && profile?.account_type === 'super_customer';
-  
-  if (!isAdmin && !isSuperCustomer) {
+  // Only allow admins
+  if (profile?.role !== 'admin') {
     redirect('/customer/dashboard');
   }
 
-  // Fetch users - super_customers can only see regular customers they manage
-  const usersQuery = serviceSupabase
+  // Fetch all users
+  const { data: users, error } = await serviceSupabase
     .from('profiles')
     .select('id, email, role, account_type, organization_id, created_at')
-    .in('account_type', ['customer', 'super_customer', 'admin']);
-
-  const { data: users, error } = isSuperCustomer
-    ? await usersQuery.eq('id', user.id).order('created_at', { ascending: false })
-    : await usersQuery.order('created_at', { ascending: false });
+    .in('account_type', ['customer', 'super_customer', 'admin'])
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching users:', error);

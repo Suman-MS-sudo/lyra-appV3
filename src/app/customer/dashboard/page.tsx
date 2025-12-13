@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard, Building2, Activity, AlertCircle, Package, Settings, Users } from 'lucide-react';
 import Link from 'next/link';
+import MachineAssignmentPopup from '@/components/MachineAssignmentPopup';
 
 export default async function CustomerDashboard() {
   const supabase = await createClient();
@@ -37,10 +38,44 @@ export default async function CustomerDashboard() {
   const isSuperCustomer = profile?.account_type === 'super_customer';
 
   // Fetch customer's vending machines
-  const { data: customerMachines } = await serviceSupabase
-    .from('vending_machines')
-    .select('id, name, location, status, asset_online, stock_level')
-    .eq('customer_id', user.id);
+  // Super customers see all machines in their organization, regular users see only their assigned machines
+  let customerMachines;
+  let orgUsersWithMachines = [];
+  
+  if (isSuperCustomer && profile?.organization_id) {
+    // Get all machines owned by super customer AND machines owned by users in this organization
+    const { data: orgUsers } = await serviceSupabase
+      .from('profiles')
+      .select('id, email, full_name, account_type')
+      .eq('organization_id', profile.organization_id);
+    
+    const userIds = orgUsers?.map(u => u.id) || [user.id];
+    
+    const { data: machines } = await serviceSupabase
+      .from('vending_machines')
+      .select('id, name, location, status, asset_online, stock_level, customer_id')
+      .in('customer_id', userIds);
+    
+    customerMachines = machines;
+
+    // Group machines by user for display
+    orgUsersWithMachines = orgUsers?.map(orgUser => {
+      const userMachines = machines?.filter(m => m.customer_id === orgUser.id) || [];
+      return {
+        ...orgUser,
+        machines: userMachines,
+        machineCount: userMachines.length
+      };
+    }).filter(u => u.machineCount > 0) || [];
+  } else {
+    // Regular users only see their own machines
+    const { data: machines } = await serviceSupabase
+      .from('vending_machines')
+      .select('id, name, location, status, asset_online, stock_level')
+      .eq('customer_id', user.id);
+    
+    customerMachines = machines;
+  }
 
   const machineIds = customerMachines?.map(m => m.id) || [];
 
@@ -83,7 +118,7 @@ export default async function CustomerDashboard() {
 
   // Calculate comprehensive stats
   const totalMachines = customerMachines?.length || 0;
-  const onlineMachines = customerMachines?.filter(m => m.asset_online).length || 0;
+  const onlineMachines = customerMachines?.filter(m => m.status === 'online' || m.status === 'active').length || 0;
   const lowStockMachines = customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0;
 
   // Transaction stats
@@ -102,116 +137,50 @@ export default async function CustomerDashboard() {
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
   const totalRevenue = onlineRevenue + coinRevenue;
 
-  // Product analytics
-  const productStats = new Map<string, { count: number; revenue: number }>();
-  
-  onlineTransactions?.forEach(tx => {
-    if (tx.payment_status === 'paid') {
-      const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
-      const revenue = parseFloat(tx.total_amount || 0);
-      items.forEach((item: any) => {
-        const productName = item.name || 'Unknown';
-        const current = productStats.get(productName) || { count: 0, revenue: 0 };
-        productStats.set(productName, {
-          count: current.count + (item.quantity || 1),
-          revenue: current.revenue + revenue
-        });
-      });
-    }
-  });
+  // Machine health analysis
+  const healthyMachines = customerMachines?.filter(m => (m.status === 'online' || m.status === 'active') && (m.stock_level || 0) >= 5) || [];
+  const needsAttentionMachines = customerMachines?.filter(m => {
+    const isOffline = m.status !== 'online' && m.status !== 'active';
+    const isLowStock = m.stock_level !== null && m.stock_level < 5;
+    return isOffline || isLowStock;
+  }).map(m => ({
+    ...m,
+    issues: [
+      m.status !== 'online' && m.status !== 'active' ? 'Offline' : null,
+      m.stock_level !== null && m.stock_level < 5 ? 'Low Stock' : null
+    ].filter(Boolean)
+  })) || [];
 
-  coinPayments?.forEach(tx => {
-    const productName = (tx.products as any)?.name || 'Unknown';
-    const current = productStats.get(productName) || { count: 0, revenue: 0 };
-    productStats.set(productName, {
-      count: current.count + (tx.quantity || 1),
-      revenue: current.revenue + (tx.amount_in_paisa / 100)
-    });
-  });
+  // Breakdown by payment method
+  const onlineTransactionCount = onlineTransactions?.filter(tx => tx.payment_status === 'paid').length || 0;
+  const coinTransactionCount = coinPayments?.length || 0;
 
-  const topProducts = Array.from(productStats.entries())
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, 5);
+  // Calculate coin payments to be paid to Lyra (customer owes for coin transactions)
+  const coinPaymentOwed = coinRevenue;
 
-  // Machine performance
-  const machineStats = new Map<string, { count: number; revenue: number }>();
-  
-  onlineTransactions?.forEach(tx => {
-    if (tx.payment_status === 'paid') {
-      const machineName = (tx.vending_machines as any)?.name || 'Unknown';
-      const current = machineStats.get(machineName) || { count: 0, revenue: 0 };
-      machineStats.set(machineName, {
-        count: current.count + 1,
-        revenue: current.revenue + parseFloat(tx.total_amount || 0)
-      });
-    }
-  });
-
-  coinPayments?.forEach(tx => {
-    const machineName = (tx.vending_machines as any)?.name || 'Unknown';
-    const current = machineStats.get(machineName) || { count: 0, revenue: 0 };
-    machineStats.set(machineName, {
-      count: current.count + 1,
-      revenue: current.revenue + (tx.amount_in_paisa / 100)
-    });
-  });
-
-  const topMachines = Array.from(machineStats.entries())
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, 5);
-
-  // Daily revenue for last 7 days
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    return date.toISOString().split('T')[0];
-  });
-
-  const dailyRevenue = last7Days.map(date => {
-    const dayOnline = onlineTransactions?.filter(tx => 
-      tx.created_at.startsWith(date) && tx.payment_status === 'paid'
+  // Machine-wise breakdown
+  const machineHealthDetails = customerMachines?.map(machine => {
+    const machineOnlineTx = onlineTransactions?.filter(tx => 
+      tx.machine_id === machine.id && tx.payment_status === 'paid'
     ) || [];
-    const dayCoin = coinPayments?.filter(tx => 
-      tx.created_at.startsWith(date)
+    const machineCoinTx = coinPayments?.filter(tx => 
+      tx.machine_id === machine.id
     ) || [];
-    
-    const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
-    const coinRev = dayCoin.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    
+
+    const machineOnlineRev = machineOnlineTx.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
+    const machineCoinRev = machineCoinTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+
     return {
-      date,
-      revenue: onlineRev + coinRev,
-      count: dayOnline.length + dayCoin.length
+      ...machine,
+      onlineTransactions: machineOnlineTx.length,
+      coinTransactions: machineCoinTx.length,
+      onlineRevenue: machineOnlineRev,
+      coinRevenue: machineCoinRev,
+      totalRevenue: machineOnlineRev + machineCoinRev,
+      totalTransactions: machineOnlineTx.length + machineCoinTx.length,
+      healthStatus: (machine.status === 'online' || machine.status === 'active') && (machine.stock_level || 0) >= 5 ? 'healthy' : 'needs_attention'
     };
-  });
-
-  const maxDailyRevenue = Math.max(...dailyRevenue.map(d => d.revenue), 1);
-
-  // Recent transactions (combined)
-  const allTransactions = [
-    ...(onlineTransactions?.slice(0, 5).map(tx => {
-      const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
-      const productNames = items.map((item: any) => item.name).join(', ') || 'Unknown';
-      return {
-        id: tx.id,
-        type: 'online' as const,
-        amount: parseFloat(tx.total_amount || 0),
-        product: productNames,
-        machine: (tx.vending_machines as any)?.name || 'Unknown',
-        created_at: tx.created_at,
-        status: tx.payment_status
-      };
-    }) || []),
-    ...(coinPayments?.slice(0, 5).map(tx => ({
-      id: tx.id,
-      type: 'coin' as const,
-      amount: tx.amount_in_paisa / 100,
-      product: (tx.products as any)?.name || 'Unknown',
-      machine: (tx.vending_machines as any)?.name || 'Unknown',
-      created_at: tx.created_at,
-      status: 'paid'
-    })) || [])
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10);
+  }).sort((a, b) => b.totalRevenue - a.totalRevenue) || [];
 
   // Format time ago
   const formatTimeAgo = (dateString: string) => {
@@ -224,6 +193,11 @@ export default async function CustomerDashboard() {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
     if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
     return date.toLocaleDateString();
+  };
+
+  // Format currency for display
+  const formatAmount = (amount: number) => {
+    return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   return (
@@ -252,17 +226,11 @@ export default async function CustomerDashboard() {
               <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
                 Dashboard
               </Link>
-              <Link href="/admin/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />Machines</span>
+              <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
               </Link>
-              <Link href="/admin/products" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                <span className="flex items-center gap-2"><Package className="w-4 h-4" />Products</span>
-              </Link>
-              <Link href="/admin/transactions" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                <span className="flex items-center gap-2"><Activity className="w-4 h-4" />Transactions</span>
-              </Link>
-              <Link href="/admin/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                <span className="flex items-center gap-2"><Users className="w-4 h-4" />Users</span>
+              <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>
               </Link>
             </nav>
           </div>
@@ -271,191 +239,268 @@ export default async function CustomerDashboard() {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            My Dashboard
-          </h2>
-          <p className="text-gray-600">Monitor your vending machine performance</p>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Dashboard Overview</h2>
+          <p className="text-sm text-gray-600">Monitor your vending machine operations</p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building2 className="w-4 h-4 text-blue-600" />
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">Machines</div>
-            <div className="text-2xl font-bold text-gray-900">{totalMachines}</div>
+        {/* Summary Stats */}
+        <div className={`grid gap-4 mb-6 ${isSuperCustomer ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="text-sm text-gray-600 mb-1">Healthy Machines</div>
+            <div className="text-2xl font-bold text-gray-900">{healthyMachines.length} / {totalMachines}</div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Activity className="w-4 h-4 text-green-600" />
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">Online</div>
-            <div className="text-2xl font-bold text-green-600">{onlineMachines}</div>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="text-sm text-gray-600 mb-1">Need Attention</div>
+            <div className="text-2xl font-bold text-red-600">{needsAttentionMachines.length}</div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-orange-600" />
+          {isSuperCustomer && (
+            <>
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Online Revenue</div>
+                <div className="text-2xl font-bold text-gray-900">₹{formatAmount(onlineRevenue)}</div>
+                <div className="text-xs text-gray-500 mt-1">{onlineTransactionCount} transactions</div>
               </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">Low Stock</div>
-            <div className="text-2xl font-bold text-orange-600">{lowStockMachines}</div>
-          </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <ShoppingBag className="w-4 h-4 text-purple-600" />
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="text-sm text-gray-600 mb-1">Coin Owed to Lyra</div>
+                <div className="text-2xl font-bold text-gray-900">₹{formatAmount(coinPaymentOwed)}</div>
+                <div className="text-xs text-gray-500 mt-1">{coinTransactionCount} transactions</div>
               </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">Transactions</div>
-            <div className="text-2xl font-bold text-gray-900">{totalTransactions}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">Revenue</div>
-            <div className="text-2xl font-bold text-emerald-600">₹{totalRevenue.toFixed(2)}</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Coins className="w-4 h-4 text-amber-600" />
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-1">Coin Sales</div>
-            <div className="text-2xl font-bold text-amber-600">₹{coinRevenue.toFixed(2)}</div>
-          </div>
+            </>
+          )}
         </div>
 
-        {/* Revenue Chart & Top Products */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Daily Revenue Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold mb-6 text-gray-900">Daily Revenue (Last 7 Days)</h3>
-            <div className="h-64 flex items-end justify-between gap-2">
-              {dailyRevenue.map((day, index) => {
-                const heightPercent = maxDailyRevenue > 0 ? (day.revenue / maxDailyRevenue) * 100 : 0;
-                return (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full bg-gradient-to-t from-blue-500 to-purple-500 rounded-t-lg hover:from-blue-600 hover:to-purple-600 transition-all relative group"
-                      style={{ height: `${Math.max(heightPercent, 2)}%` }}>
-                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        ₹{day.revenue.toFixed(2)}
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-500">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                  </div>
-                );
-              })}
+        {/* Machine Assignments by User - Only for super customers */}
+        {isSuperCustomer && orgUsersWithMachines.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Machine Assignments</h3>
+              <p className="text-sm text-gray-600 mt-1">View which users have machines assigned</p>
             </div>
-            <div className="text-center mt-4 text-sm text-gray-500">
-              Total: ₹{dailyRevenue.reduce((sum, d) => sum + d.revenue, 0).toFixed(2)} • {dailyRevenue.reduce((sum, d) => sum + d.count, 0)} transactions
-            </div>
+            <Link href="/customer/users" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg transition-all shadow-sm">
+              Manage Users
+            </Link>
           </div>
-
-          {/* Top Products */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold mb-6 text-gray-900">Top Products by Revenue</h3>
-            {topProducts.length > 0 ? (
-              <div className="space-y-4">
-                {topProducts.map(([product, stats], index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white font-bold text-sm">
-                        {index + 1}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">User</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Machines</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Assigned Devices</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orgUsersWithMachines.map((orgUser) => (
+                  <tr key={orgUser.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                          {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="font-medium text-gray-900">{orgUser.full_name || 'N/A'}</div>
                       </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{product}</div>
-                        <div className="text-xs text-gray-500">{stats.count} units sold</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-gray-900">₹{stats.revenue.toFixed(2)}</div>
-                    </div>
-                  </div>
+                    </td>
+                    <td className="py-4 px-4 text-sm text-gray-600">{orgUser.email}</td>
+                    <td className="py-4 px-4 text-center">
+                      {orgUser.account_type === 'super_customer' ? (
+                        <span className="inline-block px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
+                          Super Customer
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">
+                          Customer
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+                        {orgUser.machineCount}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <MachineAssignmentPopup 
+                        machines={orgUser.machines}
+                        userName={orgUser.full_name || orgUser.email}
+                      />
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      {orgUser.account_type !== 'super_customer' && (
+                        <Link 
+                          href={`/customer/users/${orgUser.id}/edit`}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                        >
+                          Edit →
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">No product data available</div>
-            )}
+              </tbody>
+            </table>
           </div>
         </div>
+        )}
 
-        {/* Top Machines & Recent Transactions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Top Machines */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold mb-6 text-gray-900">Top Machines by Revenue</h3>
-            {topMachines.length > 0 ? (
-              <div className="space-y-4">
-                {topMachines.map(([machine, stats], index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold text-sm">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{machine}</div>
-                        <div className="text-xs text-gray-500">{stats.count} transactions</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-gray-900">₹{stats.revenue.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">No machine data available</div>
-            )}
+        {/* Transaction Breakdown - Only for super customers */}
+        {isSuperCustomer && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Breakdown</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Payment Method</th>
+                  <th className="text-right py-2 px-3 text-sm font-medium text-gray-700">Count</th>
+                  <th className="text-right py-2 px-3 text-sm font-medium text-gray-700">Revenue</th>
+                  <th className="text-right py-2 px-3 text-sm font-medium text-gray-700">% of Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  <td className="py-3 px-3 text-sm text-gray-900">Online Payments</td>
+                  <td className="py-3 px-3 text-sm text-right text-gray-900">{onlineTransactionCount}</td>
+                  <td className="py-3 px-3 text-sm text-right font-medium text-gray-900">₹{formatAmount(onlineRevenue)}</td>
+                  <td className="py-3 px-3 text-sm text-right text-gray-900">{totalTransactions > 0 ? ((onlineTransactionCount / totalTransactions) * 100).toFixed(1) : 0}%</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-3 px-3 text-sm text-gray-900">Coin Payments</td>
+                  <td className="py-3 px-3 text-sm text-right text-gray-900">{coinTransactionCount}</td>
+                  <td className="py-3 px-3 text-sm text-right font-medium text-gray-900">₹{formatAmount(coinRevenue)}</td>
+                  <td className="py-3 px-3 text-sm text-right text-gray-900">{totalTransactions > 0 ? ((coinTransactionCount / totalTransactions) * 100).toFixed(1) : 0}%</td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="py-3 px-3 text-sm font-semibold text-gray-900">Total</td>
+                  <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">{totalTransactions}</td>
+                  <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">₹{formatAmount(totalRevenue)}</td>
+                  <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">100%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        )}\n\n        {/* Machines Requiring Attention */}
+        <div className="mb-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Machines Requiring Attention
+              {needsAttentionMachines.length > 0 && (
+                <span className="ml-2 inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm">
+                  {needsAttentionMachines.length}
+                </span>
+              )}
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">Machines with low stock or offline status</p>
           </div>
 
-          {/* Recent Transactions */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold mb-6 text-gray-900">Recent Transactions</h3>
-            {allTransactions.length > 0 ? (
-              <div className="space-y-4">
-                {allTransactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className={`p-2 rounded-lg ${tx.type === 'coin' ? 'bg-amber-100' : 'bg-blue-100'}`}>
-                        {tx.type === 'coin' ? (
-                          <Coins className="w-4 h-4 text-amber-600" />
-                        ) : (
-                          <CreditCard className="w-4 h-4 text-blue-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{tx.product}</div>
-                        <div className="text-xs text-gray-500">{tx.machine} • {formatTimeAgo(tx.created_at)}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-gray-900">₹{tx.amount.toFixed(2)}</div>
-                      <div className={`text-xs ${tx.type === 'coin' ? 'text-amber-600' : 'text-blue-600'}`}>
-                        {tx.type === 'coin' ? 'Coin' : 'Online'}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Offline/Powered Off Machines */}
+            <div className="bg-white border border-red-200 rounded-lg overflow-hidden">
+              <div className="p-4 bg-red-50 border-b border-red-200">
+                <h4 className="text-base font-semibold text-red-900">
+                  Offline / Powered Off
+                  <span className="ml-2 inline-block bg-red-600 text-white px-2 py-0.5 rounded-full text-xs">
+                    {customerMachines?.filter(m => m.status !== 'online' && m.status !== 'active').length || 0}
+                  </span>
+                </h4>
               </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">No transactions yet</div>
-            )}
+              <div className="overflow-auto max-h-[400px]">
+                <table className="w-full">
+                  <thead className="bg-gray-100 sticky top-0 z-10">
+                    <tr>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Machine</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Location</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerMachines?.filter(m => m.status !== 'online' && m.status !== 'active').length > 0 ? (
+                      customerMachines
+                        ?.filter(m => m.status !== 'online' && m.status !== 'active')
+                        .map((machine) => (
+                          <tr key={machine.id} className="border-b last:border-0 hover:bg-gray-50">
+                            <td className="py-3 px-3 text-sm font-medium text-gray-900">{machine.name}</td>
+                            <td className="py-3 px-3 text-sm text-gray-600">{machine.location}</td>
+                            <td className="py-3 px-3 text-sm text-center">
+                              <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                                {machine.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center">
+                          <div className="text-gray-400 text-2xl mb-1">✓</div>
+                          <p className="text-sm text-gray-500">All machines online</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Low Stock Machines */}
+            <div className="bg-white border border-orange-200 rounded-lg overflow-hidden">
+              <div className="p-4 bg-orange-50 border-b border-orange-200">
+                <h4 className="text-base font-semibold text-orange-900">
+                  Low Stock Alert
+                  <span className="ml-2 inline-block bg-orange-600 text-white px-2 py-0.5 rounded-full text-xs">
+                    {customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0}
+                  </span>
+                </h4>
+              </div>
+              <div className="overflow-auto max-h-[400px]">
+                <table className="w-full">
+                  <thead className="bg-gray-100 sticky top-0 z-10">
+                    <tr>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Machine</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Location</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Stock Level</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length > 0 ? (
+                      customerMachines
+                        ?.filter(m => m.stock_level !== null && m.stock_level < 5)
+                        .sort((a, b) => (a.stock_level || 0) - (b.stock_level || 0))
+                        .map((machine) => (
+                          <tr key={machine.id} className="border-b last:border-0 hover:bg-gray-50">
+                            <td className="py-3 px-3 text-sm font-medium text-gray-900">{machine.name}</td>
+                            <td className="py-3 px-3 text-sm text-gray-600">{machine.location}</td>
+                            <td className="py-3 px-3 text-sm text-right">
+                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+                                (machine.stock_level || 0) === 0
+                                  ? 'bg-red-100 text-red-700'
+                                  : (machine.stock_level || 0) < 3
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {machine.stock_level} units
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="py-8 text-center">
+                          <div className="text-gray-400 text-2xl mb-1">✓</div>
+                          <p className="text-sm text-gray-500">All machines have adequate stock</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </main>
