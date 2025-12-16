@@ -1,0 +1,110 @@
+{
+  "node": {
+    "404771949072e6eec9afeca1eaca6bb77ada0a09eb": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "deleteMachine",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "deleteMachine",
+      "filename": "src/app/actions/admin.ts"
+    },
+    "405564cd40e9f75bfaee31c46e9b8e241e95195945": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "createVendingMachine",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "createVendingMachine",
+      "filename": "src/app/actions/admin.ts"
+    },
+    "405b54d85b90aa3f3e0031af7876c8b22542bb1106": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "updateCustomer",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "updateCustomer",
+      "filename": "src/app/actions/admin.ts"
+    },
+    "408f1f0babd18a85b33151cd90a79695fd27546f97": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "deleteProduct",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "deleteProduct",
+      "filename": "src/app/actions/admin.ts"
+    },
+    "40d5704d24793fadcdaa7b4b022290770a26f9b839": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "createProduct",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "createProduct",
+      "filename": "src/app/actions/admin.ts"
+    },
+    "603ba0581bd93fb4a81a3c08c9c7b6261407a635b5": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "updateMachine",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "updateMachine",
+      "filename": "src/app/actions/admin.ts"
+    },
+    "60547ee0da9ad9bba86b988b20c403530160fd32e3": {
+      "workers": {
+        "app/admin/customers/[id]/page": {
+          "moduleId": 46364,
+          "async": false,
+          "exportedName": "updateProduct",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/customers/[id]/page": "rsc"
+      },
+      "exportedName": "updateProduct",
+      "filename": "src/app/actions/admin.ts"
+    }
+  },
+  "edge": {}
+}

@@ -2,28 +2,42 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // Temporarily disable React Compiler to speed up build
-  // reactCompiler: true,
+  // Optimized for 1GB RAM and 1 core CPU
   
   // Skip TypeScript type checking during build (run separately with `npm run lint`)
   typescript: {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
   },
   
-  // Add logging to see build progress
-  logging: {
-    fetches: {
-      fullUrl: true,
-    },
-  },
-  
   // Reduce build optimization for faster builds
   productionBrowserSourceMaps: false,
+  
+  // Optimize for low memory
+  compress: true,
+  poweredByHeader: false,
+  
+  // Optimize images
+  images: {
+    formats: ['image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96],
+  },
   
   experimental: {
     // Use lighter build optimizations
     optimizePackageImports: ['lucide-react'],
   },
+  
+  // Optimize output for production
+  output: 'standalone',
+  
+  // Reduce worker threads for build
+  ...(process.env.NODE_ENV === 'production' && {
+    experimental: {
+      workerThreads: false,
+      cpus: 1,
+    },
+  }),
   
   async headers() {
     return [

@@ -1,0 +1,6 @@
+{
+  "/admin/billing/page": "app/admin/billing/page.js",
+  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/admin/users/new/page": "app/admin/users/new/page.js",
+  "/admin/users/page": "app/admin/users/page.js"
+}

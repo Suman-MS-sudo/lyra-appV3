@@ -1,0 +1,20 @@
+{
+  "node": {
+    "405564cd40e9f75bfaee31c46e9b8e241e95195945": {
+      "workers": {
+        "app/admin/machines/new/page": {
+          "moduleId": 79528,
+          "async": false,
+          "exportedName": "createVendingMachine",
+          "filename": "src/app/actions/admin.ts"
+        }
+      },
+      "layer": {
+        "app/admin/machines/new/page": "action-browser"
+      },
+      "exportedName": "createVendingMachine",
+      "filename": "src/app/actions/admin.ts"
+    }
+  },
+  "edge": {}
+}

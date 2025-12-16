@@ -1,0 +1,12 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/billing/create-order/route.js")
+R.c("server/chunks/node_modules_next_8cf62b6d._.js")
+R.c("server/chunks/node_modules_@supabase_realtime-js_dist_module_306ac729._.js")
+R.c("server/chunks/node_modules_@supabase_storage-js_dist_module_473cf4b8._.js")
+R.c("server/chunks/node_modules_@supabase_auth-js_dist_module_d4605ced._.js")
+R.c("server/chunks/node_modules_mime-db_f53cdd2e._.js")
+R.c("server/chunks/node_modules_axios_dist_node_axios_cjs_ef84af05._.js")
+R.c("server/chunks/node_modules_e55d5e84._.js")
+R.c("server/chunks/[root-of-the-server]__7f44bc68._.js")
+R.c("server/chunks/_next-internal_server_app_api_billing_create-order_route_actions_fc712830.js")
+R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/src/app/api/billing/create-order/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/src/app/api/billing/create-order/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

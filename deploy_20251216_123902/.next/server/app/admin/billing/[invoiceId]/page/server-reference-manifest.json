@@ -1,0 +1,20 @@
+{
+  "node": {
+    "408f34c2d80205b89a0f7b77c61073b36c29f4f96b": {
+      "workers": {
+        "app/admin/billing/[invoiceId]/page": {
+          "moduleId": 11718,
+          "async": false,
+          "exportedName": "sendInvoiceEmail",
+          "filename": "src/app/actions/organization-billing.ts"
+        }
+      },
+      "layer": {
+        "app/admin/billing/[invoiceId]/page": "action-browser"
+      },
+      "exportedName": "sendInvoiceEmail",
+      "filename": "src/app/actions/organization-billing.ts"
+    }
+  },
+  "edge": {}
+}

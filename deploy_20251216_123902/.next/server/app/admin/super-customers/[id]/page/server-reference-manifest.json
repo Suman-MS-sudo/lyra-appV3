@@ -1,0 +1,65 @@
+{
+  "node": {
+    "4036014d92880272b053773d09d975930ce22693e0": {
+      "workers": {
+        "app/admin/super-customers/[id]/page": {
+          "moduleId": 21347,
+          "async": false,
+          "exportedName": "updateSuperCustomer",
+          "filename": "src/app/actions/super-customer.ts"
+        }
+      },
+      "layer": {
+        "app/admin/super-customers/[id]/page": "rsc"
+      },
+      "exportedName": "updateSuperCustomer",
+      "filename": "src/app/actions/super-customer.ts"
+    },
+    "40ecf1c07f47bb59094636228c35025110f5fdcb10": {
+      "workers": {
+        "app/admin/super-customers/[id]/page": {
+          "moduleId": 21347,
+          "async": false,
+          "exportedName": "createCustomerUser",
+          "filename": "src/app/actions/super-customer.ts"
+        }
+      },
+      "layer": {
+        "app/admin/super-customers/[id]/page": "rsc"
+      },
+      "exportedName": "createCustomerUser",
+      "filename": "src/app/actions/super-customer.ts"
+    },
+    "40f1addb5a0ddba780702a368818a9968480e78ca6": {
+      "workers": {
+        "app/admin/super-customers/[id]/page": {
+          "moduleId": 21347,
+          "async": false,
+          "exportedName": "createSuperCustomer",
+          "filename": "src/app/actions/super-customer.ts"
+        }
+      },
+      "layer": {
+        "app/admin/super-customers/[id]/page": "rsc"
+      },
+      "exportedName": "createSuperCustomer",
+      "filename": "src/app/actions/super-customer.ts"
+    },
+    "6006aaf83443f38cf96f46d657bb3552f90787d765": {
+      "workers": {
+        "app/admin/super-customers/[id]/page": {
+          "moduleId": 21347,
+          "async": false,
+          "exportedName": "updateCustomerPermissions",
+          "filename": "src/app/actions/super-customer.ts"
+        }
+      },
+      "layer": {
+        "app/admin/super-customers/[id]/page": "rsc"
+      },
+      "exportedName": "updateCustomerPermissions",
+      "filename": "src/app/actions/super-customer.ts"
+    }
+  },
+  "edge": {}
+}

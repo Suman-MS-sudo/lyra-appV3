@@ -1,0 +1,20 @@
+{
+  "node": {
+    "4040bf904b0a48cd46716b1177b1cd76811153c445": {
+      "workers": {
+        "app/admin/billing/[invoiceId]/page": {
+          "moduleId": "[project]/.next-internal/server/app/admin/billing/[invoiceId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/app/actions/organization-billing.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "sendInvoiceEmail",
+          "filename": "src/app/actions/organization-billing.ts"
+        }
+      },
+      "layer": {
+        "app/admin/billing/[invoiceId]/page": "action-browser"
+      },
+      "exportedName": "sendInvoiceEmail",
+      "filename": "src/app/actions/organization-billing.ts"
+    }
+  },
+  "edge": {}
+}

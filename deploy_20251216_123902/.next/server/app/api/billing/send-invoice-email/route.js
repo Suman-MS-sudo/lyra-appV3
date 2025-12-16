@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/billing/send-invoice-email/route.js")
+R.c("server/chunks/[root-of-the-server]__843c2f9e._.js")
+R.c("server/chunks/_a573d237._.js")
+R.c("server/chunks/node_modules_next_f2da0d3e._.js")
+R.c("server/chunks/node_modules_9e1fbe53._.js")
+R.c("server/chunks/node_modules_fa8f6ec4._.js")
+R.c("server/chunks/[root-of-the-server]__5e0842cd._.js")
+R.c("server/chunks/_next-internal_server_app_api_billing_send-invoice-email_route_actions_c6cb897b.js")
+R.m(22455)
+module.exports=R.m(22455).exports
