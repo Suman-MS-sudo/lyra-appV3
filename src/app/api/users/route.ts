@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
+import { randomBytes } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       email,
-      password,
       full_name,
       phone,
       account_type,
@@ -39,14 +39,17 @@ export async function POST(request: NextRequest) {
       organization_id
     } = body;
 
-    if (!email || !password) {
-      return errorResponse('Email and password are required', 'VALIDATION_ERROR', 400);
+    if (!email) {
+      return errorResponse('Email is required', 'VALIDATION_ERROR', 400);
     }
 
-    // Create user in auth
+    // Create user in auth without password (will need to set via reset email)
+    // Generate a temporary random password that the user will never see
+    const tempPassword = randomBytes(32).toString('hex');
+    
     const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
       email,
-      password,
+      password: tempPassword,
       email_confirm: true,
       user_metadata: {
         full_name: full_name || null
@@ -77,6 +80,21 @@ export async function POST(request: NextRequest) {
       // User was created in auth but profile update failed
       // Consider whether to delete the auth user or just return the error
       return errorResponse(profileError.message, 'DATABASE_ERROR', 500);
+    }
+
+    // Send password reset email to the new user
+    try {
+      const { error: resetError } = await serviceSupabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`
+      });
+      
+      if (resetError) {
+        console.error('Error sending password reset email:', resetError);
+        // Don't fail the user creation if email fails, just log it
+      }
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Continue anyway - admin can resend later
     }
 
     return successResponse({
