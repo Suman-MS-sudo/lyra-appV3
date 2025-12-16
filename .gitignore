@@ -20,6 +20,9 @@
 # production
 /build
 
+# deployment folders
+deploy_*/
+
 # misc
 .DS_Store
 *.pem
