@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         organization_name: invoice.organizations.name,
         invoice_number: invoice.invoice_number,
       },
-      payment_capture: 1, // Auto capture payment
+      payment_capture: true, // Auto capture payment
     });
 
     // Update invoice with Razorpay order ID
