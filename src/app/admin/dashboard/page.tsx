@@ -126,6 +126,9 @@ export default async function AdminDashboard() {
             <a href="/admin/transactions" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
               <span className="flex items-center gap-2"><Activity className="w-4 h-4" />Transactions</span>
             </a>
+            <a href="/admin/billing" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Org Billing</span>
+            </a>
             <a href="/admin/analytics" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
               <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4" />Analytics</span>
             </a>
