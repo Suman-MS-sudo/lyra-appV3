@@ -43,35 +43,68 @@ export async function POST(request: NextRequest) {
       return errorResponse('Email is required', 'VALIDATION_ERROR', 400);
     }
 
-    // Create user in auth without password (will need to set via reset email)
-    // Generate a temporary random password that the user will never see
-    const tempPassword = randomBytes(32).toString('hex');
-    
-    const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: full_name || null
-      }
-    });
+    // Check if user already exists in auth
+    const { data: existingUsers } = await serviceSupabase.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === email);
 
-    if (authError || !authData.user) {
-      console.error('Error creating user in auth:', authError);
-      return errorResponse(authError?.message || 'Failed to create user', 'AUTH_ERROR', 500);
+    let authData;
+    
+    if (existingUser) {
+      // User already exists in auth, use existing user
+      authData = { user: existingUser };
+      
+      // Check if profile exists
+      const { data: existingProfile } = await serviceSupabase
+        .from('profiles')
+        .select('id, role, account_type')
+        .eq('id', existingUser.id)
+        .single();
+        
+      if (existingProfile) {
+        return errorResponse(
+          `User with email ${email} already exists with role: ${existingProfile.role}`, 
+          'USER_EXISTS', 
+          409
+        );
+      }
+      
+      console.log(`User ${email} exists in auth but has no profile. Creating profile...`);
+    } else {
+      // Create user in auth without password (will need to set via reset email)
+      // Generate a temporary random password that the user will never see
+      const tempPassword = randomBytes(32).toString('hex');
+      
+      const { data: newAuthData, error: authError } = await serviceSupabase.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: full_name || null
+        }
+      });
+
+      if (authError || !newAuthData.user) {
+        console.error('Error creating user in auth:', authError);
+        return errorResponse(authError?.message || 'Failed to create user', 'AUTH_ERROR', 500);
+      }
+      
+      authData = newAuthData;
     }
 
-    // Update profile with additional fields
+    // Create or update profile with additional fields
+    const profileData = {
+      id: authData.user.id,
+      email: authData.user.email,
+      full_name: full_name || null,
+      phone: phone || null,
+      account_type: account_type || 'customer',
+      role: role || 'customer',
+      organization_id: organization_id || null
+    };
+
     const { data: updatedProfile, error: profileError } = await serviceSupabase
       .from('profiles')
-      .update({
-        full_name: full_name || null,
-        phone: phone || null,
-        account_type: account_type || 'customer',
-        role: role || 'customer',
-        organization_id: organization_id || null
-      })
-      .eq('id', authData.user.id)
+      .upsert(profileData, { onConflict: 'id' })
       .select()
       .single();
 
@@ -82,7 +115,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(profileError.message, 'DATABASE_ERROR', 500);
     }
 
-    // Send password reset email to the new user
+    // Send password reset email to the user (for new users or existing users without profiles)
     try {
       const { error: resetError } = await serviceSupabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`
