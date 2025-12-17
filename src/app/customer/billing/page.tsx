@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { DollarSign, FileText, Coins, Calendar, Building2, CreditCard } from 'lucide-react';
+import { DollarSign, FileText, Coins, Calendar, Building2, CreditCard, ArrowLeft, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function CustomerBillingPage() {
@@ -18,17 +18,21 @@ export default async function CustomerBillingPage() {
   // Get user profile
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('*, organizations(id, name)')
+    .select('id, email, role, account_type, organization_id, organizations!organization_id(id, name)')
     .eq('id', user.id)
     .single();
 
   if (profile?.role === 'admin') redirect('/admin/dashboard');
 
-  // Get invoices for customer's organization
+  // Check if user is super_customer
+  const isSuperCustomer = profile?.account_type === 'super_customer';
+
+  // Get invoices for customer's organization (show pending and paid only)
   const { data: invoices } = await serviceSupabase
     .from('organization_invoices')
-    .select('*, organizations(id, name)')
+    .select('*, organizations!organization_id(id, name)')
     .eq('organization_id', profile?.organization_id)
+    .in('status', ['pending', 'paid'])
     .order('created_at', { ascending: false });
 
   // Get customer's machines for coin payment history
@@ -62,23 +66,47 @@ export default async function CustomerBillingPage() {
     .reduce((sum, inv) => sum + inv.total_amount_paisa, 0) || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Billing & Payments</h1>
-              <p className="text-sm text-gray-500">
-                {profile?.organizations?.name || 'My Account'}
-              </p>
-            </div>
-            <Link
-              href="/customer/dashboard"
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Back to Dashboard
-            </Link>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
+            <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
           </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-900 font-medium hidden sm:block">{user.email}</span>
+            <form action="/api/auth/logout" method="POST">
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
+                Logout
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="px-6 py-3 border-t border-gray-200/50">
+          <nav className="flex items-center gap-2 overflow-x-auto">
+            <Link href="/customer/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to Dashboard">
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </Link>
+            <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+              Dashboard
+            </Link>
+            <Link href="/customer/billing" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Billing</span>
+            </Link>
+            {isSuperCustomer && (
+              <>
+                <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                  <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
+                </Link>
+                <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                  <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>
+                </Link>
+              </>
+            )}
+          </nav>
         </div>
       </header>
 
@@ -182,7 +210,7 @@ export default async function CustomerBillingPage() {
                         <td className="px-6 py-4">
                           <span
                             className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              invoice.status === 'paid'
+                              invoice.status === 'paid' || invoice.total_amount_paisa === 0
                                 ? 'bg-green-100 text-green-800'
                                 : invoice.status === 'draft'
                                 ? 'bg-gray-100 text-gray-800'
@@ -191,7 +219,7 @@ export default async function CustomerBillingPage() {
                                 : 'bg-red-100 text-red-800'
                             }`}
                           >
-                            {invoice.status}
+                            {invoice.total_amount_paisa === 0 ? 'No Payment Needed' : invoice.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm">

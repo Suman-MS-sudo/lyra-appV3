@@ -17,25 +17,26 @@ export default async function PaymentPage({ params }: { params: { invoiceId: str
   // Get user profile
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('*, organizations(id, name, contact_email, address, phone)')
+    .select('id, email, role, organization_id, organizations!organization_id(id, name, contact_email, address, phone)')
     .eq('id', user.id)
     .single();
 
   if (profile?.role === 'admin') redirect('/admin/dashboard');
 
-  // Get invoice
+  // Get invoice (exclude draft and paid invoices)
   const { data: invoice } = await serviceSupabase
     .from('organization_invoices')
-    .select('*, organizations(id, name, contact_email, address, phone)')
+    .select('*, organizations!organization_id(id, name, contact_email, address, phone)')
     .eq('id', params.invoiceId)
     .eq('organization_id', profile?.organization_id)
+    .neq('status', 'draft')
     .single();
 
   if (!invoice) {
     redirect('/customer/billing');
   }
 
-  if (invoice.status === 'paid' || invoice.status === 'draft') {
+  if (invoice.status === 'paid') {
     redirect(`/customer/billing/${invoice.id}`);
   }
 
@@ -87,7 +88,7 @@ export default async function PaymentPage({ params }: { params: { invoiceId: str
             amount={invoice.total_amount_paisa}
             organizationName={invoice.organizations?.name || 'Unknown'}
             invoiceNumber={invoice.invoice_number}
-            customerName={profile?.name || user.email || 'Customer'}
+            customerName={user.user_metadata?.full_name || user.email || 'Customer'}
             customerEmail={profile?.email || user.email || ''}
             customerPhone={invoice.organizations?.phone || ''}
           />

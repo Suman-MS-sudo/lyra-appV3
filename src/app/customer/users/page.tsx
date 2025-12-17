@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { Users, Plus, UserCircle } from 'lucide-react';
+import { Users, Plus, UserCircle, ArrowLeft, Building2, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import DeleteUserButton from '@/components/DeleteUserButton';
 
@@ -67,11 +67,17 @@ export default async function CustomerUsersPage() {
         {/* Navigation */}
         <div className="px-6 py-3 border-t border-gray-200/50">
           <nav className="flex items-center gap-2 overflow-x-auto">
+            <Link href="/customer/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to Dashboard">
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </Link>
             <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
               Dashboard
             </Link>
+            <Link href="/customer/billing" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Billing</span>
+            </Link>
             <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-              <span className="flex items-center gap-2">My Machines</span>
+              <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
             </Link>
             <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
               <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>

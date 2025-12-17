@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { Building2, Activity, Package, MapPin, TrendingUp, Users } from 'lucide-react';
+import { Building2, Activity, Package, MapPin, TrendingUp, Users, ArrowLeft, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function CustomerMachinesPage() {
@@ -131,8 +131,14 @@ export default async function CustomerMachinesPage() {
         {isSuperCustomer && (
           <div className="px-6 py-3 border-t border-gray-200/50">
             <nav className="flex items-center gap-2 overflow-x-auto">
+              <Link href="/customer/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to Dashboard">
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </Link>
               <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
                 Dashboard
+              </Link>
+              <Link href="/customer/billing" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Billing</span>
               </Link>
               <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
                 <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
@@ -237,7 +243,14 @@ export default async function CustomerMachinesPage() {
                       {isSuperCustomer && (
                         <>
                           <td className="py-4 px-4 text-sm text-right text-gray-900">
-                            {machine.totalTransactions}
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="font-semibold">{machine.totalTransactions}</div>
+                              <div className="text-xs text-gray-500">
+                                <span className="text-blue-600">{machine.onlineTransactions} Online</span>
+                                <span className="mx-1">•</span>
+                                <span className="text-green-600">{machine.coinTransactions} Coin</span>
+                              </div>
+                            </div>
                           </td>
                           <td className="py-4 px-4 text-sm text-right font-semibold text-gray-900">
                             ₹{formatAmount(machine.totalRevenue)}

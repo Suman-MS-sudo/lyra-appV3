@@ -82,13 +82,13 @@ export default async function OrganizationBillingPage({
     
     if (invoice.status === 'paid') {
       acc[orgId].totalCollected += invoice.total_amount_paisa;
-    } else if (invoice.status === 'pending') {
+    } else if (invoice.status === 'pending' && invoice.amount_due_paisa > 0) {
       acc[orgId].totalPending += invoice.amount_due_paisa;
       const invoiceDate = new Date(invoice.period_end);
       if (!acc[orgId].oldestUnpaidDueDate || invoiceDate < acc[orgId].oldestUnpaidDueDate) {
         acc[orgId].oldestUnpaidDueDate = invoiceDate;
       }
-    } else if (invoice.status === 'overdue') {
+    } else if (invoice.status === 'overdue' && invoice.amount_due_paisa > 0) {
       acc[orgId].totalOverdue += invoice.amount_due_paisa;
       const invoiceDate = new Date(invoice.period_end);
       if (!acc[orgId].oldestUnpaidDueDate || invoiceDate < acc[orgId].oldestUnpaidDueDate) {
@@ -355,7 +355,7 @@ export default async function OrganizationBillingPage({
                           {formatCurrency(orgSummary.totalOverdue)}
                         </td>
                         <td className="px-6 py-4 text-center text-sm">
-                          {orgSummary.oldestUnpaidDueDate ? (
+                          {orgSummary.oldestUnpaidDueDate && (orgSummary.totalPending > 0 || orgSummary.totalOverdue > 0) ? (
                             <div>
                               <div className={`font-medium ${daysOverdue > 30 ? 'text-red-600' : daysOverdue > 15 ? 'text-orange-600' : 'text-gray-900'}`}>
                                 {formatDate(orgSummary.oldestUnpaidDueDate.toISOString())}
@@ -367,7 +367,7 @@ export default async function OrganizationBillingPage({
                               )}
                             </div>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-green-600 text-xs font-medium">No payment due</span>
                           )}
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -547,7 +547,7 @@ export default async function OrganizationBillingPage({
               <tbody className="bg-white divide-y divide-gray-200">
                 {invoices && invoices.length > 0 ? (
                   invoices.map((invoice: any) => (
-                    <tr key={invoice.id} className="hover:bg-gray-50">
+                    <tr key={invoice.id} id={`org-${invoice.organization_id}`} className="hover:bg-gray-50 scroll-mt-20">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <FileText className="h-4 w-4 text-gray-400 mr-2" />
@@ -579,8 +579,12 @@ export default async function OrganizationBillingPage({
                         {formatCurrency(invoice.amount_due_paisa)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(invoice.status)}`}>
-                          {invoice.status}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          invoice.total_amount_paisa === 0 
+                            ? 'bg-green-100 text-green-800' 
+                            : getStatusBadge(invoice.status)
+                        }`}>
+                          {invoice.total_amount_paisa === 0 ? 'No Payment Needed' : invoice.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">

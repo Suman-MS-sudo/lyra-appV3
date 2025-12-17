@@ -207,6 +207,22 @@ export default async function CustomerDashboard() {
     return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Get pending invoices for notifications
+  const { data: pendingInvoices } = await serviceSupabase
+    .from('organization_invoices')
+    .select('id, invoice_number, total_amount_paisa, period_end')
+    .eq('organization_id', profile?.organization_id)
+    .in('status', ['pending'])
+    .gt('total_amount_paisa', 0)
+    .order('period_end', { ascending: true });
+
+  const totalPendingAmount = pendingInvoices?.reduce((sum, inv) => sum + inv.total_amount_paisa, 0) || 0;
+  const overdueInvoices = pendingInvoices?.filter(inv => {
+    const dueDate = new Date(inv.period_end);
+    dueDate.setDate(dueDate.getDate() + 30);
+    return dueDate < new Date();
+  }) || [];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
       {/* Header */}
@@ -226,23 +242,61 @@ export default async function CustomerDashboard() {
           </div>
         </div>
         
-        {/* Navigation for Super Customers */}
-        {isSuperCustomer && (
-          <div className="px-6 py-3 border-t border-gray-200/50">
-            <nav className="flex items-center gap-2 overflow-x-auto">
-              <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
-                Dashboard
-              </Link>
-              <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
-              </Link>
-              <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>
-              </Link>
-            </nav>
-          </div>
-        )}
+        {/* Navigation */}
+        <div className="px-6 py-3 border-t border-gray-200/50">
+          <nav className="flex items-center gap-2 overflow-x-auto">
+            <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
+              Dashboard
+            </Link>
+            {isSuperCustomer && (
+              <>
+                <Link href="/customer/billing" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                  <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Billing</span>
+                </Link>
+                <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                  <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
+                </Link>
+                <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
+                  <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
       </header>
+
+      {/* Payment Notification Banner - Only for Super Customers */}
+      {isSuperCustomer && (
+        <div className={`${overdueInvoices.length > 0 ? 'bg-red-50 border-red-200' : totalPendingAmount > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border-b`}>
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className={`w-5 h-5 ${overdueInvoices.length > 0 ? 'text-red-600' : totalPendingAmount > 0 ? 'text-yellow-600' : 'text-green-600'}`} />
+                <div>
+                  <p className={`font-semibold ${overdueInvoices.length > 0 ? 'text-red-900' : totalPendingAmount > 0 ? 'text-yellow-900' : 'text-green-900'}`}>
+                    {overdueInvoices.length > 0 
+                      ? `${overdueInvoices.length} Overdue Invoice${overdueInvoices.length > 1 ? 's' : ''}`
+                      : totalPendingAmount > 0
+                      ? 'Pending Payment'
+                      : 'All Payments Up to Date'}
+                  </p>
+                  <p className={`text-sm ${overdueInvoices.length > 0 ? 'text-red-700' : totalPendingAmount > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+                    {totalPendingAmount > 0
+                      ? `${pendingInvoices?.length || 0} invoice${(pendingInvoices?.length || 0) > 1 ? 's' : ''} totaling ₹${(totalPendingAmount / 100).toFixed(2)}${overdueInvoices.length > 0 ? ' - Immediate payment required' : ''}`
+                      : 'No outstanding invoices or payments'}
+                  </p>
+                </div>
+              </div>
+              <Link 
+                href="/customer/billing"
+                className={`px-4 py-2 ${overdueInvoices.length > 0 ? 'bg-red-600 hover:bg-red-700' : totalPendingAmount > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg font-medium text-sm transition-colors whitespace-nowrap`}
+              >
+                {totalPendingAmount > 0 ? 'View & Pay' : 'View Billing'}
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">

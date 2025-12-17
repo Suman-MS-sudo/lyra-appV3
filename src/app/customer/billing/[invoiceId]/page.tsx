@@ -18,18 +18,19 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
   // Get user profile
   const { data: profile } = await serviceSupabase
     .from('profiles')
-    .select('*, organizations(id, name, contact_email, address)')
+    .select('id, email, role, organization_id, organizations!organization_id(id, name, contact_email, address)')
     .eq('id', user.id)
     .single();
 
   if (profile?.role === 'admin') redirect('/admin/dashboard');
 
-  // Get invoice
+  // Get invoice (show pending and paid only)
   const { data: invoice } = await serviceSupabase
     .from('organization_invoices')
-    .select('*, organizations(id, name, contact_email, address)')
+    .select('*, organizations!organization_id(id, name, contact_email, address)')
     .eq('id', params.invoiceId)
     .eq('organization_id', profile?.organization_id)
+    .in('status', ['pending', 'paid'])
     .single();
 
   if (!invoice) {
@@ -117,14 +118,14 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
                   <span className="text-sm text-gray-500">Status:</span>
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      invoice.status === 'paid'
+                      invoice.status === 'paid' || invoice.total_amount_paisa === 0
                         ? 'bg-green-100 text-green-800'
                         : invoice.status === 'draft'
                         ? 'bg-gray-100 text-gray-800'
                         : 'bg-yellow-100 text-yellow-800'
                     }`}
                   >
-                    {invoice.status}
+                    {invoice.total_amount_paisa === 0 ? 'No Payment Needed' : invoice.status}
                   </span>
                 </div>
               </div>
@@ -154,13 +155,15 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
           </div>
 
           {/* Payment Actions */}
-          {invoice.status === 'draft' && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-gray-800 font-medium">This invoice is in draft status and not yet finalized.</p>
+          {invoice.total_amount_paisa === 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-800 font-medium">
+                ✓ No payment is required for this period. No vending machine transactions were recorded during this billing cycle.
+              </p>
             </div>
           )}
 
-          {invoice.status !== 'paid' && invoice.status !== 'draft' && invoice.total_amount_paisa > 0 && (
+          {invoice.status !== 'paid' && invoice.total_amount_paisa > 0 && (
             <div className="flex gap-3">
               <Link
                 href={`/customer/billing/${invoice.id}/pay`}
@@ -171,15 +174,9 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
             </div>
           )}
 
-          {invoice.status === 'paid' && (
+          {invoice.status === 'paid' && invoice.total_amount_paisa > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-green-800 font-medium">This invoice has been paid. Thank you!</p>
-            </div>
-          )}
-
-          {invoice.total_amount_paisa === 0 && invoice.status !== 'draft' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800 font-medium">No payment is pending for this period. Thank you!</p>
+              <p className="text-green-800 font-medium">✓ This invoice has been paid. Thank you!</p>
             </div>
           )}
         </div>

@@ -91,7 +91,7 @@ export async function generateInvoice(params: GenerateInvoiceParams) {
       total_amount_paisa: totalAmount,
       amount_paid_paisa: 0,
       amount_due_paisa: totalAmount,
-      status: totalAmount > 0 ? 'pending' : 'draft'
+      status: 'pending'
     })
     .select()
     .single();
