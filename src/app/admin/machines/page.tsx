@@ -34,6 +34,20 @@ export default async function MachinesPage() {
     .select('*')
     .order('created_at', { ascending: false });
 
+  // Recalculate online status based on last_ping (10 minute timeout)
+  // This ensures admin dashboard shows accurate real-time status
+  const machinesWithUpdatedStatus = machines?.map(machine => {
+    if (machine.last_ping) {
+      const lastPingTime = new Date(machine.last_ping).getTime();
+      const now = new Date().getTime();
+      const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+      machine.asset_online = (now - lastPingTime) < tenMinutes;
+    } else {
+      machine.asset_online = false;
+    }
+    return machine;
+  }) || [];
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b">
@@ -60,8 +74,8 @@ export default async function MachinesPage() {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        {machines && machines.length > 0 ? (
-          <MachinesTable machines={machines} />
+        {machinesWithUpdatedStatus && machinesWithUpdatedStatus.length > 0 ? (
+          <MachinesTable machines={machinesWithUpdatedStatus} />
         ) : (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <p className="text-gray-500 mb-4">No vending machines found</p>
