@@ -1,0 +1,34 @@
+📸 LYRA VENDING MACHINE - IMAGES NEEDED FOR USER MANUAL
+
+Save all images in: e:\lyra-app-v3\images\
+
+✅ MACHINE PHOTOS TO TAKE:
+□ person-scanning-card.jpg - Someone using their RFID card on the machine
+□ machine-front-view.jpg - Clear photo of the entire machine front panel
+□ lcd-display-idle.jpg - LCD screen showing "Lyra Vending 1 - Napkins: 23"  
+□ lcd-card-detected.jpg - LCD showing "Card Detected"
+□ lcd-authorized.jpg - LCD showing "Authorized - OK"
+□ lcd-dispensing.jpg - LCD showing "Dispensing... Please wait"
+□ lcd-error-unauthorized.jpg - LCD showing "Unauthorized"
+□ lcd-error-limit.jpg - LCD showing "Daily Limit Reached"
+□ lcd-error-stock.jpg - LCD showing "Out of Stock"
+
+✅ WEB INTERFACE SCREENSHOTS:
+□ wifi-connection.jpg - Phone/computer connecting to "Lyra-Vending-AP"
+□ admin-dashboard.jpg - Main dashboard with stock, cards, transactions
+□ add-card-modal.jpg - "Add Card" popup with scan interface
+□ cards-management.jpg - Table showing all registered cards
+□ settings-page.jpg - Settings panel with daily limits and time
+
+💡 TIPS FOR GOOD PHOTOS:
+- Use good lighting
+- Keep images clear and not blurry
+- For web screenshots, use full browser window
+- For LCD photos, avoid glare and reflections
+- Resize images to reasonable size (not more than 1MB each)
+
+🔄 TO ADD IMAGES TO MANUAL:
+1. Save image in the images folder
+2. Open rfid-vending-machine-user-manual.html
+3. Find the matching placeholder div
+4. Replace it with: <img src="images/filename.jpg" alt="description" style="max-width: 100%; border-radius: 10px; margin: 1rem 0;">

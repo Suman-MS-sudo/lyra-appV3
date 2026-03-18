@@ -134,7 +134,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
   };
 
   const exportToCSV = () => {
-    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Last Sync'];
+    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Last Ping'];
     const rows = filteredMachines.map(m => [
       m.name,
       m.machine_id,
@@ -143,7 +143,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
       m.status,
       m.customer_name,
       m.machine_type,
-      m.last_sync ? new Date(m.last_sync).toLocaleString() : 'Never'
+      m.last_ping ? new Date(m.last_ping).toLocaleString() : 'Never'
     ]);
     
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
@@ -348,7 +348,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {machine.last_sync ? formatDate(machine.last_sync) : 'Never'}
+                    {machine.last_ping ? formatDate(machine.last_ping) : 'Never'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

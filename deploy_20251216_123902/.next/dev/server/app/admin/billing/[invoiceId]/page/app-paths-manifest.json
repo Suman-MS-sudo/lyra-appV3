@@ -1,3 +1,0 @@
-{
-  "/admin/billing/[invoiceId]/page": "app/admin/billing/[invoiceId]/page.js"
-}

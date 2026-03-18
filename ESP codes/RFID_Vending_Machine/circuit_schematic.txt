@@ -1,0 +1,181 @@
+================================================================================
+  LYRA RFID VENDING MACHINE — CIRCUIT SCHEMATIC  (ESP32 DevKit v1)
+  Date: 2026-03-14
+================================================================================
+
+════════════════════════════════════════════════════════════════════════════════
+  POWER RAILS
+════════════════════════════════════════════════════════════════════════════════
+
+  External 5V PSU
+      │
+      ├──────► 5V rail ──► LCD VCC, RTC VCC, Relay VCC, ESP32 VIN
+      └──────► GND rail ──► All GND pins
+
+  ESP32 onboard 3.3V LDO
+      └──────► 3.3V rail ──► RFID RC522 3.3V
+
+
+════════════════════════════════════════════════════════════════════════════════
+  FULL SCHEMATIC
+════════════════════════════════════════════════════════════════════════════════
+
+   5V ──┬──────────────────────────────────────────────────────────────────┐
+        │                                                                  │
+  GND ──┼──────────────────────────────────────────────────────────────┐  │
+        │                                                              │  │
+        │  ┌─────────────────────────────────────────────────────┐   │  │
+        │  │                   ESP32 DevKit v1                    │   │  │
+        │  │                                                      │   │  │
+        └──┤ VIN                                          3V3 ├───┼──┬─┘ │
+           │ GND ├───────────────────────────────────────────────┤  │   │
+           │                                                      │  │   │
+           │  ── SPI BUS (RFID) ──                                │  │   │
+           │ GPIO18 (SCK)  ├──────────────────────────────────────┼──┼───┼──► RFID SCK
+           │ GPIO19 (MISO) ├◄─────────────────────────────────────┼──┼───┼──  RFID MISO
+           │ GPIO23 (MOSI) ├──────────────────────────────────────┼──┼───┼──► RFID MOSI
+           │ GPIO15 (SS)   ├──────────────────────────────────────┼──┼───┼──► RFID SDA/SS
+           │ GPIO4  (RST)  ├──────────────────────────────────────┼──┼───┼──► RFID RST
+           │                                                      │  │   │
+           │  ── I2C BUS (LCD + RTC) ──                           │  │   │
+           │ GPIO21 (SDA)  ├──────────────────────────────────────┼──┼──►├── LCD SDA
+           │               │                                      │  │   └── RTC SDA
+           │ GPIO22 (SCL)  ├──────────────────────────────────────┼──┼──►├── LCD SCL
+           │               │                                      │  │   └── RTC SCL
+           │                                                      │  │
+           │  ── DIGITAL OUTPUT ──                                │  │
+           │ GPIO25        ├──────────────────────────────────────┼──┼──────► Relay IN
+           │                                                      │  │
+           │  ── DIGITAL INPUT (INPUT_PULLUP) ──                  │  │
+           │ GPIO27        ├──── Stock Btn ──────────────────────►GND  │
+           │ GPIO32        ├──── WiFi  Btn ──────────────────────►GND  │
+           │                                                      │     │
+        ┌──┤ GND                                                  │     │
+        │  └─────────────────────────────────────────────────────┘     │
+        │                                                               │
+       GND ──────────────────────────────────────────────────────────►  │
+                                                                         │
+                                                                        5V
+
+
+════════════════════════════════════════════════════════════════════════════════
+  COMPONENT WIRING DETAIL
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  MFRC522 RFID MODULE                 SPI @ 3.3 V         │
+  │  ┌──────┬──────┬──────┬──────┬──────┬──────┬───────┐    │
+  │  │ SDA  │ SCK  │MOSI  │ MISO │ IRQ  │ GND  │ RST   │ 3V3│
+  │  └──┬───┴──┬───┴──┬───┴──┬───┴──────┴──┬───┴──┬────┴──┬─┘
+  │     │      │      │      │             │      │       │
+  │   G15    G18    G23    G19           GND     G4     3.3V │
+  │  (SS)   (SCK) (MOSI)(MISO)                  (RST)        │
+  └──────────────────────────────────────────────────────────┘
+  NOTE: IRQ pin — leave unconnected (not used in firmware)
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  LCD 1602A  (HW-61 I2C backpack, addr 0x27)  I2C @ 5 V  │
+  │  ┌──────┬──────┬──────┬──────┐                           │
+  │  │ GND  │ VCC  │ SDA  │ SCL  │                           │
+  │  └──┬───┴──┬───┴──┬───┴──┬───┘                           │
+  │    GND    5V    G21    G22                                 │
+  └──────────────────────────────────────────────────────────┘
+  NOTE: I2C is 3.3 V logic; HW-61 backpack level-shifts automatically.
+        Add 4.7 kΩ pull-up on SDA & SCL to 3.3 V if bus is unstable.
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  DS1307 RTC MODULE (HW-084)          I2C @ 5 V           │
+  │  ┌──────┬──────┬──────┬──────┐                           │
+  │  │ GND  │ VCC  │ SDA  │ SCL  │                           │
+  │  └──┬───┴──┬───┴──┬───┴──┬───┘                           │
+  │    GND    5V    G21    G22    (same I2C bus as LCD)        │
+  └──────────────────────────────────────────────────────────┘
+  NOTE: DS1307 addr = 0x68. Ensure 32.768 kHz crystal + CR2032 battery
+        is fitted on the HW-084 module for backup timekeeping.
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  RELAY MODULE (5V coil, active-LOW or active-HIGH)        │
+  │  ┌──────┬──────┬──────┐                                  │
+  │  │ GND  │ VCC  │ IN   │    COM ──► load one leg           │
+  │  └──┬───┴──┬───┴──┬───┘    NO  ──► load other leg (vend) │
+  │    GND    5V    G25                                        │
+  └──────────────────────────────────────────────────────────┘
+  NOTE: Check your relay module's IN logic level.
+        Most common modules are active-LOW (IN=LOW fires relay).
+        Firmware drives GPIO25 LOW to dispense.
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  STOCK REFILL BUTTON                                      │
+  │       GPIO27 ──┤ BTN ├── GND                             │
+  │  (INPUT_PULLUP — internal 45 kΩ pull-up, no R needed)    │
+  └──────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  WIFI ENABLE BUTTON                                       │
+  │       GPIO32 ──┤ BTN ├── GND                             │
+  │  (INPUT_PULLUP — internal 45 kΩ pull-up, no R needed)    │
+  └──────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PCB COMPONENT PLACEMENT SUGGESTION  (top-down view, ~100 mm × 80 mm)
+════════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │   ┌───────────────────────────────────────────────────────┐     │
+  │   │              LCD 1602A (I2C backpack)                  │     │
+  │   └───────────────────────────────────────────────────────┘     │
+  │                                                                  │
+  │  ┌────────────┐    ┌──────────────────────────┐    ┌─────────┐  │
+  │  │ DS1307 RTC │    │                          │    │  RFID   │  │
+  │  │  (HW-084)  │    │    ESP32 DevKit v1        │    │ RC522   │  │
+  │  └────────────┘    │                          │    │         │  │
+  │                    │                          │    └─────────┘  │
+  │  ┌────────────┐    │                          │                  │
+  │  │   Relay    │    └──────────────────────────┘    [ BTN1 BTN2] │
+  │  │  Module    │                                                  │
+  │  └────────────┘                                                  │
+  │                                                                  │
+  │   ┌──────────────┐                                               │
+  │   │  5V PWR IN   │                                               │
+  │   │  Barrel/Term │                                               │
+  │   └──────────────┘                                               │
+  └─────────────────────────────────────────────────────────────────┘
+
+  Routing notes:
+  • Run a wide 5V power trace (≥1.5 mm) along the bottom edge.
+  • Keep RFID module away from the relay (relay switching causes EMI).
+  • Keep SPI traces (RFID) short and parallel — run on same PCB layer.
+  • I2C bus (SDA/SCL) can be long — pull-ups keep signal integrity.
+  • Add a 100 µF / 16 V electrolytic cap near the 5V input for relay
+    inrush current.
+  • Add a 100 nF ceramic decoupling cap at each IC's VCC pin.
+
+
+════════════════════════════════════════════════════════════════════════════════
+  BILL OF MATERIALS
+════════════════════════════════════════════════════════════════════════════════
+
+  Qty  Component                  Package / Note
+  ---  -------------------------  -----------------------------------------
+   1   ESP32 DevKit v1            38-pin DIP, soldered to female headers
+   1   MFRC522 RFID module        8-pin 2.54 mm header
+   1   LCD 1602A + HW-61 I2C     16-pin connector with I2C backpack
+   1   DS1307 RTC (HW-084)        4-pin 2.54 mm header, CR2032 coin cell
+   1   5V Relay module            3-pin 2.54 mm header
+   2   Tactile push button        6×6 mm through-hole
+   1   DC barrel jack / terminal  5V 1 A minimum input
+   1   100 µF / 16 V cap          Electrolytic, near 5V input
+   4   100 nF ceramic cap         0.1 µF, one per module VCC pin
+   2   4.7 kΩ resistor (opt.)     I2C pull-ups (if bus unstable)
+
+
+════════════════════════════════════════════════════════════════════════════════
+  RECOMMENDED FREE PCB TOOLS
+════════════════════════════════════════════════════════════════════════════════
+
+  • EasyEDA (easyeda.com)   — browser-based, direct JLCPCB ordering
+  • KiCad  (kicad.org)      — open source, offline, professional
+  • Fritzing (fritzing.org) — breadboard-style, beginner-friendly
+
+================================================================================

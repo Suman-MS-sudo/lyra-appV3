@@ -5,6 +5,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { ArrowLeft, Plus } from 'lucide-react';
 import MachinesTable from '@/components/MachinesTable';
 
+// Force dynamic rendering - never cache this page to ensure real-time status
+export const revalidate = 0;
+
 export default async function MachinesPage() {
   const supabase = await createClient();
   

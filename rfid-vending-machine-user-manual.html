@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+    IMAGES NEEDED FOR THIS MANUAL:
+    Save all images in the 'images' folder next to this HTML file:
+
+    📱 MACHINE PHOTOS:
+    - images/person-scanning-card.jpg - Someone using their RFID card on the machine
+    - images/lcd-display-idle.jpg - LCD screen showing "Lyra Vending 1 - Napkins: 23"  
+    - images/lcd-card-detected.jpg - LCD showing "Card Detected"
+    - images/lcd-authorized.jpg - LCD showing "Authorized - OK"
+    - images/lcd-dispensing.jpg - LCD showing "Dispensing... Please wait"
+    - images/machine-front-view.jpg - Clear photo of the entire machine
+
+    💻 WEB INTERFACE SCREENSHOTS:
+    - images/admin-dashboard.jpg - Main dashboard with stock, cards, transactions
+    - images/wifi-connection.jpg - Phone/computer connecting to "Lyra-Vending-AP"
+    - images/add-card-modal.jpg - "Add Card" popup with scan interface
+    - images/cards-management.jpg - Table showing all registered cards
+    - images/settings-page.jpg - Settings panel with daily limits and time
+
+    🔧 TROUBLESHOOTING:
+    - images/error-messages.jpg - Various error screens on the LCD
+
+    TO USE IMAGES: Replace the image-placeholder divs with:
+    <img src="images/filename.jpg" alt="description" style="max-width: 100%; border-radius: 10px; margin: 1rem 0;">
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyra Vending Machine - Simple User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.4;
+            font-size: 14px;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* A4 Optimized Print Styles */
+        @media print {
+            @page {
+                size: A4;
+                margin: 12mm;
+            }
+            
+            * {
+                box-sizing: border-box !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            body {
+                background: white !important;
+                font-family: Arial, sans-serif !important;
+                font-size: 9pt !important;
+                line-height: 1.2 !important;
+                color: black !important;
+                width: 186mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .container {
+                width: 186mm !important;
+                max-width: 186mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            .header {
+                background: #4a90e2 !important;
+                color: white !important;
+                padding: 8pt !important;
+                margin: 0 0 6pt 0 !important;
+                text-align: center !important;
+                width: 186mm !important;
+                break-inside: avoid !important;
+            }
+            
+            .header h1 {
+                font-size: 16pt !important;
+                margin: 0 0 3pt 0 !important;
+                font-weight: bold !important;
+                line-height: 1.1 !important;
+            }
+            
+            .header p {
+                font-size: 10pt !important;
+                margin: 0 !important;
+                line-height: 1.1 !important;
+            }
+            
+            .nav {
+                display: none !important;
+            }
+            
+            .card {
+                background: white !important;
+                border: 0.5pt solid #ccc !important;
+                padding: 6pt !important;
+                margin: 0 0 6pt 0 !important;
+                width: 186mm !important;
+                break-inside: avoid !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+            }
+            
+            .card h2 {
+                font-size: 12pt !important;
+                font-weight: bold !important;
+                margin: 0 0 4pt 0 !important;
+                border-bottom: 0.8pt solid #4a90e2 !important;
+                padding: 0 0 2pt 0 !important;
+                color: #4a90e2 !important;
+                line-height: 1.1 !important;
+            }
+            
+            .card h3 {
+                font-size: 10pt !important;
+                font-weight: bold !important;
+                margin: 4pt 0 2pt 0 !important;
+                color: black !important;
+                line-height: 1.1 !important;
+            }
+            
+            .step-list {
+                margin: 3pt 0 !important;
+                padding: 0 !important;
+                list-style: none !important;
+                counter-reset: step !important;
+            }
+            
+            .step-list li {
+                margin: 0 0 3pt 0 !important;
+                padding: 0 0 0 15pt !important;
+                counter-increment: step !important;
+                position: relative !important;
+                font-size: 9pt !important;
+                line-height: 1.2 !important;
+            }
+            
+            .step-list li::before {
+                content: counter(step) !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 12pt !important;
+                height: 12pt !important;
+                background: #4a90e2 !important;
+                color: white !important;
+                border-radius: 50% !important;
+                text-align: center !important;
+                font-size: 7pt !important;
+                line-height: 12pt !important;
+                font-weight: bold !important;
+            }
+            
+            .simple-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                margin: 4pt 0 !important;
+                font-size: 8pt !important;
+                break-inside: avoid !important;
+            }
+            
+            .simple-table th,
+            .simple-table td {
+                border: 0.5pt solid #ccc !important;
+                padding: 2pt 4pt !important;
+                text-align: left !important;
+                vertical-align: top !important;
+                line-height: 1.1 !important;
+            }
+            
+            .simple-table th {
+                background: #eeeeee !important;
+                font-weight: bold !important;
+                font-size: 8pt !important;
+            }
+            
+            .highlight-box,
+            .warning-box,
+            .error-box {
+                border: 0.5pt solid #ccc !important;
+                padding: 4pt !important;
+                margin: 3pt 0 !important;
+                background: #f8f8f8 !important;
+                font-size: 8pt !important;
+                break-inside: avoid !important;
+                line-height: 1.2 !important;
+            }
+            
+            .warning-box {
+                border-left: 2pt solid #ffc107 !important;
+            }
+            
+            .error-box {
+                border-left: 2pt solid #dc3545 !important;
+            }
+            
+            .highlight-box {
+                border-left: 2pt solid #4a90e2 !important;
+            }
+            
+            .image-placeholder {
+                border: 0.5pt solid #ccc !important;
+                padding: 6pt !important;
+                text-align: center !important;
+                margin: 4pt 0 !important;
+                background: #f8f8f8 !important;
+                font-size: 8pt !important;
+                width: 60mm !important;
+                break-inside: avoid !important;
+                line-height: 1.2 !important;
+            }
+            
+            img {
+                max-width: 60mm !important;
+                height: auto !important;
+                margin: 4pt 0 !important;
+                border: 0.5pt solid #ccc !important;
+                break-inside: avoid !important;
+                display: block !important;
+            }
+            
+            ul, ol {
+                margin: 2pt 0 !important;
+                padding: 0 0 0 12pt !important;
+            }
+            
+            li {
+                margin: 1pt 0 !important;
+                font-size: 8pt !important;
+                line-height: 1.2 !important;
+            }
+            
+            p {
+                margin: 2pt 0 !important;
+                font-size: 9pt !important;
+                line-height: 1.2 !important;
+            }
+            
+            strong {
+                font-weight: bold !important;
+            }
+            
+            footer {
+                border-top: 0.8pt solid #4a90e2 !important;
+                padding: 6pt 0 !important;
+                text-align: center !important;
+                margin: 6pt 0 0 0 !important;
+                font-size: 8pt !important;
+                break-before: page !important;
+                line-height: 1.2 !important;
+            }
+            
+            /* Strategic page breaks for exactly 4 pages */
+            #web-setup {
+                break-before: page !important;
+            }
+            
+            #problems {
+                break-before: page !important;
+            }
+            
+            /* Compact spacing for print */
+            br {
+                line-height: 1 !important;
+            }
+            
+            /* Remove extra spacing */
+            .card:first-child {
+                margin-top: 0 !important;
+            }
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #4a90e2;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+        }
+
+        .nav {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .nav li {
+            margin: 0.5rem;
+        }
+
+        .nav a {
+            color: #4a90e2;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav a:hover {
+            background: #e8f4fd;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #4a90e2;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e8f4fd;
+            padding-bottom: 0.5rem;
+        }
+
+        .card h3 {
+            color: #333;
+            font-size: 1.3rem;
+            margin: 1.5rem 0 0.5rem 0;
+        }
+
+        .step-list {
+            list-style: none;
+            counter-reset: step;
+        }
+
+        .step-list li {
+            position: relative;
+            padding-left: 3rem;
+            margin-bottom: 1rem;
+            counter-increment: step;
+            font-size: 1.1rem;
+        }
+
+        .step-list li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2rem;
+            height: 2rem;
+            background: #4a90e2;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .highlight-box {
+            background: #e8f4fd;
+            border-left: 4px solid #4a90e2;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .error-box {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .simple-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .simple-table th,
+        .simple-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .simple-table th {
+            background: #4a90e2;
+            color: white;
+        }
+
+        .simple-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .big-button {
+            background: #28a745;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+
+        .image-placeholder {
+            background: #e9ecef;
+            border: 2px dashed #6c757d;
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            color: #6c757d;
+            font-style: italic;
+            max-width: 40%;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .nav ul {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏪 Lyra Vending Machine</h1>
+            <p>Quick User Guide - How to Use & Setup</p>
+        </div>
+
+        <nav class="nav">
+            <ul>
+                <li><a href="#how-to-use">How to Use</a></li>
+                <li><a href="#web-setup">Admin Setup</a></li>
+                <li><a href="#problems">Troubleshooting</a></li>
+            </ul>
+        </nav>
+
+        <!-- How to Use Section -->
+        <section id="how-to-use" class="card">
+            <h2>💳 How to Use the Machine</h2>
+
+            <ol class="step-list">
+                <li><strong>Walk up to machine</strong> - Check napkin count on display</li>
+                <li><strong>Hold card near scanner</strong> - Place RFID card close to front panel</li>
+                <li><strong>Wait for message</strong> - Screen shows authorization status</li>
+                <li><strong>Take napkins</strong> - Machine dispenses automatically</li>
+            </ol>
+
+            <img src="images/person-scanning-card.jpg" alt="Person scanning RFID card" style="max-width: 60%; border-radius: 10px; margin: 1rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+
+            <h3>Screen Messages</h3>
+            <table class="simple-table">
+                <tr><th>Display</th><th>Meaning</th></tr>
+                <tr><td>✅ "Authorized"</td><td>Success - napkins dispensed</td></tr>
+                <tr><td>❌ "Unauthorized"</td><td>Card not registered</td></tr>
+                <tr><td>⚠️ "Limit Reached"</td><td>Used daily allowance</td></tr>
+                <tr><td>🔴 "Out of Stock"</td><td>Machine empty</td></tr>
+            </table>
+
+            <div class="highlight-box">
+                <strong>💡 Daily Limit:</strong> Each person gets 3 napkins per day (resets at midnight). Can be modified by admin in web app.
+            </div>
+
+            <div class="highlight-box">
+                <strong>📞 Need Help?</strong> Contact your system administrator or IT support<br>
+                <strong>Lyra Vending Machine v4.0</strong> | User Guide | March 2026
+            </div>
+        </section>
+
+        <!-- Web Setup Section -->
+        <section id="web-setup" class="card">
+            <h2>🌐 Admin Setup (For Administrators Only)</h2>
+
+            <ol class="step-list">
+                <li><strong>Press WiFi button</strong> on back of machine</li>
+                <li><strong>Connect to "Lyra-Vending-AP"</strong> (Password: lyra12345)</li>
+                <li><strong>Open browser to:</strong> 192.168.4.1</li>
+            </ol>
+
+            <img src="images/admin-dashboard.jpg" alt="Admin dashboard" style="max-width: 40%; border-radius: 10px; margin: 1rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+
+            <h3>Admin Functions</h3>
+            <ul>
+                <li><strong>📊 Dashboard:</strong> Stock, cards, transactions</li>
+                <li><strong>💳 Add Cards:</strong> Register employee RFID cards</li>
+                <li><strong>👥 Manage:</strong> Enable/disable cards</li>
+                <li><strong>⚙️ Settings:</strong> Daily limits, stock reset</li>
+                <li><strong>📊 Reports:</strong> Download usage data</li>
+            </ul>
+
+            <h3>Adding Employee Cards</h3>
+            <ol class="step-list">
+                <li>Click "RFID Cards" then "Add Card"</li>
+                <li>Click "Scan Card" and tap card on machine</li>
+                <li>Enter employee name and ID</li>
+                <li>Click "Add Card" to save</li>
+            </ol>
+
+            <div class="highlight-box">
+                <strong>💡 WiFi Auto-Off:</strong> WiFi turns off after 5 minutes to save power. Press button again to reactivate.
+            </div>
+        </section>
+
+        <!-- Problems Section -->
+        <section id="problems" class="card">
+            <h2>🔧 Troubleshooting</h2>
+
+            <h3>Common Issues & Quick Fixes</h3>
+
+            <div class="error-box">
+                <strong>❌ "Card not detected"</strong><br>
+                • Hold card closer • Try different angle • Check for damage
+            </div>
+
+            <div class="error-box">
+                <strong>❌ "Unauthorized"</strong><br>
+                • Card not registered - ask admin • Check if disabled
+            </div>
+
+            <div class="warning-box">
+                <strong>⚠️ "Daily Limit Reached"</strong><br>
+                • Used today's allowance • Try tomorrow • Ask admin to increase
+            </div>
+
+            <div class="error-box">
+                <strong>🔴 "Out of Stock"</strong><br>
+                • Machine empty - tell maintenance • Press stock button after refill
+            </div>
+
+            <h3>Machine Not Working?</h3>
+            <ol class="step-list">
+                <li><strong>Check power:</strong> Screen should display</li>
+                <li><strong>Restart:</strong> Unplug 10 sec, plug back in</li>
+                <li><strong>Test WiFi:</strong> Press WiFi button</li>
+                <li><strong>Get help:</strong> Contact IT support</li>
+            </ol>
+
+            <h3>Refilling Machine</h3>
+            <div class="highlight-box">
+                <strong>🔄 Steps:</strong> 1. Open service panel 2. Load 25 packets 3. Press Stock Button 4. Verify reset
+            </div>
+
+            <h3>WiFi Issues</h3>
+            <table class="simple-table">
+                <tr><th>Problem</th><th>Solution</th></tr>
+                <tr><td>Can't see network</td><td>Press WiFi button</td></tr>
+                <tr><td>Wrong password</td><td>Use: lyra12345</td></tr>
+                <tr><td>Can't access web</td><td>Clear browser cache</td></tr>
+                <tr><td>Disconnects</td><td>5-min timeout - press again</td></tr>
+            </table>
+
+            <div class="highlight-box">
+                <strong>📞 Need Help?</strong> Contact support with: Error message, what you were doing, machine ID
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer>
+            <p><strong>End of Manual</strong></p>
+            
+            <!-- Print button (hidden in print) -->
+            <div style="margin-top: 1rem;">
+                <button onclick="window.print()" style="background: #4a90e2; color: white; padding: 0.8rem 1.5rem; border: none; border-radius: 5px; font-size: 1rem; cursor: pointer; display: none;" class="print-btn">🖨️ Print Manual (4 Pages)</button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Show print button only on screen, not in print
+        document.querySelector('.print-btn').style.display = 'inline-block';
+        
+        // Simple navigation highlighting
+        window.addEventListener('scroll', () => {
+            let current = '';
+            const sections = document.querySelectorAll('section[id]');
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            document.querySelectorAll('.nav a').forEach(link => {
+                link.style.background = '';
+                link.style.color = '#4a90e2';
+                if (link.getAttribute('href') === '#' + current) {
+                    link.style.background = '#e8f4fd';
+                    link.style.color = '#2c5aa0';
+                }
+            });
+        });
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+    
+    <style>
+        @media print {
+            .print-btn {
+                display: none !important;
+            }
+        }
+    </style>
+</body>
+</html>
