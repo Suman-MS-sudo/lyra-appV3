@@ -4,6 +4,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { Building2, Activity, Package, MapPin, TrendingUp, Users, ArrowLeft, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 
+// Ensure dynamic rendering to show real-time machine status
+export const revalidate = 0;
+
 export default async function CustomerMachinesPage() {
   const supabase = await createClient();
   
@@ -50,7 +53,7 @@ export default async function CustomerMachinesPage() {
     
     const { data: machines } = await serviceSupabase
       .from('vending_machines')
-      .select('*')
+      .select('*, last_ping')
       .in('customer_id', userIds)
       .order('created_at', { ascending: false });
     
@@ -59,15 +62,29 @@ export default async function CustomerMachinesPage() {
     // Regular users only see their own machines
     const { data: machines } = await serviceSupabase
       .from('vending_machines')
-      .select('*')
+      .select('*, last_ping')
       .eq('customer_id', user.id)
       .order('created_at', { ascending: false });
     
     customerMachines = machines;
   }
 
+  // Recalculate online status based on last_ping (10 minute timeout)
+  // This ensures customer machines page shows accurate real-time status
+  const machinesWithUpdatedStatus = customerMachines?.map(machine => {
+    if (machine.last_ping) {
+      const lastPingTime = new Date(machine.last_ping).getTime();
+      const now = new Date().getTime();
+      const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+      machine.asset_online = (now - lastPingTime) < tenMinutes;
+    } else {
+      machine.asset_online = false;
+    }
+    return machine;
+  }) || [];
+
   // Get transaction counts for each machine
-  const machineIds = customerMachines?.map(m => m.id) || [];
+  const machineIds = machinesWithUpdatedStatus?.map(m => m.id) || [];
   
   const [
     { data: onlineTransactions },
@@ -84,7 +101,7 @@ export default async function CustomerMachinesPage() {
   ]);
 
   // Calculate stats per machine
-  const machinesWithStats = customerMachines?.map(machine => {
+  const machinesWithStats = machinesWithUpdatedStatus?.map(machine => {
     const machineOnlineTx = onlineTransactions?.filter(tx => 
       tx.machine_id === machine.id && tx.payment_status === 'paid'
     ) || [];
@@ -162,20 +179,20 @@ export default async function CustomerMachinesPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-sm text-gray-600 mb-1">Total Machines</div>
-            <div className="text-2xl font-bold text-gray-900">{customerMachines?.length || 0}</div>
+            <div className="text-2xl font-bold text-gray-900">{machinesWithUpdatedStatus?.length || 0}</div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-sm text-gray-600 mb-1">Online</div>
             <div className="text-2xl font-bold text-green-600">
-              {customerMachines?.filter(m => m.status === 'online' || m.status === 'active').length || 0}
+              {machinesWithUpdatedStatus?.filter(m => m.asset_online).length || 0}
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-sm text-gray-600 mb-1">Low Stock</div>
             <div className="text-2xl font-bold text-orange-600">
-              {customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0}
+              {machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0}
             </div>
           </div>
 
@@ -224,13 +241,11 @@ export default async function CustomerMachinesPage() {
                       </td>
                       <td className="py-4 px-4 text-sm text-center">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                          machine.status === 'online' || machine.status === 'active'
+                          machine.asset_online
                             ? 'bg-green-100 text-green-700'
-                            : machine.status === 'maintenance'
-                            ? 'bg-yellow-100 text-yellow-700'
                             : 'bg-red-100 text-red-700'
                         }`}>
-                          {machine.status}
+                          {machine.asset_online ? 'Online' : 'Offline'}
                         </span>
                       </td>
                       <td className={`py-4 px-4 text-sm text-right font-medium ${

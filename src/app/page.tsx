@@ -468,7 +468,7 @@ function HomeContent() {
   if (machineId) {
     if (loading) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
+        <div className="min-h-screen bg-linear-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
           <div className="text-center text-white">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
             <p className="text-xl">Loading...</p>
@@ -480,7 +480,7 @@ function HomeContent() {
     // Show error page if there's an error
     if (error) {
       return (
-        <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-gray-50 flex items-center justify-center px-4">
+        <div className="min-h-screen bg-linear-to-br from-red-50 via-white to-gray-50 flex items-center justify-center px-4">
           <div className="max-w-2xl w-full">
             <div className="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 text-center border border-gray-100">
               {/* Error Icon */}
@@ -577,14 +577,14 @@ function HomeContent() {
                 onClick={() => window.history.back()}
                 className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-gray-900 transition-colors min-w-0"
               >
-                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 <span className="hidden sm:inline">Back</span>
               </button>
 
               <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
@@ -597,9 +597,9 @@ function HomeContent() {
 
               <button 
                 onClick={() => setShowCart(true)}
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-w-0 flex-shrink-0"
+                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-w-0 shrink-0"
               >
-                <ShoppingCart className="w-5 h-5 flex-shrink-0" />
+                <ShoppingCart className="w-5 h-5 shrink-0" />
                 <span className="hidden sm:inline">Cart</span>
                 {getTotalItems() > 0 && (
                   <span className="bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -615,17 +615,17 @@ function HomeContent() {
         <main className="container mx-auto px-3 sm:px-6 py-4 sm:py-8 max-w-6xl pb-32">
           {/* Machine Info */}
           <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 break-words">{machine?.name || machineId}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 wrap-break-word">{machine?.name || machineId}</h1>
             
             <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
               <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
                 <div className="flex items-center gap-2 sm:gap-3 mb-2">
                   {machine?.asset_online ? (
-                    <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg flex-shrink-0">
+                    <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg shrink-0">
                       <Wifi className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                     </div>
                   ) : (
-                    <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg flex-shrink-0">
+                    <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg shrink-0">
                       <WifiOff className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
                     </div>
                   )}
@@ -635,7 +635,7 @@ function HomeContent() {
                   {machine?.asset_online ? 'Online' : 'Offline'}
                 </div>
                 {machine?.last_ping && (
-                  <div className="text-xs text-gray-500 mt-1 break-words">
+                  <div className="text-xs text-gray-500 mt-1 wrap-break-word">
                     Last: {new Date(machine.last_ping).toLocaleString('en-IN', { 
                       timeZone: 'Asia/Kolkata',
                       month: 'short',
@@ -649,7 +649,7 @@ function HomeContent() {
 
               <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
                 <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                  <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                  <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg shrink-0">
                     <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -663,14 +663,14 @@ function HomeContent() {
 
               <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
                 <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                  <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg flex-shrink-0">
+                  <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg shrink-0">
                     <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                   </div>
                   <span className="text-xs sm:text-sm text-gray-600">Customer</span>
                 </div>
-                <div className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                <div className="text-base sm:text-lg font-semibold text-gray-900 wrap-break-word">
                   {machine?.customer_name || 'N/A'}
                 </div>
               </div>
@@ -681,7 +681,7 @@ function HomeContent() {
           <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border">
             <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Products</h2>
-              <div className="flex items-center gap-1.5 sm:gap-2 text-blue-600 flex-shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 text-blue-600 shrink-0">
                 <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                 <span className="text-sm sm:text-base font-semibold">{products.length}</span>
               </div>
@@ -696,11 +696,11 @@ function HomeContent() {
                   >
                     <div className="flex flex-col gap-4">
                       <div className="flex items-start gap-3 sm:gap-4">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-linear-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shrink-0">
                           <Package className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 break-words">
+                          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 wrap-break-word">
                             {item.products.name}
                           </h3>
                           <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
@@ -710,7 +710,7 @@ function HomeContent() {
                           {/* Low Stock Warning */}
                           {item.stock > 0 && item.stock < 5 && (
                             <div className="flex items-center gap-2 mb-2 sm:mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                              <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
                               <span className="text-xs sm:text-sm text-amber-800 font-medium">
@@ -737,7 +737,7 @@ function HomeContent() {
                         <div className="flex items-center gap-2 sm:gap-3">
                           <button
                             onClick={() => toggleFavorite(item.product_id)}
-                            className="p-2 sm:p-3 bg-white hover:bg-gray-100 rounded-lg border transition-colors flex-shrink-0"
+                            className="p-2 sm:p-3 bg-white hover:bg-gray-100 rounded-lg border transition-colors shrink-0"
                           >
                             <Heart
                               className={`w-5 h-5 sm:w-6 sm:h-6 ${
@@ -770,7 +770,7 @@ function HomeContent() {
                             >
                               <Minus className="w-5 h-5 text-gray-700" />
                             </button>
-                            <div className="flex items-center gap-2 min-w-[80px] justify-center">
+                            <div className="flex items-center gap-2 min-w-20 justify-center">
                               <span className="text-gray-900 font-bold text-lg">
                                 {cart.get(item.product_id)?.quantity || 0}
                               </span>
@@ -974,7 +974,7 @@ function HomeContent() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                     <button
                       onClick={() => setShowCart(true)}
                       className="hidden sm:block px-4 sm:px-6 py-2 sm:py-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg font-semibold transition-all text-sm sm:text-base"
@@ -1054,7 +1054,7 @@ function HomeContent() {
                                 >
                                   <Minus className="w-4 h-4 text-gray-700" />
                                 </button>
-                                <span className="text-gray-900 font-semibold min-w-[2rem] text-center">
+                                <span className="text-gray-900 font-semibold min-w-8 text-center">
                                   {item.quantity}
                                 </span>
                                 <button
@@ -1138,7 +1138,7 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
