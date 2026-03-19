@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Download, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle, Clock, Edit2, Trash2 } from 'lucide-react';
+import { Search, Filter, Download, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle, Clock, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Machine {
@@ -16,6 +16,7 @@ interface Machine {
   product_type: string;
   machine_type: string;
   last_sync: string | null;
+  last_ping: string | null;
   asset_online: boolean;
   stock_level: number | null;
   created_at: string;
@@ -35,6 +36,8 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [showFilters, setShowFilters] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<keyof Machine>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Get unique customers
   const customers = useMemo(() => {
@@ -42,9 +45,20 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
     return Array.from(uniqueCustomers).sort();
   }, [machines]);
 
-  // Filter and search machines
-  const filteredMachines = useMemo(() => {
-    return machines.filter(machine => {
+  // Handle sorting
+  const handleSort = (column: keyof Machine) => {
+    if (sortBy === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
+  // Filter, search, and sort machines
+  const filteredAndSortedMachines = useMemo(() => {
+    const filtered = machines.filter(machine => {
       const matchesSearch = 
         machine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         machine.machine_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -60,12 +74,41 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
 
       return matchesSearch && matchesStatus && matchesCustomer && matchesOnline;
     });
-  }, [machines, searchQuery, statusFilter, customerFilter, onlineFilter]);
+
+    // Sort the filtered results
+    return filtered.sort((a, b) => {
+      let aValue: any = a[sortBy];
+      let bValue: any = b[sortBy];
+
+      // Handle special sorting cases
+      if (sortBy === 'asset_online') {
+        aValue = a.asset_online ? 1 : 0;
+        bValue = b.asset_online ? 1 : 0;
+      } else if (sortBy === 'last_ping') {
+        aValue = a.last_ping ? new Date(a.last_ping).getTime() : 0;
+        bValue = b.last_ping ? new Date(b.last_ping).getTime() : 0;
+      } else if (sortBy === 'stock_level') {
+        aValue = a.stock_level ?? -1;
+        bValue = b.stock_level ?? -1;
+      } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      // Handle null/undefined values
+      if (aValue == null) aValue = '';
+      if (bValue == null) bValue = '';
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [machines, searchQuery, statusFilter, customerFilter, onlineFilter, sortBy, sortDirection]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredMachines.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredAndSortedMachines.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedMachines = filteredMachines.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedMachines = filteredAndSortedMachines.slice(startIndex, startIndex + itemsPerPage);
 
   // Stats
   const stats = useMemo(() => ({
@@ -135,7 +178,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
 
   const exportToCSV = () => {
     const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Last Ping'];
-    const rows = filteredMachines.map(m => [
+    const rows = filteredAndSortedMachines.map(m => [
       m.name,
       m.machine_id,
       m.mac_id,
@@ -153,6 +196,22 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
     a.href = url;
     a.download = `machines-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  // Render sortable column header
+  const renderSortableHeader = (label: string, column: keyof Machine) => {
+    const isSorted = sortBy === column;
+    const Icon = isSorted ? (sortDirection === 'asc' ? ChevronUp : ChevronDown) : ChevronUp;
+    
+    return (
+      <button
+        onClick={() => handleSort(column)}
+        className="flex items-center gap-1 text-left hover:text-gray-700 transition-colors group"
+      >
+        <span>{label}</span>
+        <Icon className={`h-4 w-4 transition-opacity ${isSorted ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
+      </button>
+    );
   };
 
   return (
@@ -289,7 +348,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
       {/* Results Info */}
       <div className="flex items-center justify-between text-sm text-gray-600">
         <p>
-          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredMachines.length)} of {filteredMachines.length} machines
+          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredAndSortedMachines.length)} of {filteredAndSortedMachines.length} machines
         </p>
         <select
           value={itemsPerPage}
@@ -312,14 +371,30 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Machine ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Connection</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Sync</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Name', 'name')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Machine ID', 'machine_id')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Location', 'location')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Customer', 'customer_name')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Status', 'status')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Connection', 'asset_online')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Last Sync', 'last_ping')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
