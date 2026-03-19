@@ -15,6 +15,9 @@ import {
   CreditCard
 } from 'lucide-react';
 
+// Force dynamic rendering - never cache this page to ensure real-time status
+export const revalidate = 0;
+
 export default async function AdminDashboard() {
 
   const supabase = await createClient();
@@ -83,8 +86,8 @@ export default async function AdminDashboard() {
       ? serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }).in('machine_id', machineIds)
       : serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
     isSuperCustomer
-      ? serviceSupabase.from('vending_machines').select('name, location').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(3)
-      : serviceSupabase.from('vending_machines').select('name, location').order('created_at', { ascending: false }).limit(3),
+      ? serviceSupabase.from('vending_machines').select('name, location, asset_online, last_ping').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(3)
+      : serviceSupabase.from('vending_machines').select('name, location, asset_online, last_ping').order('created_at', { ascending: false }).limit(3),
     isSuperCustomer && machineIds.length > 0
       ? serviceSupabase.from('transactions').select('total_amount, created_at, items').in('machine_id', machineIds).order('created_at', { ascending: false }).limit(3)
       : serviceSupabase.from('transactions').select('total_amount, created_at, items').order('created_at', { ascending: false }).limit(3),
@@ -96,6 +99,19 @@ export default async function AdminDashboard() {
       : serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed'),
     serviceSupabase.from('products').select('id, name, sku, price').order('created_at', { ascending: false }),
   ]);
+
+  // Recalculate online status for recent machines based on last_ping (10 minute timeout)
+  const machinesWithUpdatedStatus = recentMachines?.map(machine => {
+    if (machine.last_ping) {
+      const lastPingTime = new Date(machine.last_ping).getTime();
+      const now = new Date().getTime();
+      const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+      machine.asset_online = (now - lastPingTime) < tenMinutes;
+    } else {
+      machine.asset_online = false;
+    }
+    return machine;
+  }) || [];
 
   // Calculate revenue by payment method
   const onlineRevenue = paidTx?.reduce((sum: number, tx: any) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
@@ -139,7 +155,7 @@ export default async function AdminDashboard() {
               <p className="text-sm text-gray-500 mt-1">Welcome back! Here's what's happening today.</p>
             </div>
             <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm hover:shadow-md">
                 Logout
               </button>
             </form>
@@ -276,8 +292,8 @@ export default async function AdminDashboard() {
               </h2>
             </div>
             <div className="divide-y divide-gray-100">
-              {recentMachines && recentMachines.length > 0 ? (
-                recentMachines.map((machine: any, i: number) => (
+              {machinesWithUpdatedStatus && machinesWithUpdatedStatus.length > 0 ? (
+                machinesWithUpdatedStatus.map((machine: any, i: number) => (
                   <div key={i} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -290,9 +306,13 @@ export default async function AdminDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium flex items-center gap-1">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
+                          machine.asset_online 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
                           <CheckCircle2 className="w-3 h-3" />
-                          Online
+                          {machine.asset_online ? 'Online' : 'Offline'}
                         </span>
                       </div>
                     </div>
