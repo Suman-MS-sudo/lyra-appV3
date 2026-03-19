@@ -5,6 +5,9 @@ import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard, Building2, Ac
 import Link from 'next/link';
 import MachineAssignmentPopup from '@/components/MachineAssignmentPopup';
 
+// Force dynamic rendering - never cache this page to ensure real-time status
+export const revalidate = 0;
+
 export default async function CustomerDashboard() {
   const supabase = await createClient();
   
@@ -60,7 +63,7 @@ export default async function CustomerDashboard() {
     
     const { data: machines } = await serviceSupabase
       .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, customer_id')
+      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
       .in('customer_id', userIds);
     
     customerMachines = machines;
@@ -78,13 +81,27 @@ export default async function CustomerDashboard() {
     // Regular users only see their own machines
     const { data: machines } = await serviceSupabase
       .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level')
+      .select('id, name, location, status, asset_online, stock_level, last_ping')
       .eq('customer_id', user.id);
     
     customerMachines = machines;
   }
 
   const machineIds = customerMachines?.map(m => m.id) || [];
+
+  // Recalculate online status for all machines based on last_ping (10 minute timeout)
+  // This ensures customer dashboard shows accurate real-time status
+  const machinesWithUpdatedStatus = customerMachines?.map(machine => {
+    if (machine.last_ping) {
+      const lastPingTime = new Date(machine.last_ping).getTime();
+      const now = new Date().getTime();
+      const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
+      machine.asset_online = (now - lastPingTime) < tenMinutes;
+    } else {
+      machine.asset_online = false;
+    }
+    return machine;
+  }) || [];
 
   // Fetch all transactions and coin payments for customer's machines
   const [
@@ -123,10 +140,10 @@ export default async function CustomerDashboard() {
       .order('created_at', { ascending: false })
   ]);
 
-  // Calculate comprehensive stats
-  const totalMachines = customerMachines?.length || 0;
-  const onlineMachines = customerMachines?.filter(m => m.status === 'online' || m.status === 'active').length || 0;
-  const lowStockMachines = customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0;
+  // Calculate comprehensive stats using real-time status
+  const totalMachines = machinesWithUpdatedStatus?.length || 0;
+  const onlineMachines = machinesWithUpdatedStatus?.filter(m => m.asset_online).length || 0;
+  const lowStockMachines = machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0;
 
   // Transaction stats
   const totalOnlineTransactions = onlineTransactions?.length || 0;
@@ -144,16 +161,16 @@ export default async function CustomerDashboard() {
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
   const totalRevenue = onlineRevenue + coinRevenue;
 
-  // Machine health analysis
-  const healthyMachines = customerMachines?.filter(m => (m.status === 'online' || m.status === 'active') && (m.stock_level || 0) >= 5) || [];
-  const needsAttentionMachines = customerMachines?.filter(m => {
-    const isOffline = m.status !== 'online' && m.status !== 'active';
+  // Machine health analysis using real-time status
+  const healthyMachines = machinesWithUpdatedStatus?.filter(m => m.asset_online && (m.stock_level || 0) >= 5) || [];
+  const needsAttentionMachines = machinesWithUpdatedStatus?.filter(m => {
+    const isOffline = !m.asset_online;
     const isLowStock = m.stock_level !== null && m.stock_level < 5;
     return isOffline || isLowStock;
   }).map(m => ({
     ...m,
     issues: [
-      m.status !== 'online' && m.status !== 'active' ? 'Offline' : null,
+      !m.asset_online ? 'Offline' : null,
       m.stock_level !== null && m.stock_level < 5 ? 'Low Stock' : null
     ].filter(Boolean)
   })) || [];
@@ -161,6 +178,26 @@ export default async function CustomerDashboard() {
   // Breakdown by payment method
   const onlineTransactionCount = onlineTransactions?.filter(tx => tx.payment_status === 'paid').length || 0;
   const coinTransactionCount = coinPayments?.length || 0;
+
+  // Format date for last sync display
+  const formatLastSync = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString();
+  };
 
   // Calculate coin payments to be paid to Lyra (customer owes for coin transactions)
   const coinPaymentOwed = coinRevenue;
@@ -224,18 +261,18 @@ export default async function CustomerDashboard() {
   }) || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50 to-purple-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
+            <div className="w-8 h-8 bg-linear-to-br from-blue-600 to-purple-600 rounded-lg"></div>
             <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-900 font-medium hidden sm:block">{user.email}</span>
             <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
+              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
                 Logout
               </button>
             </form>
@@ -342,7 +379,7 @@ export default async function CustomerDashboard() {
               <h3 className="text-lg font-semibold text-gray-900">Machine Assignments</h3>
               <p className="text-sm text-gray-600 mt-1">View which users have machines assigned</p>
             </div>
-            <Link href="/customer/users" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg transition-all shadow-sm">
+            <Link href="/customer/users" className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg transition-all shadow-sm">
               Manage Users
             </Link>
           </div>
@@ -363,7 +400,7 @@ export default async function CustomerDashboard() {
                   <tr key={orgUser.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                        <div className="w-9 h-9 bg-linear-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                           {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
                         </div>
                         <div className="font-medium text-gray-900">{orgUser.full_name || 'N/A'}</div>
@@ -468,7 +505,7 @@ export default async function CustomerDashboard() {
                 <h4 className="text-base font-semibold text-red-900">
                   Offline / Powered Off
                   <span className="ml-2 inline-block bg-red-600 text-white px-2 py-0.5 rounded-full text-xs">
-                    {customerMachines?.filter(m => m.status !== 'online' && m.status !== 'active').length || 0}
+                    {machinesWithUpdatedStatus?.filter(m => !m.asset_online).length || 0}
                   </span>
                 </h4>
               </div>
@@ -479,26 +516,30 @@ export default async function CustomerDashboard() {
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Machine</th>
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Location</th>
                       <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Status</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Last Sync</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(customerMachines?.filter(m => m.status !== 'online' && m.status !== 'active').length ?? 0) > 0 ? (
-                      customerMachines
-                        ?.filter(m => m.status !== 'online' && m.status !== 'active')
+                    {(machinesWithUpdatedStatus?.filter(m => !m.asset_online).length ?? 0) > 0 ? (
+                      machinesWithUpdatedStatus
+                        ?.filter(m => !m.asset_online)
                         .map((machine) => (
                           <tr key={machine.id} className="border-b last:border-0 hover:bg-gray-50">
                             <td className="py-3 px-3 text-sm font-medium text-gray-900">{machine.name}</td>
                             <td className="py-3 px-3 text-sm text-gray-600">{machine.location}</td>
                             <td className="py-3 px-3 text-sm text-center">
                               <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                                {machine.status}
+                                Offline
                               </span>
+                            </td>
+                            <td className="py-3 px-3 text-sm text-center text-gray-500">
+                              {formatLastSync(machine.last_ping)}
                             </td>
                           </tr>
                         ))
                     ) : (
                       <tr>
-                        <td colSpan={3} className="py-8 text-center">
+                        <td colSpan={4} className="py-8 text-center">
                           <div className="text-gray-400 text-2xl mb-1">✓</div>
                           <p className="text-sm text-gray-500">All machines online</p>
                         </td>
@@ -515,7 +556,7 @@ export default async function CustomerDashboard() {
                 <h4 className="text-base font-semibold text-orange-900">
                   Low Stock Alert
                   <span className="ml-2 inline-block bg-orange-600 text-white px-2 py-0.5 rounded-full text-xs">
-                    {customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0}
+                    {machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0}
                   </span>
                 </h4>
               </div>
@@ -526,11 +567,12 @@ export default async function CustomerDashboard() {
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Machine</th>
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Location</th>
                       <th className="text-right py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Stock Level</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Last Sync</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(customerMachines?.filter(m => m.stock_level !== null && m.stock_level < 5).length ?? 0) > 0 ? (
-                      customerMachines
+                    {(machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length ?? 0) > 0 ? (
+                      machinesWithUpdatedStatus
                         ?.filter(m => m.stock_level !== null && m.stock_level < 5)
                         .sort((a, b) => (a.stock_level || 0) - (b.stock_level || 0))
                         .map((machine) => (
@@ -548,11 +590,14 @@ export default async function CustomerDashboard() {
                                 {machine.stock_level} units
                               </span>
                             </td>
+                            <td className="py-3 px-3 text-sm text-center text-gray-500">
+                              {formatLastSync(machine.last_ping)}
+                            </td>
                           </tr>
                         ))
                     ) : (
                       <tr>
-                        <td colSpan={3} className="py-8 text-center">
+                        <td colSpan={4} className="py-8 text-center">
                           <div className="text-gray-400 text-2xl mb-1">✓</div>
                           <p className="text-sm text-gray-500">All machines have adequate stock</p>
                         </td>
