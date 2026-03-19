@@ -177,7 +177,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
   };
 
   const exportToCSV = () => {
-    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Last Ping'];
+    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Stock Level', 'Last Ping'];
     const rows = filteredAndSortedMachines.map(m => [
       m.name,
       m.machine_id,
@@ -186,6 +186,7 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
       m.status,
       m.customer_name,
       m.machine_type,
+      m.stock_level?.toString() || '0',
       m.last_ping ? new Date(m.last_ping).toLocaleString() : 'Never'
     ]);
     
@@ -393,6 +394,9 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
                   {renderSortableHeader('Last Sync', 'last_ping')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {renderSortableHeader('Stock', 'stock_level')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -424,6 +428,35 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {machine.last_ping ? formatDate(machine.last_ping) : 'Never'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {machine.stock_level !== null ? (
+                        <>
+                          <span className={`text-sm font-medium ${
+                            machine.stock_level === 0 
+                              ? 'text-red-600' 
+                              : machine.stock_level < 5 
+                                ? 'text-amber-600' 
+                                : 'text-gray-900'
+                          }`}>
+                            {machine.stock_level}
+                          </span>
+                          {machine.stock_level === 0 && (
+                            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                              Empty
+                            </span>
+                          )}
+                          {machine.stock_level > 0 && machine.stock_level < 5 && (
+                            <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium">
+                              Low
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
