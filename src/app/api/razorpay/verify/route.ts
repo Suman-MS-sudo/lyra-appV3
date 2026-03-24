@@ -15,12 +15,18 @@ export async function POST(request: NextRequest) {
 
     // Verify payment signature
     const sign = razorpay_order_id + '|' + razorpay_payment_id;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'OrxoAbykv5jDlvzJxgPifKh6';
     const expectedSign = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .createHmac('sha256', keySecret)
       .update(sign.toString())
       .digest('hex');
 
     if (razorpay_signature !== expectedSign) {
+      console.error('Payment signature verification failed:', {
+        razorpay_order_id,
+        razorpay_payment_id,
+        keyEnvSet: !!process.env.RAZORPAY_KEY_SECRET,
+      });
       return NextResponse.json(
         { success: false, error: 'Invalid payment signature' },
         { status: 400 }
@@ -29,7 +35,6 @@ export async function POST(request: NextRequest) {
 
     // Fetch order details from Razorpay to get user_id from notes
     const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_lmKnnhDWFEBx4e';
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || 'OrxoAbykv5jDlvzJxgPifKh6';
     
     const razorpay = new Razorpay({
       key_id: keyId,
