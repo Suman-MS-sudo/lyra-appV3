@@ -4,10 +4,10 @@ import nodemailer from 'nodemailer';
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: process.env.SMTP_SECURE === 'true', // true for 465 (SSL), false for 587 (TLS)
+  secure: process.env.SMTP_SECURE !== 'false', // port 465 = SSL (true by default)
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
+    pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD,
   },
   debug: true, // Enable debug output
   logger: true // Log to console
@@ -288,6 +288,52 @@ export function generatePaymentReminderHTML(data: {
       <p><strong>Lyra Enterprises</strong></p>
       <p>10/21, Vasuki Street, Cholapuram<br>Ambattur, Chennai - 600053</p>
       <p>+91 81223 78860 | lyraenterprisessales@gmail.com</p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+}
+
+
+// Template for password reset email
+export function generatePasswordResetEmailHTML(resetLink: string) {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+    <h1 style="color: white; margin: 0;">Lyra Enterprises</h1>
+    <p style="color: #f0f0f0; margin: 10px 0 0 0;">Vending Machine Solutions</p>
+  </div>
+
+  <div style="background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;">
+    <h2 style="color: #667eea; margin-top: 0;">Password Reset Request</h2>
+
+    <p>We received a request to reset the password for your Lyra Enterprises account. Click the button below to set a new password.</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Reset My Password</a>
+    </div>
+
+    <p style="color: #666; font-size: 14px;">This link will expire in <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email &mdash; your password will remain unchanged.</p>
+
+    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+    <p style="color: #999; font-size: 12px;">If the button above does not work, copy and paste this link into your browser:</p>
+    <p style="color: #667eea; font-size: 12px; word-break: break-all;">${resetLink}</p>
+
+    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+
+    <div style="text-align: center; color: #999; font-size: 12px;">
+      <p><strong>Lyra Enterprises</strong></p>
+      <p>10/21, Vasuki Street, Cholapuram<br>Ambattur, Chennai - 600053</p>
+      <p>+91 81223 78860 | sales@lyraenterprise.co.in</p>
     </div>
   </div>
 </body>
