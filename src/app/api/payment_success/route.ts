@@ -30,11 +30,13 @@ export async function GET(request: NextRequest) {
     );
 
     // Step 1: Find the vending machine by MAC address (case-insensitive)
+    // limit(1) + maybeSingle() prevents PGRST116 if duplicate MACs exist in the table
     const { data: machine, error: machineError } = await supabase
       .from('vending_machines')
       .select('id, machine_id, name')
       .ilike('mac_id', macAddress)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     console.log('MAC lookup:', { macAddress, machine, error: machineError?.message });
 

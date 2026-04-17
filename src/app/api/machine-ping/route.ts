@@ -39,6 +39,24 @@ export async function POST(request: NextRequest) {
 
     // Update machine record with latest ping data
     if (machine_id && machine_id !== 'UNKNOWN') {
+      // If machine_id is not a UUID, resolve it via the machine_id string column first
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let resolvedId = machine_id;
+      if (!uuidRegex.test(machine_id)) {
+        const { data: found } = await supabase
+          .from('vending_machines')
+          .select('id')
+          .eq('machine_id', machine_id)
+          .limit(1)
+          .maybeSingle();
+        if (!found) {
+          console.warn(`⚠️ Machine not found for serial: ${machine_id}`);
+          return NextResponse.json({ success: false, error: 'Machine not found' }, { status: 404 });
+        }
+        resolvedId = found.id;
+        console.log(`🔑 Resolved serial ${machine_id} → UUID ${resolvedId}`);
+      }
+
       const updateData: any = {
         asset_online: true,
         last_ping: new Date().toISOString(),
@@ -59,7 +77,7 @@ export async function POST(request: NextRequest) {
       const { error: updateError } = await supabase
         .from('vending_machines')
         .update(updateData)
-        .eq('id', machine_id);
+        .eq('id', resolvedId);
 
       if (updateError) {
         console.error('Error updating machine ping:', updateError);

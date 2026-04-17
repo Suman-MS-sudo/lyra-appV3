@@ -28,12 +28,13 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Look up machine by MAC address
+    // Look up machine by MAC address (limit(1) prevents PGRST116 if duplicate MACs exist)
     const { data: machine, error } = await supabase
       .from('vending_machines')
       .select('id, machine_id, name')
       .eq('mac_id', mac.toUpperCase())
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     console.log('📊 Database query result:', { machine, error });
 
