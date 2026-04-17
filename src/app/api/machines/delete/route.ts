@@ -23,17 +23,9 @@ export async function DELETE(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Nullify machine_id on transactions before deleting (FK has no ON DELETE CASCADE)
-    await supabase
-      .from('transactions')
-      .update({ machine_id: null })
-      .eq('machine_id', machineId);
-
-    // Also nullify any other FK references
-    await supabase
-      .from('machine_products')
-      .delete()
-      .eq('machine_id', machineId);
+    // Delete all dependent rows first (transactions.machine_id is NOT NULL so cannot be nullified)
+    await supabase.from('transactions').delete().eq('machine_id', machineId);
+    await supabase.from('machine_products').delete().eq('machine_id', machineId);
 
     // Now safe to delete the machine
     const { error: deleteError } = await supabase
