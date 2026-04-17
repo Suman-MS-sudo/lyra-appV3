@@ -28,11 +28,13 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Look up machine by MAC address (limit(1) prevents PGRST116 if duplicate MACs exist)
+    // Look up machine by MAC address
+    // order by updated_at DESC so the most recently active machine wins when duplicate MACs exist
     const { data: machine, error } = await supabase
       .from('vending_machines')
       .select('id, machine_id, name')
       .eq('mac_id', mac.toUpperCase())
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 

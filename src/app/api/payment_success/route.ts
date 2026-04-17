@@ -30,11 +30,12 @@ export async function GET(request: NextRequest) {
     );
 
     // Step 1: Find the vending machine by MAC address (case-insensitive)
-    // limit(1) + maybeSingle() prevents PGRST116 if duplicate MACs exist in the table
+    // order by updated_at DESC so the most recently active machine wins when duplicate MACs exist
     const { data: machine, error: machineError } = await supabase
       .from('vending_machines')
       .select('id, machine_id, name')
       .ilike('mac_id', macAddress)
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
