@@ -43,15 +43,18 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
     redirect('/customer/users');
   }
 
-  // Fetch ALL machines (both owned by super customer and assigned to this user)
+  // Fetch ALL machines: org-owned + already assigned to this sub-user
+  // Machines owned by the org use customer_id = organization_id
+  // Machines already assigned to sub-user use customer_id = userId
+  const orgId = profile.organization_id;
   const { data: allMachines } = await serviceSupabase
     .from('vending_machines')
     .select('id, name, location, customer_id')
-    .or(`customer_id.eq.${user.id},customer_id.eq.${userId}`)
+    .or(`customer_id.eq.${orgId},customer_id.eq.${userId}`)
     .order('name');
 
   // Separate machines by ownership
-  const ownedMachines = allMachines?.filter(m => m.customer_id === user.id) || [];
+  const ownedMachines = allMachines?.filter(m => m.customer_id === orgId) || [];
   const assignedMachines = allMachines?.filter(m => m.customer_id === userId) || [];
 
   return (
@@ -98,7 +101,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
           </p>
           <EditUserMachines
             userId={userId}
-            superCustomerId={user.id}
+            superCustomerId={orgId}
             ownedMachines={ownedMachines}
             assignedMachines={assignedMachines}
           />

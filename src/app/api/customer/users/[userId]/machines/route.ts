@@ -71,10 +71,12 @@ export async function PUT(
       );
     }
 
-    // Step 1: Return all machines currently assigned to this user back to super customer
+    const orgId = currentProfile.organization_id;
+
+    // Step 1: Return all machines currently assigned to this user back to the org
     const { error: returnError } = await serviceSupabase
       .from('vending_machines')
-      .update({ customer_id: user.id })
+      .update({ customer_id: orgId })
       .eq('customer_id', userId);
 
     if (returnError) {
@@ -91,7 +93,7 @@ export async function PUT(
         .from('vending_machines')
         .update({ customer_id: userId })
         .in('id', machine_ids)
-        .eq('customer_id', user.id); // Only assign machines owned by super customer
+        .eq('customer_id', orgId); // Only assign machines owned by the org
 
       if (assignError) {
         console.error('Error assigning machines:', assignError);

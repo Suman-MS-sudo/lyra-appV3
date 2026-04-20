@@ -55,29 +55,49 @@ export default async function CustomerDashboard() {
     machineCount: number;
   }> = [];
 
-  // Fetch all machines assigned to this organization
-  const { data: orgMachines } = profile?.organization_id
-    ? await serviceSupabase
-        .from('vending_machines')
-        .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
-        .eq('customer_id', profile.organization_id)
-    : { data: [] };
+  // Super customers see all org machines; regular customers see only their assigned machines
+  let orgMachines: any[] | null;
+  if (isSuperCustomer && profile?.organization_id) {
+    const { data } = await serviceSupabase
+      .from('vending_machines')
+      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
+      .eq('customer_id', profile.organization_id);
+    orgMachines = data;
+  } else {
+    const { data } = await serviceSupabase
+      .from('vending_machines')
+      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
+      .eq('customer_id', user.id);
+    orgMachines = data;
+  }
 
   customerMachines = orgMachines;
 
-  // Super customers see org users alongside the shared org machines
+  // Super customers see org users with each user's individually assigned machines
   if (isSuperCustomer && profile?.organization_id) {
     const { data: orgUsers } = await serviceSupabase
       .from('profiles')
       .select('id, email, full_name, account_type')
-      .eq('organization_id', profile.organization_id);
+      .eq('organization_id', profile.organization_id)
+      .neq('id', user.id); // exclude the super customer themselves
 
-    // All org users share the same pool of org-assigned machines
-    orgUsersWithMachines = orgUsers?.map(orgUser => ({
-      ...orgUser,
-      machines: orgMachines || [],
-      machineCount: orgMachines?.length || 0,
-    })) || [];
+    if (orgUsers && orgUsers.length > 0) {
+      // Fetch ALL machines: org-owned + assigned to any sub-user in one query
+      const subUserIds = orgUsers.map(u => u.id);
+      const { data: allOrgMachines } = await serviceSupabase
+        .from('vending_machines')
+        .select('id, name, customer_id')
+        .or(`customer_id.eq.${profile.organization_id},${subUserIds.map(id => `customer_id.eq.${id}`).join(',')}`);
+
+      orgUsersWithMachines = orgUsers.map(orgUser => {
+        const userMachines = allOrgMachines?.filter(m => m.customer_id === orgUser.id) || [];
+        return {
+          ...orgUser,
+          machines: userMachines,
+          machineCount: userMachines.length,
+        };
+      });
+    }
   }
 
   const machineIds = customerMachines?.map(m => m.id) || [];

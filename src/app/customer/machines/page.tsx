@@ -39,22 +39,25 @@ export default async function CustomerMachinesPage() {
   // Check if user is super_customer for enhanced permissions
   const isSuperCustomer = profile?.account_type === 'super_customer';
 
-  // Fetch customer's vending machines with transaction stats
-  // Super customers see all machines in their organization, regular users see only their assigned machines
+  // Fetch customer's vending machines:
+  // - Super customers see all machines owned by the organization (customer_id = org UUID)
+  // - Regular customers see only machines directly assigned to them (customer_id = user UUID)
   let customerMachines;
-  // Machines are assigned to organizations (customer_id stores the org UUID)
-  // All users in an organization see all machines assigned to that org
-  if (profile?.organization_id) {
+  if (isSuperCustomer && profile?.organization_id) {
     const { data: machines } = await serviceSupabase
       .from('vending_machines')
       .select('*, last_ping')
       .eq('customer_id', profile.organization_id)
       .order('created_at', { ascending: false });
-
     customerMachines = machines;
   } else {
-    // Fallback: no org assigned, show no machines
-    customerMachines = [];
+    // Regular customers: only their own assigned machines
+    const { data: machines } = await serviceSupabase
+      .from('vending_machines')
+      .select('*, last_ping')
+      .eq('customer_id', user.id)
+      .order('created_at', { ascending: false });
+    customerMachines = machines;
   }
 
   // Recalculate online status based on last_ping (10 minute timeout)
