@@ -42,12 +42,11 @@ export default async function EditMachinePage({ params }: { params: Promise<{ id
     redirect('/admin/machines');
   }
 
-  // Fetch customers for dropdown
-  const { data: customers } = await serviceSupabase
-    .from('profiles')
-    .select('id, email, full_name')
-    .eq('role', 'customer')
-    .order('full_name');
+  // Fetch organizations for dropdown
+  const { data: organizations } = await serviceSupabase
+    .from('organizations')
+    .select('id, name')
+    .order('name');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -66,7 +65,7 @@ export default async function EditMachinePage({ params }: { params: Promise<{ id
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <EditMachineForm machine={machine} customers={customers || []} />
+        <EditMachineForm machine={machine} organizations={organizations || []} />
       </main>
     </div>
   );

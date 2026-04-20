@@ -55,80 +55,66 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
   const assignedMachines = allMachines?.filter(m => m.customer_id === userId) || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
-            <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
-          </div>
-        </div>
-      </header>
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div>
+        <Link href="/customer/users" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium">
+          ← Back to Users
+        </Link>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">Edit User</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Update user information and machine assignments</p>
+      </div>
 
-      <main className="container mx-auto px-6 py-8 max-w-2xl">
-        <div className="mb-6">
-          <Link href="/customer/users" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            ← Back to Users
-          </Link>
-          <h2 className="text-2xl font-bold text-gray-900 mt-2">Edit User</h2>
-          <p className="text-sm text-gray-600">Update user information and machine assignments</p>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
-          {/* User Info */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">User Information</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700">Email</label>
-                <div className="text-gray-900 mt-1">{userToEdit.email}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">Full Name</label>
-                <div className="text-gray-900 mt-1">{userToEdit.full_name || 'Not set'}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">Phone</label>
-                <div className="text-gray-900 mt-1">{userToEdit.phone || 'Not set'}</div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">Role</label>
-                <div className="text-gray-900 mt-1">
-                  <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                    {userToEdit.role}
-                  </span>
-                </div>
-              </div>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 space-y-6">
+        {/* User Info */}
+        <div>
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">User Information</h3>
+          <div className="space-y-3 divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="flex justify-between py-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Email</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{userToEdit.email}</span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Full Name</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{userToEdit.full_name || 'Not set'}</span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Phone</span>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{userToEdit.phone || 'Not set'}</span>
+            </div>
+            <div className="flex justify-between py-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Role</span>
+              <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400">
+                {userToEdit.role}
+              </span>
             </div>
           </div>
-
-          {/* Machine Assignment */}
-          <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Machine Management</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Assign specific machines to this user. Assigned machines will be owned and managed by them.
-            </p>
-            
-            <EditUserMachines 
-              userId={userId}
-              superCustomerId={user.id}
-              ownedMachines={ownedMachines}
-              assignedMachines={assignedMachines}
-            />
-          </div>
-
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Access Permissions</h4>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>✓ View all machines in the organization</li>
-              <li>✓ See revenue and transaction data</li>
-              <li>✓ Access customer dashboard</li>
-              <li>✗ Cannot create or manage users</li>
-              <li>✗ Cannot access admin features</li>
-            </ul>
-          </div>
         </div>
-      </main>
-    </div>
+
+        {/* Machine Assignment */}
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Machine Management</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Assign specific machines to this user. Assigned machines will be owned and managed by them.
+          </p>
+          <EditUserMachines
+            userId={userId}
+            superCustomerId={user.id}
+            ownedMachines={ownedMachines}
+            assignedMachines={assignedMachines}
+          />
+        </div>
+
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Access Permissions</h4>
+          <ul className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+            <li>✓ View all machines in the organization</li>
+            <li>✓ See revenue and transaction data</li>
+            <li>✓ Access customer dashboard</li>
+            <li>✗ Cannot create or manage users</li>
+            <li>✗ Cannot access admin features</li>
+          </ul>
+        </div>
+      </div>
+    </main>
   );
 }

@@ -1009,7 +1009,7 @@ void setup() {
 
     // ── Step 2: LCD + RTC over I2C (independent of SPI) ──
     Wire.begin(21, 22);  // SDA=21, SCL=22  (shared by LCD & RTC)
-    lcd.begin();
+    lcd.begin(16, 2);
     lcd.backlight();
     lcd.clear();
     lcd.setCursor(0, 0); lcd.print("Lyra Vending v4");

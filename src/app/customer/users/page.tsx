@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { Users, Plus, UserCircle, ArrowLeft, Building2, CreditCard } from 'lucide-react';
+import { Users, Plus, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import DeleteUserButton from '@/components/DeleteUserButton';
 
@@ -46,149 +46,94 @@ export default async function CustomerUsersPage() {
   const totalUsers = managedUsers?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
-            <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-900 font-medium hidden sm:block">{user.email}</span>
-            <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
-                Logout
-              </button>
-            </form>
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Page Title */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manage Users</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">User accounts in your organization</p>
+        </div>
+        <Link
+          href="/customer/users/new"
+          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition-all text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          Add User
+        </Link>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Users</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalUsers}</div>
+        </div>
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Members</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {managedUsers?.filter(u => u.role === 'customer').length || 0}
           </div>
         </div>
-        
-        {/* Navigation */}
-        <div className="px-6 py-3 border-t border-gray-200/50">
-          <nav className="flex items-center gap-2 overflow-x-auto">
-            <Link href="/customer/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to Dashboard">
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </Link>
-            <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              Dashboard
-            </Link>
-            <Link href="/customer/billing" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Billing</span>
-            </Link>
-            <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-              <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
-            </Link>
-            <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
-              <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>
-            </Link>
-          </nav>
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Your Role</div>
+          <div className="text-lg font-bold text-purple-600 dark:text-purple-400">Admin</div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Manage Users</h2>
-            <p className="text-sm text-gray-600">Create and manage user accounts for your organization</p>
-          </div>
-          <Link 
-            href="/customer/users/new"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Add User
-          </Link>
+      {/* Users Table */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-800">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">All Users</h2>
         </div>
-
-        {/* Summary Card */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="text-sm text-gray-600 mb-1">Total Users</div>
-            <div className="text-2xl font-bold text-gray-900">{totalUsers}</div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="text-sm text-gray-600 mb-1">Active Users</div>
-            <div className="text-2xl font-bold text-green-600">
-              {managedUsers?.filter(u => u.role === 'customer').length || 0}
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="text-sm text-gray-600 mb-1">Your Role</div>
-            <div className="text-lg font-bold text-blue-600">Super Customer</div>
-          </div>
-        </div>
-
-        {/* Users Table */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">All Users</h3>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Account Type</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {managedUsers && managedUsers.length > 0 ? (
-                  managedUsers.map((u) => (
-                    <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="py-4 px-4 text-sm font-medium text-gray-900">{u.email}</td>
-                      <td className="py-4 px-4 text-sm text-gray-600">{u.role}</td>
-                      <td className="py-4 px-4 text-sm">
-                        <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                          {u.account_type}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-gray-600">
-                        {new Date(u.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-4 px-4 text-sm text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={`/customer/users/${u.id}/edit`}
-                            className="text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            Edit
-                          </Link>
-                          <DeleteUserButton userId={u.id} userEmail={u.email} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center">
-                      <div className="text-gray-400 text-4xl mb-2">
-                        <UserCircle className="w-16 h-16 mx-auto" />
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 dark:bg-gray-800/50">
+              <tr>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Email</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Role</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Type</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">Created</th>
+                <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {managedUsers && managedUsers.length > 0 ? (
+                managedUsers.map((u) => (
+                  <tr key={u.id} className="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td className="px-5 py-3.5 text-sm font-medium text-gray-900 dark:text-white">{u.email}</td>
+                    <td className="px-5 py-3.5 text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">{u.role}</td>
+                    <td className="px-5 py-3.5 hidden md:table-cell">
+                      <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+                        {u.account_type}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                      {new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <Link href={`/customer/users/${u.id}/edit`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium text-xs">Edit</Link>
+                        <DeleteUserButton userId={u.id} userEmail={u.email} />
                       </div>
-                      <p className="text-gray-500 font-medium">No users found</p>
-                      <p className="text-sm text-gray-400 mt-1">Create your first user to get started</p>
-                      <Link
-                        href="/customer/users/new"
-                        className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add User
-                      </Link>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-16 text-center">
+                    <UserCircle className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">No users yet</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1 mb-4">Add users to give them access to your organization</p>
+                    <Link href="/customer/users/new" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                      <Plus className="w-4 h-4" />Add User
+                    </Link>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

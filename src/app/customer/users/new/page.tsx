@@ -42,46 +42,25 @@ export default async function NewCustomerUserPage() {
     .order('name');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg"></div>
-            <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-900 font-medium hidden sm:block">{user.email}</span>
-            <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
-                Logout
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+      <Link
+        href="/customer/users"
+        className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to Users
+      </Link>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8 max-w-2xl">
-        <Link
-          href="/customer/users"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Users
-        </Link>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 sm:p-8">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Create New User</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Add a new user to your organization with limited access</p>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Create New User</h2>
-          <p className="text-sm text-gray-600 mb-6">Add a new user to your organization with limited access</p>
-          
-          <NewCustomerUserForm 
-            superCustomerId={user.id} 
-            organizationId={profile.organization_id}
-            machines={machines || []}
-          />
-        </div>
-      </main>
-    </div>
+        <NewCustomerUserForm
+          superCustomerId={user.id}
+          organizationId={profile.organization_id}
+          machines={machines || []}
+        />
+      </div>
+    </main>
   );
 }

@@ -1,9 +1,11 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ShoppingBag, TrendingUp, Heart, Clock, Coins, CreditCard, Building2, Activity, AlertCircle, Package, Settings, Users } from 'lucide-react';
+import { TrendingUp, CreditCard, AlertCircle, Users, Wifi, WifiOff, Coins, Activity } from 'lucide-react';
 import Link from 'next/link';
 import MachineAssignmentPopup from '@/components/MachineAssignmentPopup';
+import { PaymentDonutChart, MachineRevenueBar, RevenueAreaChart, MachineStatusBar } from '@/components/DashboardCharts';
+import TransactionsTable from '@/components/TransactionsTable';
 
 // Force dynamic rendering - never cache this page to ensure real-time status
 export const revalidate = 0;
@@ -41,7 +43,8 @@ export default async function CustomerDashboard() {
   const isSuperCustomer = profile?.account_type === 'super_customer';
 
   // Fetch customer's vending machines
-  // Super customers see all machines in their organization, regular users see only their assigned machines
+  // Machines are assigned to organizations (customer_id stores the org UUID).
+  // All users in an organization see all machines assigned to that org.
   let customerMachines: any[] | null | undefined;
   let orgUsersWithMachines: Array<{
     id: string;
@@ -51,40 +54,30 @@ export default async function CustomerDashboard() {
     machines: any[];
     machineCount: number;
   }> = [];
-  
+
+  // Fetch all machines assigned to this organization
+  const { data: orgMachines } = profile?.organization_id
+    ? await serviceSupabase
+        .from('vending_machines')
+        .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
+        .eq('customer_id', profile.organization_id)
+    : { data: [] };
+
+  customerMachines = orgMachines;
+
+  // Super customers see org users alongside the shared org machines
   if (isSuperCustomer && profile?.organization_id) {
-    // Get all machines owned by super customer AND machines owned by users in this organization
     const { data: orgUsers } = await serviceSupabase
       .from('profiles')
       .select('id, email, full_name, account_type')
       .eq('organization_id', profile.organization_id);
-    
-    const userIds = orgUsers?.map(u => u.id) || [user.id];
-    
-    const { data: machines } = await serviceSupabase
-      .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
-      .in('customer_id', userIds);
-    
-    customerMachines = machines;
 
-    // Group machines by user for display
-    orgUsersWithMachines = orgUsers?.map(orgUser => {
-      const userMachines = machines?.filter(m => m.customer_id === orgUser.id) || [];
-      return {
-        ...orgUser,
-        machines: userMachines,
-        machineCount: userMachines.length
-      };
-    }).filter(u => u.machineCount > 0) || [];
-  } else {
-    // Regular users only see their own machines
-    const { data: machines } = await serviceSupabase
-      .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, last_ping')
-      .eq('customer_id', user.id);
-    
-    customerMachines = machines;
+    // All org users share the same pool of org-assigned machines
+    orgUsersWithMachines = orgUsers?.map(orgUser => ({
+      ...orgUser,
+      machines: orgMachines || [],
+      machineCount: orgMachines?.length || 0,
+    })) || [];
   }
 
   const machineIds = customerMachines?.map(m => m.id) || [];
@@ -199,52 +192,79 @@ export default async function CustomerDashboard() {
     return date.toLocaleDateString();
   };
 
-  // Calculate coin payments to be paid to Lyra (customer owes for coin transactions)
-  const coinPaymentOwed = coinRevenue;
-
-  // Machine-wise breakdown
-  const machineHealthDetails = customerMachines?.map(machine => {
-    const machineOnlineTx = onlineTransactions?.filter(tx => 
+  // Machine-wise breakdown for bar chart
+  const machineHealthData = customerMachines?.map(machine => {
+    const machineOnlineTx = onlineTransactions?.filter(tx =>
       tx.machine_id === machine.id && tx.payment_status === 'paid'
     ) || [];
-    const machineCoinTx = coinPayments?.filter(tx => 
-      tx.machine_id === machine.id
-    ) || [];
-
+    const machineCoinTx = coinPayments?.filter(tx => tx.machine_id === machine.id) || [];
     const machineOnlineRev = machineOnlineTx.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
     const machineCoinRev = machineCoinTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-
     return {
       ...machine,
-      onlineTransactions: machineOnlineTx.length,
-      coinTransactions: machineCoinTx.length,
+      name: machine.name?.substring(0, 12) || 'Unknown',
+      fullName: machine.name || 'Unknown',
+      online: machine.asset_online ? 1 : 0,
+      offline: machine.asset_online ? 0 : 1,
+      revenue: machineOnlineRev + machineCoinRev,
       onlineRevenue: machineOnlineRev,
       coinRevenue: machineCoinRev,
-      totalRevenue: machineOnlineRev + machineCoinRev,
       totalTransactions: machineOnlineTx.length + machineCoinTx.length,
-      healthStatus: (machine.status === 'online' || machine.status === 'active') && (machine.stock_level || 0) >= 5 ? 'healthy' : 'needs_attention'
     };
-  }).sort((a, b) => b.totalRevenue - a.totalRevenue) || [];
+  }).sort((a, b) => b.revenue - a.revenue) || [];
 
-  // Format time ago
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
-    return date.toLocaleDateString();
-  };
+  // Revenue by day (last 14 days) for area chart
+  const now = new Date();
+  const revenueTimeline = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (13 - i));
+    const dateStr = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
 
-  // Format currency for display
-  const formatAmount = (amount: number) => {
-    return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
+    const dayOnline = onlineTransactions
+      ?.filter(tx => {
+        const t = new Date(tx.created_at);
+        return t >= dayStart && t <= dayEnd && tx.payment_status === 'paid';
+      })
+      .reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
 
-  // Get pending invoices for notifications
+    const dayCoin = (coinPayments
+      ?.filter(tx => {
+        const t = new Date(tx.created_at);
+        return t >= dayStart && t <= dayEnd;
+      })
+      .reduce((sum, tx) => sum + tx.amount_in_paisa, 0) || 0) / 100;
+
+    return { date: dateStr, online: Math.round(dayOnline * 100) / 100, coin: Math.round(dayCoin * 100) / 100 };
+  });
+
+  // Last 10 per type — the client component handles filtering
+  const last10Online = (onlineTransactions || []).slice(0, 10).map(tx => ({
+    id: tx.id,
+    type: 'online' as const,
+    amount: parseFloat(tx.total_amount || 0),
+    status: tx.payment_status,
+    machine: (tx.vending_machines as any)?.name || 'Unknown',
+    items: tx.quantity || 1,
+    created_at: tx.created_at,
+  }));
+
+  const last10Coin = (coinPayments || []).slice(0, 10).map(tx => ({
+    id: tx.id,
+    type: 'coin' as const,
+    amount: (tx.amount_in_paisa || 0) / 100,
+    status: tx.dispensed ? 'dispensed' : 'pending',
+    machine: (tx.vending_machines as any)?.name || 'Unknown',
+    product: (tx.products as any)?.name || 'Unknown',
+    items: tx.quantity || 1,
+    created_at: tx.created_at,
+  }));
+
+  const last10Transactions = [...last10Online, ...last10Coin]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Pending invoices for the banner
   const { data: pendingInvoices } = await serviceSupabase
     .from('organization_invoices')
     .select('id, invoice_number, total_amount_paisa, period_end')
@@ -260,183 +280,220 @@ export default async function CustomerDashboard() {
     return dueDate < new Date();
   }) || [];
 
-  return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 via-blue-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-linear-to-br from-blue-600 to-purple-600 rounded-lg"></div>
-            <h1 className="text-xl font-bold text-gray-900">Lyra</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-900 font-medium hidden sm:block">{user.email}</span>
-            <form action="/api/auth/logout" method="POST">
-              <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-lg transition-all shadow-sm">
-                Logout
-              </button>
-            </form>
-          </div>
-        </div>
-        
-        {/* Navigation */}
-        <div className="px-6 py-3 border-t border-gray-200/50">
-          <nav className="flex items-center gap-2 overflow-x-auto">
-            <Link href="/customer/dashboard" className="px-4 py-2 rounded-lg font-medium bg-blue-100 text-blue-700">
-              Dashboard
-            </Link>
-            {isSuperCustomer && (
-              <>
-                <Link href="/customer/billing" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                  <span className="flex items-center gap-2"><CreditCard className="w-4 h-4" />Billing</span>
-                </Link>
-                <Link href="/customer/machines" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                  <span className="flex items-center gap-2"><Building2 className="w-4 h-4" />My Machines</span>
-                </Link>
-                <Link href="/customer/users" className="px-4 py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                  <span className="flex items-center gap-2"><Users className="w-4 h-4" />Manage Users</span>
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+  // Helpers
+  const formatAmount = (amount: number) =>
+    amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      {/* Payment Notification Banner - Only for Super Customers */}
-      {isSuperCustomer && (
-        <div className={`${overdueInvoices.length > 0 ? 'bg-red-50 border-red-200' : totalPendingAmount > 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'} border-b`}>
-          <div className="container mx-auto px-6 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className={`w-5 h-5 ${overdueInvoices.length > 0 ? 'text-red-600' : totalPendingAmount > 0 ? 'text-yellow-600' : 'text-green-600'}`} />
-                <div>
-                  <p className={`font-semibold ${overdueInvoices.length > 0 ? 'text-red-900' : totalPendingAmount > 0 ? 'text-yellow-900' : 'text-green-900'}`}>
-                    {overdueInvoices.length > 0 
-                      ? `${overdueInvoices.length} Overdue Invoice${overdueInvoices.length > 1 ? 's' : ''}`
-                      : totalPendingAmount > 0
-                      ? 'Pending Payment'
-                      : 'All Payments Up to Date'}
-                  </p>
-                  <p className={`text-sm ${overdueInvoices.length > 0 ? 'text-red-700' : totalPendingAmount > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
-                    {totalPendingAmount > 0
-                      ? `${pendingInvoices?.length || 0} invoice${(pendingInvoices?.length || 0) > 1 ? 's' : ''} totaling ₹${(totalPendingAmount / 100).toFixed(2)}${overdueInvoices.length > 0 ? ' - Immediate payment required' : ''}`
-                      : 'No outstanding invoices or payments'}
-                  </p>
-                </div>
-              </div>
-              <Link 
-                href="/customer/billing"
-                className={`px-4 py-2 ${overdueInvoices.length > 0 ? 'bg-red-600 hover:bg-red-700' : totalPendingAmount > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-lg font-medium text-sm transition-colors whitespace-nowrap`}
-              >
-                {totalPendingAmount > 0 ? 'View & Pay' : 'View Billing'}
-              </Link>
-            </div>
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  return (
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Invoice Banner */}
+      {isSuperCustomer && totalPendingAmount > 0 && (
+        <div className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 ${
+          overdueInvoices.length > 0
+            ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+            : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+        }`}>
+          <div className="flex items-center gap-2 text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>
+              {overdueInvoices.length > 0
+                ? `${overdueInvoices.length} overdue invoice${overdueInvoices.length > 1 ? 's' : ''} — `
+                : `${pendingInvoices?.length} pending invoice${(pendingInvoices?.length || 0) > 1 ? 's' : ''} — `}
+              <strong>₹{(totalPendingAmount / 100).toFixed(2)}</strong> due
+            </span>
           </div>
+          <Link
+            href="/customer/billing"
+            className="text-xs font-semibold px-3 py-1.5 bg-white dark:bg-gray-800 border border-current/20 rounded-lg hover:opacity-80 transition-opacity whitespace-nowrap"
+          >
+            View &amp; Pay →
+          </Link>
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Dashboard Overview</h2>
-          <p className="text-sm text-gray-600">Monitor your vending machine operations</p>
+      {/* Page Title */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Real-time overview of your vending machine network</p>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-full" />
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Revenue</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{formatAmount(totalRevenue)}</p>
+          <div className="flex items-center gap-1 mt-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium">
+            <TrendingUp className="w-3.5 h-3.5" />
+            {(onlineTransactionCount + coinTransactionCount)} transactions
+          </div>
         </div>
 
-        {/* Summary Stats */}
-        <div className={`grid gap-4 mb-6 ${isSuperCustomer ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="text-sm text-gray-600 mb-1">Healthy Machines</div>
-            <div className="text-2xl font-bold text-gray-900">{healthyMachines.length} / {totalMachines}</div>
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-50 dark:bg-purple-900/20 rounded-bl-full" />
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Online Payments</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{formatAmount(onlineRevenue)}</p>
+          <div className="flex items-center gap-1 mt-2 text-xs text-purple-600 dark:text-purple-400 font-medium">
+            <CreditCard className="w-3.5 h-3.5" />
+            {onlineTransactionCount} paid
           </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="text-sm text-gray-600 mb-1">Need Attention</div>
-            <div className="text-2xl font-bold text-red-600">{needsAttentionMachines.length}</div>
-          </div>
-
-          {isSuperCustomer && (
-            <>
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Online Revenue</div>
-                <div className="text-2xl font-bold text-gray-900">₹{formatAmount(onlineRevenue)}</div>
-                <div className="text-xs text-gray-500 mt-1">{onlineTransactionCount} transactions</div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Coin Owed to Lyra</div>
-                <div className="text-2xl font-bold text-gray-900">₹{formatAmount(coinPaymentOwed)}</div>
-                <div className="text-xs text-gray-500 mt-1">{coinTransactionCount} transactions</div>
-              </div>
-            </>
-          )}
         </div>
 
-        {/* Machine Assignments by User - Only for super customers */}
-        {isSuperCustomer && orgUsersWithMachines.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-50 dark:bg-amber-900/20 rounded-bl-full" />
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Coin Payments</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{formatAmount(coinRevenue)}</p>
+          <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+            <Coins className="w-3.5 h-3.5" />
+            {coinTransactionCount} collections
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-bl-full" />
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Machines Online</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{onlineMachines} <span className="text-gray-400 dark:text-gray-600 text-base font-normal">/ {totalMachines}</span></p>
+          <div className="flex items-center gap-1 mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+            <Wifi className="w-3.5 h-3.5" />
+            {needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy'}
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          <div className="mb-4">
+            <h2 className="font-semibold text-gray-900 dark:text-white">Revenue Trend</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 14 days — online vs coin</p>
+          </div>
+          <RevenueAreaChart revenueTimeline={revenueTimeline} />
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-1">Payment Split</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Revenue by payment type</p>
+          <PaymentDonutChart
+            onlineRevenue={onlineRevenue}
+            coinRevenue={coinRevenue}
+            onlineCount={onlineTransactionCount}
+            coinCount={coinTransactionCount}
+          />
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span className="w-3 h-3 rounded-full bg-indigo-500 inline-block" />Online</span>
+              <span className="font-medium text-gray-900 dark:text-white">₹{formatAmount(onlineRevenue)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />Coin</span>
+              <span className="font-medium text-gray-900 dark:text-white">₹{formatAmount(coinRevenue)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Machine Revenue + Status */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          <h2 className="font-semibold text-gray-900 dark:text-white mb-1">Revenue by Machine</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Top {Math.min(machineHealthData.length, 8)} by total revenue</p>
+          <MachineRevenueBar machineHealthData={machineHealthData} />
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Machine Assignments</h3>
-              <p className="text-sm text-gray-600 mt-1">View which users have machines assigned</p>
+              <h2 className="font-semibold text-gray-900 dark:text-white">Machine Health</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Real-time connectivity</p>
             </div>
-            <Link href="/customer/users" className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-lg transition-all shadow-sm">
-              Manage Users
-            </Link>
+            <Link href="/customer/machines" className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">View all →</Link>
+          </div>
+          <MachineStatusBar online={onlineMachines} offline={totalMachines - onlineMachines} total={totalMachines} />
+          <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+            {machinesWithUpdatedStatus.map(m => (
+              <div key={m.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {m.asset_online
+                    ? <Wifi className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    : <WifiOff className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{m.name}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                  <span>{formatLastSync(m.last_ping)}</span>
+                  {m.stock_level !== null && m.stock_level < 5 && (
+                    <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded font-medium">Low</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {machinesWithUpdatedStatus.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No machines assigned</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Transactions */}
+      <TransactionsTable transactions={last10Transactions} />
+
+      {/* Team & Machine Access (super customer only) */}
+      {isSuperCustomer && orgUsersWithMachines.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-semibold text-gray-900 dark:text-white">Team &amp; Machine Access</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Users in your organization</p>
+            </div>
+            <Link href="/customer/users" className="px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded-lg transition-all">Manage Users</Link>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">User</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Role</th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Machines</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Assigned Devices</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-800">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">User</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Email</th>
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Role</th>
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Machines</th>
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Devices</th>
+                  <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {orgUsersWithMachines.map((orgUser) => (
-                  <tr key={orgUser.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-linear-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                {orgUsersWithMachines.map(orgUser => (
+                  <tr key={orgUser.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <div className="font-medium text-gray-900">{orgUser.full_name || 'N/A'}</div>
+                        <span className="font-medium text-gray-900 dark:text-white truncate max-w-[100px]">{orgUser.full_name || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-600">{orgUser.email}</td>
-                    <td className="py-4 px-4 text-center">
-                      {orgUser.account_type === 'super_customer' ? (
-                        <span className="inline-block px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
-                          Super Customer
-                        </span>
-                      ) : (
-                        <span className="inline-block px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-full">
-                          Customer
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
-                        {orgUser.machineCount}
+                    <td className="py-3 px-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{orgUser.email}</td>
+                    <td className="py-3 px-3 text-center">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${orgUser.account_type === 'super_customer' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                        {orgUser.account_type === 'super_customer' ? 'Admin' : 'Member'}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <MachineAssignmentPopup 
-                        machines={orgUser.machines}
-                        userName={orgUser.full_name || orgUser.email}
-                      />
+                    <td className="py-3 px-3 text-center">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 font-semibold text-xs">{orgUser.machineCount}</span>
                     </td>
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-3 px-3">
+                      <MachineAssignmentPopup machines={orgUser.machines} userName={orgUser.full_name || orgUser.email} />
+                    </td>
+                    <td className="py-3 px-3 text-right">
                       {orgUser.account_type !== 'super_customer' && (
-                        <Link 
-                          href={`/customer/users/${orgUser.id}/edit`}
-                          className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                        >
-                          Edit →
-                        </Link>
+                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Edit →</Link>
                       )}
                     </td>
                   </tr>
@@ -445,171 +502,36 @@ export default async function CustomerDashboard() {
             </table>
           </div>
         </div>
-        )}
+      )}
 
-        {/* Transaction Breakdown - Only for super customers */}
-        {isSuperCustomer && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Breakdown</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-700">Payment Method</th>
-                  <th className="text-right py-2 px-3 text-sm font-medium text-gray-700">Count</th>
-                  <th className="text-right py-2 px-3 text-sm font-medium text-gray-700">Revenue</th>
-                  <th className="text-right py-2 px-3 text-sm font-medium text-gray-700">% of Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b">
-                  <td className="py-3 px-3 text-sm text-gray-900">Online Payments</td>
-                  <td className="py-3 px-3 text-sm text-right text-gray-900">{onlineTransactionCount}</td>
-                  <td className="py-3 px-3 text-sm text-right font-medium text-gray-900">₹{formatAmount(onlineRevenue)}</td>
-                  <td className="py-3 px-3 text-sm text-right text-gray-900">{totalTransactions > 0 ? ((onlineTransactionCount / totalTransactions) * 100).toFixed(1) : 0}%</td>
-                </tr>
-                <tr className="border-b">
-                  <td className="py-3 px-3 text-sm text-gray-900">Coin Payments</td>
-                  <td className="py-3 px-3 text-sm text-right text-gray-900">{coinTransactionCount}</td>
-                  <td className="py-3 px-3 text-sm text-right font-medium text-gray-900">₹{formatAmount(coinRevenue)}</td>
-                  <td className="py-3 px-3 text-sm text-right text-gray-900">{totalTransactions > 0 ? ((coinTransactionCount / totalTransactions) * 100).toFixed(1) : 0}%</td>
-                </tr>
-                <tr className="bg-gray-50">
-                  <td className="py-3 px-3 text-sm font-semibold text-gray-900">Total</td>
-                  <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">{totalTransactions}</td>
-                  <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">₹{formatAmount(totalRevenue)}</td>
-                  <td className="py-3 px-3 text-sm text-right font-semibold text-gray-900">100%</td>
-                </tr>
-              </tbody>
-            </table>
+      {/* Machines needing attention */}
+      {needsAttentionMachines.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <h2 className="font-semibold text-gray-900 dark:text-white">Machines Needing Attention</h2>
+            <span className="ml-auto px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-full text-xs font-semibold">{needsAttentionMachines.length}</span>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {needsAttentionMachines.map(m => (
+              <div key={m.id} className={`rounded-lg border p-4 ${!m.asset_online ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30' : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{m.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{m.location}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {(m.issues as string[]).map((issue: string) => (
+                      <span key={issue} className={`px-2 py-0.5 rounded text-xs font-semibold ${issue === 'Offline' ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200' : 'bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200'}`}>{issue}</span>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Last seen: {formatLastSync(m.last_ping)}</p>
+              </div>
+            ))}
           </div>
         </div>
-        )}\n\n        {/* Machines Requiring Attention */}
-        <div className="mb-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Machines Requiring Attention
-              {needsAttentionMachines.length > 0 && (
-                <span className="ml-2 inline-block bg-red-600 text-white px-3 py-1 rounded-full text-sm">
-                  {needsAttentionMachines.length}
-                </span>
-              )}
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">Machines with low stock or offline status</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Offline/Powered Off Machines */}
-            <div className="bg-white border border-red-200 rounded-lg overflow-hidden">
-              <div className="p-4 bg-red-50 border-b border-red-200">
-                <h4 className="text-base font-semibold text-red-900">
-                  Offline / Powered Off
-                  <span className="ml-2 inline-block bg-red-600 text-white px-2 py-0.5 rounded-full text-xs">
-                    {machinesWithUpdatedStatus?.filter(m => !m.asset_online).length || 0}
-                  </span>
-                </h4>
-              </div>
-              <div className="overflow-auto max-h-[400px]">
-                <table className="w-full">
-                  <thead className="bg-gray-100 sticky top-0 z-10">
-                    <tr>
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Machine</th>
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Location</th>
-                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Status</th>
-                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Last Sync</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(machinesWithUpdatedStatus?.filter(m => !m.asset_online).length ?? 0) > 0 ? (
-                      machinesWithUpdatedStatus
-                        ?.filter(m => !m.asset_online)
-                        .map((machine) => (
-                          <tr key={machine.id} className="border-b last:border-0 hover:bg-gray-50">
-                            <td className="py-3 px-3 text-sm font-medium text-gray-900">{machine.name}</td>
-                            <td className="py-3 px-3 text-sm text-gray-600">{machine.location}</td>
-                            <td className="py-3 px-3 text-sm text-center">
-                              <span className="inline-block px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-                                Offline
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 text-sm text-center text-gray-500">
-                              {formatLastSync(machine.last_ping)}
-                            </td>
-                          </tr>
-                        ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="py-8 text-center">
-                          <div className="text-gray-400 text-2xl mb-1">✓</div>
-                          <p className="text-sm text-gray-500">All machines online</p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Low Stock Machines */}
-            <div className="bg-white border border-orange-200 rounded-lg overflow-hidden">
-              <div className="p-4 bg-orange-50 border-b border-orange-200">
-                <h4 className="text-base font-semibold text-orange-900">
-                  Low Stock Alert
-                  <span className="ml-2 inline-block bg-orange-600 text-white px-2 py-0.5 rounded-full text-xs">
-                    {machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0}
-                  </span>
-                </h4>
-              </div>
-              <div className="overflow-auto max-h-[400px]">
-                <table className="w-full">
-                  <thead className="bg-gray-100 sticky top-0 z-10">
-                    <tr>
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Machine</th>
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Location</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Stock Level</th>
-                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-700 border-b border-gray-300">Last Sync</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length ?? 0) > 0 ? (
-                      machinesWithUpdatedStatus
-                        ?.filter(m => m.stock_level !== null && m.stock_level < 5)
-                        .sort((a, b) => (a.stock_level || 0) - (b.stock_level || 0))
-                        .map((machine) => (
-                          <tr key={machine.id} className="border-b last:border-0 hover:bg-gray-50">
-                            <td className="py-3 px-3 text-sm font-medium text-gray-900">{machine.name}</td>
-                            <td className="py-3 px-3 text-sm text-gray-600">{machine.location}</td>
-                            <td className="py-3 px-3 text-sm text-right">
-                              <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                                (machine.stock_level || 0) === 0
-                                  ? 'bg-red-100 text-red-700'
-                                  : (machine.stock_level || 0) < 3
-                                  ? 'bg-orange-100 text-orange-700'
-                                  : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {machine.stock_level} units
-                              </span>
-                            </td>
-                            <td className="py-3 px-3 text-sm text-center text-gray-500">
-                              {formatLastSync(machine.last_ping)}
-                            </td>
-                          </tr>
-                        ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="py-8 text-center">
-                          <div className="text-gray-400 text-2xl mb-1">✓</div>
-                          <p className="text-sm text-gray-500">All machines have adequate stock</p>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }

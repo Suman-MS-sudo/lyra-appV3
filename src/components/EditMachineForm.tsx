@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 
 interface EditMachineFormProps {
   machine: any;
-  customers: any[];
+  organizations: { id: string; name: string }[];
 }
 
-export default function EditMachineForm({ machine, customers }: EditMachineFormProps) {
+export default function EditMachineForm({ machine, organizations }: EditMachineFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -174,20 +174,20 @@ export default function EditMachineForm({ machine, customers }: EditMachineFormP
             </select>
           </div>
 
-          {/* Customer */}
+          {/* Organization */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Assigned Customer
+              Organization
             </label>
             <select
               value={formData.customer_id}
               onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
             >
-              <option value="" className="text-gray-900">No customer assigned</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id} className="text-gray-900">
-                  {customer.full_name || customer.email}
+              <option value="" className="text-gray-900">No organization assigned</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id} className="text-gray-900">
+                  {org.name}
                 </option>
               ))}
             </select>

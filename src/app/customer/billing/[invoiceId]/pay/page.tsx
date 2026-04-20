@@ -45,44 +45,40 @@ export default async function PaymentPage({ params }: { params: { invoiceId: str
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Pay Invoice</h1>
-          <p className="text-sm text-gray-500 mt-1">Invoice {invoice.invoice_number}</p>
-        </div>
-      </header>
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pay Invoice</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Invoice {invoice.invoice_number}</p>
+      </div>
 
-      <main className="container mx-auto px-6 py-8 max-w-2xl">
-        <div className="bg-white rounded-xl shadow-sm p-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Details</h2>
-            <div className="space-y-3">
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-600">Organization:</span>
-                <span className="font-medium text-gray-900">{invoice.organizations?.name}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-600">Invoice Number:</span>
-                <span className="font-medium text-gray-900">{invoice.invoice_number}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-600">Billing Period:</span>
-                <span className="font-medium text-gray-900">
-                  {invoice.period_start && invoice.period_end
-                    ? `${new Date(invoice.period_start).toLocaleDateString()} - ${new Date(invoice.period_end).toLocaleDateString()}`
-                    : 'N/A'}
-                </span>
-              </div>
-              <div className="flex justify-between py-3 border-b">
-                <span className="text-lg font-semibold text-gray-900">Total Amount:</span>
-                <span className="text-2xl font-bold text-blue-600">
-                  ₹{(invoice.total_amount_paisa / 100).toFixed(2)}
-                </span>
-              </div>
-            </div>
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Details</h2>
+        <div className="space-y-0 divide-y divide-gray-100 dark:divide-gray-800">
+          <div className="flex justify-between py-3">
+            <span className="text-gray-500 dark:text-gray-400">Organization</span>
+            <span className="font-medium text-gray-900 dark:text-white">{invoice.organizations?.name}</span>
           </div>
+          <div className="flex justify-between py-3">
+            <span className="text-gray-500 dark:text-gray-400">Invoice Number</span>
+            <span className="font-medium text-gray-900 dark:text-white">{invoice.invoice_number}</span>
+          </div>
+          <div className="flex justify-between py-3">
+            <span className="text-gray-500 dark:text-gray-400">Billing Period</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {invoice.period_start && invoice.period_end
+                ? `${new Date(invoice.period_start).toLocaleDateString()} - ${new Date(invoice.period_end).toLocaleDateString()}`
+                : 'N/A'}
+            </span>
+          </div>
+          <div className="flex justify-between py-3">
+            <span className="text-base font-semibold text-gray-900 dark:text-white">Total Amount</span>
+            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+              ₹{(invoice.total_amount_paisa / 100).toFixed(2)}
+            </span>
+          </div>
+        </div>
 
+        <div className="mt-6">
           <PaymentForm
             invoiceId={invoice.id}
             amount={invoice.total_amount_paisa}
@@ -93,7 +89,7 @@ export default async function PaymentPage({ params }: { params: { invoiceId: str
             customerPhone={invoice.organizations?.phone || ''}
           />
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
