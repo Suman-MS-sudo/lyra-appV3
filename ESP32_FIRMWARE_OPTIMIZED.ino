@@ -478,6 +478,14 @@ void maintainWiFiConnection() {
                 delay(1000);
                 syncOfflineTransactions();
                 
+                // Re-fetch machine identity if it was lost while offline
+                if (machineId == "UNKNOWN" || machineId.length() == 0) {
+                    fetchMachineInfoFromBackend(deviceMacAddress);
+                    if (machineId != "UNKNOWN" && machineId.length() > 0) {
+                        fetchMachineProducts();
+                    }
+                }
+                
                 wifiReconnectAttempts = 0;
             } else {
                 Serial.println("\n❌ WiFi reconnection failed");
@@ -645,11 +653,11 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
         Serial.printf("   Local IP: %s\n", Ethernet.localIP().toString().c_str());
         Serial.printf("   Gateway: %s\n", Ethernet.gatewayIP().toString().c_str());
         
-        // Mark as disconnected and switch to WiFi
-        ethernetConnected = false;
-        useEthernet = false;
-        Serial.println("   💡 Switching to WiFi...");
-        sendStockAwareErrorStatus();  // Update display to show network error
+        // NOTE: TCP connect failure means the SERVER is unreachable, NOT that
+        // Ethernet hardware is broken. The IP check above already confirmed the
+        // Ethernet module has a valid DHCP lease. Don't disable Ethernet here —
+        // next request (4s for payment poll, 2min for ping) will auto-retry.
+        Serial.println("   ⚠ Server unreachable — keeping Ethernet alive, will retry");
         
         return -1;
     }
@@ -1547,6 +1555,29 @@ void loop() {
     
 #ifdef USE_ETHERNET
     checkEthernetLinkStatus();
+
+    // Auto-recovery: if Ethernet was disabled (IP lost / cable pulled), periodically
+    // try to reinitialize. Once recovered, re-fetch machine identity and re-sync.
+    // This does NOT conflict with Fix 1: Fix 1 keeps Ethernet alive through server
+    // restarts; this block handles the separate case of cable/DHCP recovery.
+    static unsigned long lastEthernetRetry = 0;
+    if (!useEthernet && (millis() - lastEthernetRetry > 60000)) {
+        lastEthernetRetry = millis();
+        Serial.println("🔄 Attempting Ethernet recovery...");
+        if (initializeEthernet()) {
+            Serial.println("✅ Ethernet recovered!");
+            // Re-fetch machine identity in case it was lost during downtime
+            if (machineId == "UNKNOWN" || machineId.length() == 0) {
+                fetchMachineInfoFromBackend(deviceMacAddress);
+                if (machineId != "UNKNOWN" && machineId.length() > 0) {
+                    fetchMachineProducts();
+                }
+            }
+            sendMachineStatusPing();
+            lastPingTime = millis();
+            sendStockAwareStatus();
+        }
+    }
 #endif
     
     // Monitor and maintain WiFi connection every 30 seconds
