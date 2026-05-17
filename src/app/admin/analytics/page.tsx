@@ -79,10 +79,36 @@ export default async function AnalyticsPage() {
       .limit(10),
     serviceSupabase
       .from('coin_payments')
-      .select('amount_in_paisa, product_id, machine_id, products(name), vending_machines(name, customer_name)')
+      .select('id, created_at, amount_in_paisa, product_id, machine_id, products(name), vending_machines(name, customer_name)')
       .limit(100),
     serviceSupabase.from('vending_machines').select('customer_name, name'),
   ]);
+
+  // Build combined recent transactions (online + coin), sorted by date
+  const onlineRows = (recentTransactions || []).map((tx: any) => ({
+    id: tx.id,
+    type: 'online' as const,
+    created_at: tx.created_at,
+    machineName: tx.vending_machines?.name || 'N/A',
+    productName: (() => {
+      const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
+      return items.map((i: any) => i.name).join(', ') || 'N/A';
+    })(),
+    total_amount: parseFloat(tx.total_amount || 0),
+    payment_status: tx.payment_status || 'pending',
+  }));
+  const coinRows = (coinPayments || []).map((tx: any) => ({
+    id: tx.id,
+    type: 'coin' as const,
+    created_at: tx.created_at,
+    machineName: tx.vending_machines?.name || 'N/A',
+    productName: tx.products?.name || 'N/A',
+    total_amount: (tx.amount_in_paisa || 0) / 100,
+    payment_status: 'paid',
+  }));
+  const recentCombined = [...onlineRows, ...coinRows]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 10);
 
   const { data: allTransactions } = await serviceSupabase
     .from('transactions')
@@ -360,11 +386,11 @@ export default async function AnalyticsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                {['Date', 'Machine', 'Product', 'Amount', 'Status'].map((h, i) => (
+                {['Date', 'Machine', 'Product', 'Type', 'Amount', 'Status'].map((h, i) => (
                   <th
                     key={h}
                     className={`py-2.5 px-4 text-xs font-semibold uppercase tracking-wide ${
-                      i < 3 ? 'text-left' : i === 3 ? 'text-right' : 'text-center'
+                      i < 3 ? 'text-left' : i === 3 ? 'text-center' : i === 4 ? 'text-right' : 'text-center'
                     }`}
                     style={{ color: 'rgba(255,255,255,0.35)' }}
                   >{h}</th>
@@ -372,38 +398,46 @@ export default async function AnalyticsPage() {
               </tr>
             </thead>
             <tbody>
-              {recentTransactions && recentTransactions.length > 0 ? recentTransactions.map((tx: any) => {
-                const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
-                const productNames = items.map((item: any) => item.name).join(', ') || 'N/A';
-                return (
-                  <tr
-                    key={tx.id}
-                    className="row-hover"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                  >
-                    <td className="py-3 px-4" style={{ color: 'rgba(255,255,255,0.45)' }}>{new Date(tx.created_at).toLocaleDateString('en-IN')}</td>
-                    <td className="py-3 px-4 font-medium text-white">{tx.vending_machines?.name || 'N/A'}</td>
-                    <td className="py-3 px-4" style={{ color: 'rgba(255,255,255,0.55)' }}>{productNames}</td>
-                    <td className="py-3 px-4 text-right font-semibold text-white">₹{parseFloat(tx.total_amount || 0).toFixed(2)}</td>
-                    <td className="py-3 px-4 text-center">
-                      <span
-                        className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
-                        style={
-                          tx.payment_status === 'paid'
-                            ? { background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }
-                            : tx.payment_status === 'failed'
-                            ? { background: 'rgba(244,63,94,0.15)', color: '#FDA4AF' }
-                            : { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }
-                        }
-                      >
-                        {tx.payment_status || 'pending'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              }) : (
+              {recentCombined.length > 0 ? recentCombined.map((tx) => (
+                <tr
+                  key={`${tx.type}-${tx.id}`}
+                  className="row-hover"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <td className="py-3 px-4" style={{ color: 'rgba(255,255,255,0.45)' }}>{new Date(tx.created_at).toLocaleDateString('en-IN')}</td>
+                  <td className="py-3 px-4 font-medium text-white">{tx.machineName}</td>
+                  <td className="py-3 px-4" style={{ color: 'rgba(255,255,255,0.55)' }}>{tx.productName}</td>
+                  <td className="py-3 px-4 text-center">
+                    <span
+                      className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={
+                        tx.type === 'online'
+                          ? { background: 'rgba(96,165,250,0.15)', color: '#60A5FA' }
+                          : { background: 'rgba(251,191,36,0.15)', color: '#FBBF24' }
+                      }
+                    >
+                      {tx.type}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right font-semibold text-white">₹{tx.total_amount.toFixed(2)}</td>
+                  <td className="py-3 px-4 text-center">
+                    <span
+                      className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                      style={
+                        tx.payment_status === 'paid'
+                          ? { background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }
+                          : tx.payment_status === 'failed'
+                          ? { background: 'rgba(244,63,94,0.15)', color: '#FDA4AF' }
+                          : { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }
+                      }
+                    >
+                      {tx.payment_status}
+                    </span>
+                  </td>
+                </tr>
+              )) : (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No transactions found</td>
+                  <td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No transactions found</td>
                 </tr>
               )}
             </tbody>

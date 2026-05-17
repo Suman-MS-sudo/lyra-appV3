@@ -31,7 +31,19 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  // When the refresh token is invalid/expired, clear auth cookies so the
+  // browser stops sending them on every subsequent request.
+  if (error && (error as { code?: string }).code === 'refresh_token_not_found') {
+    const cookieNames = request.cookies.getAll()
+      .map((c) => c.name)
+      .filter((name) => name.startsWith('sb-'));
+    if (cookieNames.length > 0) {
+      cookieNames.forEach((name) => supabaseResponse.cookies.delete(name));
+    }
+  }
 
   return { supabaseResponse, user };
 }
