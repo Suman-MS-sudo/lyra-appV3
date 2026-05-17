@@ -1,16 +1,42 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ArrowLeft, Search, IndianRupee, Calendar, User, TrendingUp, TrendingDown, DollarSign, ShoppingCart } from 'lucide-react';
+import {
+  Search, IndianRupee, Calendar, User,
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, CreditCard, Coins,
+} from 'lucide-react';
+
+export const revalidate = 0;
+
+const CARD: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.10)',
+  borderRadius: 20,
+};
+
+function StatCard({
+  icon: Icon, label, value, sub, accentColor, iconBg,
+}: {
+  icon: React.ElementType; label: string; value: string; sub?: string;
+  accentColor: string; iconBg: string;
+}) {
+  return (
+    <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+      <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: iconBg, opacity: 0.15 }} />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
+        <Icon className="w-5 h-5" style={{ color: accentColor }} />
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{label}</p>
+      <p className="text-2xl font-bold text-white">{value}</p>
+      {sub && <p className="text-xs mt-1" style={{ color: accentColor }}>{sub}</p>}
+    </div>
+  );
+}
 
 export default async function TransactionsPage() {
   const supabase = await createClient();
-  
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Use service role to check admin status and fetch data
   const serviceSupabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -22,64 +48,43 @@ export default async function TransactionsPage() {
     .eq('id', user.id)
     .single();
 
-  // Only allow admins
-  if (profile?.role !== 'admin') {
-    redirect('/customer/dashboard');
-  }
+  if (profile?.role !== 'admin') redirect('/customer/dashboard');
 
-  // Determine if user is super_customer (should only see their machines)
   const isSuperCustomer = profile?.account_type === 'super_customer';
-  
-  // Get machine IDs for super customers
   let machineIds: string[] = [];
   if (isSuperCustomer) {
     const { data: machines } = await serviceSupabase
-      .from('vending_machines')
-      .select('id')
-      .eq('customer_id', user.id);
+      .from('vending_machines').select('id').eq('customer_id', user.id);
     machineIds = machines?.map((m: any) => m.id) || [];
   }
 
-  // Fetch all transactions for admin
   const transactionsQuery = serviceSupabase
     .from('transactions')
-    .select(`
-      *,
-      profiles!transactions_customer_id_fkey (email),
-      vending_machines!transactions_machine_id_fkey (name, location)
-    `);
-  
+    .select(`*, profiles!transactions_customer_id_fkey (email), vending_machines!transactions_machine_id_fkey (name, location)`);
+
   const coinPaymentsQuery = serviceSupabase
     .from('coin_payments')
-    .select(`
-      *,
-      products (name),
-      vending_machines (name, location)
-    `);
+    .select(`*, products (name), vending_machines (name, location)`);
 
   const [
     { data: transactions },
-    { data: coinPayments }
+    { data: coinPayments },
   ] = await Promise.all([
     isSuperCustomer && machineIds.length > 0
       ? transactionsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
       : transactionsQuery.order('created_at', { ascending: false }).limit(50),
     isSuperCustomer && machineIds.length > 0
       ? coinPaymentsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
-      : coinPaymentsQuery.order('created_at', { ascending: false }).limit(50)
+      : coinPaymentsQuery.order('created_at', { ascending: false }).limit(50),
   ]);
 
-  // Calculate analytics from both sources
   const onlineRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
   const totalRevenue = onlineRevenue + coinRevenue;
-  
   const totalTransactionCount = (transactions?.length || 0) + (coinPayments?.length || 0);
-  const paidTransactions = transactions?.filter(tx => tx.payment_status === 'paid') || [];
   const pendingTransactions = transactions?.filter(tx => tx.payment_status === 'pending') || [];
   const failedTransactions = transactions?.filter(tx => tx.payment_status === 'failed') || [];
 
-  // Revenue by product (combine both sources)
   const productRevenue = new Map<string, number>();
   transactions?.forEach(tx => {
     const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
@@ -92,11 +97,8 @@ export default async function TransactionsPage() {
     const productName = tx.products?.name || 'Unknown';
     productRevenue.set(productName, (productRevenue.get(productName) || 0) + (tx.amount_in_paisa / 100));
   });
-  const topProducts = Array.from(productRevenue.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  const topProducts = Array.from(productRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-  // Revenue by machine (combine both sources)
   const machineRevenue = new Map<string, number>();
   transactions?.forEach(tx => {
     const machineName = tx.vending_machines?.name || 'Unknown';
@@ -106,11 +108,8 @@ export default async function TransactionsPage() {
     const machineName = tx.vending_machines?.name || 'Unknown';
     machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + (tx.amount_in_paisa / 100));
   });
-  const topMachines = Array.from(machineRevenue.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  const topMachines = Array.from(machineRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-  // Daily revenue for last 7 days (combine both sources)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
@@ -118,337 +117,255 @@ export default async function TransactionsPage() {
   });
 
   const dailyRevenue = last7Days.map(date => {
-    const dayOnlineTransactions = transactions?.filter(tx => 
-      tx.created_at.startsWith(date) && tx.payment_status === 'paid'
-    ) || [];
-    const dayCoinPayments = coinPayments?.filter(tx => 
-      tx.created_at.startsWith(date)
-    ) || [];
-    
-    const onlineRev = dayOnlineTransactions.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
-    const coinRev = dayCoinPayments.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    
-    return {
-      date,
-      revenue: onlineRev + coinRev,
-      count: dayOnlineTransactions.length + dayCoinPayments.length
-    };
+    const dayOnline = transactions?.filter(tx => tx.created_at.startsWith(date) && tx.payment_status === 'paid') || [];
+    const dayCoin = coinPayments?.filter(tx => tx.created_at.startsWith(date)) || [];
+    const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
+    const coinRev = dayCoin.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+    return { date, revenue: onlineRev + coinRev, count: dayOnline.length + dayCoin.length };
   });
 
   const maxDailyRevenue = Math.max(...dailyRevenue.map(d => d.revenue), 1);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const ACCENT_COLORS = ['#F43F5E', '#A78BFA', '#34D399', '#FBBF24', '#60A5FA'];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      <header className="bg-white border-b shadow-sm">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Transactions Analytics
-                </h1>
-                <p className="text-sm text-gray-600">Comprehensive transaction insights and trends</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      {/* Page title */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Transactions</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Comprehensive transaction insights and trends</p>
+      </div>
 
-      <main className="container mx-auto px-6 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Total Revenue</span>
-              <DollarSign className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="text-3xl font-bold text-green-600">₹{totalRevenue.toFixed(2)}</div>
-            <div className="text-xs text-gray-500 mt-1">{paidTransactions.length} online + {coinPayments?.length || 0} coin</div>
-          </div>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={DollarSign}    label="Total Revenue"     value={`₹${totalRevenue.toFixed(2)}`}     accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"  sub={`${coinPayments?.length || 0} coin + ${transactions?.length || 0} online`} />
+        <StatCard icon={ShoppingCart}  label="Total Transactions" value={String(totalTransactionCount)}     accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"  sub="Last 50 per type" />
+        <StatCard icon={TrendingUp}    label="Pending"            value={String(pendingTransactions.length)} accentColor="#FBBF24" iconBg="rgba(251,191,36,0.18)" sub="Awaiting payment" />
+        <StatCard icon={TrendingDown}  label="Failed"             value={String(failedTransactions.length)}  accentColor="#F43F5E" iconBg="rgba(244,63,94,0.18)"  sub="Failed payments" />
+      </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Total Transactions</span>
-              <ShoppingCart className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="text-3xl font-bold text-gray-900">{totalTransactionCount}</div>
-            <div className="text-xs text-gray-500 mt-1">Last 50 transactions</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Pending</span>
-              <TrendingUp className="h-5 w-5 text-yellow-600" />
-            </div>
-            <div className="text-3xl font-bold text-yellow-600">{pendingTransactions.length}</div>
-            <div className="text-xs text-gray-500 mt-1">Awaiting payment</div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600">Failed</span>
-              <TrendingDown className="h-5 w-5 text-red-600" />
-            </div>
-            <div className="text-3xl font-bold text-red-600">{failedTransactions.length}</div>
-            <div className="text-xs text-gray-500 mt-1">Failed payments</div>
-          </div>
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Daily Revenue Chart */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold mb-6">Daily Revenue (Last 7 Days)</h3>
-            <div className="h-64 flex items-end justify-between gap-2">
-              {dailyRevenue.map((day, index) => {
-                const heightPercent = maxDailyRevenue > 0 ? (day.revenue / maxDailyRevenue) * 100 : 0;
-                return (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full flex flex-col items-center justify-end h-48 relative group">
-                      {/* Tooltip */}
-                      <div className="absolute -top-16 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs rounded-lg py-2 px-3 whitespace-nowrap z-10">
-                        <div className="font-semibold">₹{day.revenue.toFixed(2)}</div>
-                        <div className="text-gray-300">{day.count} transactions</div>
-                      </div>
-                      {/* Bar */}
-                      <div
-                        className="w-full bg-gradient-to-t from-blue-600 via-blue-500 to-purple-500 rounded-t-lg transition-all duration-500 hover:from-blue-700 hover:via-blue-600 hover:to-purple-600 cursor-pointer shadow-lg"
-                        style={{ height: `${heightPercent}%`, minHeight: day.revenue > 0 ? '8px' : '0' }}
-                      />
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Daily Revenue Chart */}
+        <div className="rounded-2xl p-5" style={CARD}>
+          <h3 className="font-semibold text-white mb-1">Daily Revenue</h3>
+          <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.38)' }}>Last 7 days</p>
+          <div className="h-48 flex items-end justify-between gap-2">
+            {dailyRevenue.map((day, i) => {
+              const heightPct = (day.revenue / maxDailyRevenue) * 100;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex flex-col items-center justify-end h-40 relative group">
+                    <div
+                      className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity px-2.5 py-1.5 rounded-xl text-xs whitespace-nowrap z-10"
+                      style={{ background: 'rgba(20,6,42,0.95)', border: '1px solid rgba(255,255,255,0.12)', color: 'white' }}
+                    >
+                      <div className="font-semibold">₹{day.revenue.toFixed(2)}</div>
+                      <div style={{ color: 'rgba(255,255,255,0.55)' }}>{day.count} txn</div>
                     </div>
-                    {/* Date label */}
-                    <div className="text-xs text-gray-600 font-medium">
-                      {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
+                    <div
+                      className="w-full rounded-t-lg transition-all duration-500"
+                      style={{
+                        height: `${heightPct}%`,
+                        minHeight: day.revenue > 0 ? 6 : 0,
+                        background: 'linear-gradient(180deg, #F43F5E, #A78BFA)',
+                        opacity: 0.85,
+                      }}
+                    />
                   </div>
-                );
-              })}
-            </div>
-            {/* Legend */}
-            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-              <span>Total: ₹{dailyRevenue.reduce((sum, d) => sum + d.revenue, 0).toFixed(2)}</span>
-              <span>{dailyRevenue.reduce((sum, d) => sum + d.count, 0)} transactions</span>
-            </div>
+                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                    {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-
-          {/* Top Products */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h3 className="text-lg font-semibold mb-6">Top Products by Revenue</h3>
-            <div className="space-y-4">
-              {topProducts.map(([product, revenue], index) => {
-                const maxRevenue = topProducts[0]?.[1] || 1;
-                const widthPercent = (revenue / maxRevenue) * 100;
-                const colors = [
-                  'from-emerald-500 to-green-600',
-                  'from-blue-500 to-cyan-600',
-                  'from-purple-500 to-pink-600',
-                  'from-orange-500 to-red-600',
-                  'from-yellow-500 to-amber-600',
-                ];
-                return (
-                  <div key={index} className="group">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700 truncate flex-1">{product}</span>
-                      <span className="text-sm font-bold text-gray-900 ml-4">₹{revenue.toFixed(2)}</span>
-                    </div>
-                    <div className="relative h-8 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full bg-gradient-to-r ${colors[index % colors.length]} rounded-full transition-all duration-700 ease-out flex items-center justify-end pr-3 group-hover:scale-105 shadow-md`}
-                        style={{ width: `${widthPercent}%`, minWidth: revenue > 0 ? '60px' : '0' }}
-                      >
-                        <span className="text-xs font-semibold text-white drop-shadow">
-                          {((revenue / topProducts.reduce((sum, [, r]) => sum + r, 0)) * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {topProducts.length === 0 && (
-                <div className="text-center text-gray-500 py-8">No product data available</div>
-              )}
-            </div>
+          <div className="mt-4 pt-3 flex items-center justify-between text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.40)' }}>
+            <span>Total: ₹{dailyRevenue.reduce((s, d) => s + d.revenue, 0).toFixed(2)}</span>
+            <span>{dailyRevenue.reduce((s, d) => s + d.count, 0)} transactions</span>
           </div>
         </div>
 
-        {/* Top Machines */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
-          <h3 className="text-lg font-semibold mb-4">Top Machines by Revenue</h3>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {topMachines.map(([machine, revenue], index) => (
-              <div key={index} className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-100">
-                <div className="text-sm text-gray-600 mb-1">#{index + 1}</div>
-                <div className="font-semibold text-gray-900 mb-2 truncate">{machine}</div>
-                <div className="text-xl font-bold text-blue-600">₹{revenue.toFixed(2)}</div>
-              </div>
-            ))}
-            {topMachines.length === 0 && (
-              <div className="col-span-5 text-center text-gray-500 py-4">No machine data available</div>
+        {/* Top Products */}
+        <div className="rounded-2xl p-5" style={CARD}>
+          <h3 className="font-semibold text-white mb-1">Top Products by Revenue</h3>
+          <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.38)' }}>Across both payment methods</p>
+          <div className="space-y-4">
+            {topProducts.length > 0 ? topProducts.map(([product, revenue], i) => {
+              const maxRevenue = topProducts[0]?.[1] || 1;
+              const widthPct = (revenue / maxRevenue) * 100;
+              const color = ACCENT_COLORS[i % ACCENT_COLORS.length];
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-1.5 text-sm">
+                    <span className="text-white font-medium truncate flex-1">{product}</span>
+                    <span className="font-bold ml-4" style={{ color }}>₹{revenue.toFixed(2)}</span>
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    <div
+                      className="h-2 rounded-full transition-all duration-700"
+                      style={{ width: `${widthPct}%`, minWidth: revenue > 0 ? 24 : 0, background: color }}
+                    />
+                  </div>
+                </div>
+              );
+            }) : (
+              <p className="text-center py-8 text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No product data available</p>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search transactions by product, machine, or customer..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-            />
-          </div>
+      {/* Top Machines */}
+      <div className="rounded-2xl p-5" style={CARD}>
+        <h3 className="font-semibold text-white mb-4">Top Machines by Revenue</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {topMachines.length > 0 ? topMachines.map(([machine, revenue], i) => (
+            <div
+              key={i}
+              className="p-4 rounded-xl"
+              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${ACCENT_COLORS[i % ACCENT_COLORS.length]}30` }}
+            >
+              <p className="text-xs mb-1" style={{ color: ACCENT_COLORS[i % ACCENT_COLORS.length] }}>#{i + 1}</p>
+              <p className="font-medium text-white text-sm truncate mb-2">{machine}</p>
+              <p className="text-lg font-bold" style={{ color: ACCENT_COLORS[i % ACCENT_COLORS.length] }}>₹{revenue.toFixed(2)}</p>
+            </div>
+          )) : (
+            <p className="col-span-5 text-center py-4 text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No machine data available</p>
+          )}
         </div>
+      </div>
 
-        {/* Transactions Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date & Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Product
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Machine
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {/* Coin Payments */}
-                {coinPayments && coinPayments.map((txn: any) => (
-                  <tr key={`coin-${txn.id}`} className="hover:bg-blue-50 transition">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                        {new Date(txn.created_at).toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm">
-                        <User className="h-4 w-4 mr-2 text-gray-400" />
-                        <div className="font-medium text-gray-900">Coin Payment</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {txn.products?.name || 'Unknown'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div>{txn.vending_machines?.name || 'Unknown'}</div>
-                      <div className="text-xs">{txn.vending_machines?.location}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm font-medium text-gray-900">
-                        <IndianRupee className="h-4 w-4 mr-1" />
-                        {(txn.amount_in_paisa / 100).toFixed(2)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                        Coin
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Dispensed
-                      </span>
-                    </td>
-                  </tr>
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(255,255,255,0.35)' }} />
+        <input
+          type="text"
+          placeholder="Search transactions by product, machine, or customer..."
+          className="w-full pl-11 pr-4 py-3 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+          style={{
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: '#f3f4f6',
+          }}
+        />
+      </div>
+
+      {/* Transactions Table */}
+      <div className="rounded-2xl overflow-hidden" style={CARD}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <h3 className="font-semibold text-white">Recent Transactions</h3>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>Last 50 coin &amp; online payments</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                {['Date & Time', 'Customer', 'Product', 'Machine', 'Amount', 'Type', 'Status'].map((h, i) => (
+                  <th
+                    key={h}
+                    className={`py-2.5 px-4 text-xs font-semibold uppercase tracking-wide ${i === 4 ? 'text-right' : i === 6 ? 'text-center' : 'text-left'}`}
+                    style={{ color: 'rgba(255,255,255,0.35)' }}
+                  >{h}</th>
                 ))}
-                
-                {/* Online Transactions */}
-                {transactions && transactions.length > 0 ? (
-                  transactions.map((txn: any) => {
-                    const items = typeof txn.items === 'string' ? JSON.parse(txn.items) : txn.items || [];
-                    const productNames = items.map((item: any) => item.name).join(', ') || 'N/A';
-                    return (
-                    <tr key={`online-${txn.id}`} className="hover:bg-blue-50 transition">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                          {new Date(txn.created_at).toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm">
-                          <User className="h-4 w-4 mr-2 text-gray-400" />
-                          <div className="font-medium text-gray-900">
-                            {txn.profiles?.email || 'Guest'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900">{productNames}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {txn.vending_machines?.name || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm font-medium text-gray-900">
-                          <IndianRupee className="h-4 w-4 mr-1" />
-                          {parseFloat(txn.total_amount || 0).toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Online
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(txn.payment_status || 'pending')}`}>
-                          {txn.payment_status || 'pending'}
-                        </span>
-                      </td>
-                    </tr>
-                  )})
-                ) : null}
-                
-                {!transactions?.length && !coinPayments?.length && (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                      No transactions found
+              </tr>
+            </thead>
+            <tbody>
+              {/* Coin Payments */}
+              {coinPayments && coinPayments.map((txn: any) => (
+                <tr
+                  key={`coin-${txn.id}`}
+                  className="row-hover"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <td className="py-3 px-4 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      {new Date(txn.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <User className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                      <span style={{ color: 'rgba(255,255,255,0.55)' }}>Coin Payment</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-white">{txn.products?.name || 'Unknown'}</td>
+                  <td className="py-3 px-4">
+                    <p className="text-white">{txn.vending_machines?.name || 'Unknown'}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{txn.vending_machines?.location}</p>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <span className="font-semibold text-white flex items-center justify-end gap-0.5">
+                      <IndianRupee className="w-3 h-3" />{(txn.amount_in_paisa / 100).toFixed(2)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }}>
+                      <Coins className="w-3 h-3" />Coin
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }}>Dispensed</span>
+                  </td>
+                </tr>
+              ))}
+
+              {/* Online Transactions */}
+              {transactions && transactions.map((txn: any) => {
+                const items = typeof txn.items === 'string' ? JSON.parse(txn.items) : txn.items || [];
+                const productNames = items.map((item: any) => item.name).join(', ') || 'N/A';
+                const statusStyle =
+                  txn.payment_status === 'paid'    ? { background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }
+                  : txn.payment_status === 'failed' ? { background: 'rgba(244,63,94,0.15)', color: '#FDA4AF' }
+                  : { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' };
+                return (
+                  <tr
+                    key={`online-${txn.id}`}
+                    className="row-hover"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                  >
+                    <td className="py-3 px-4 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        {new Date(txn.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                        <span className="text-white text-sm">{txn.profiles?.email || 'Guest'}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-medium text-white">{productNames}</td>
+                    <td className="py-3 px-4" style={{ color: 'rgba(255,255,255,0.55)' }}>{txn.vending_machines?.name || 'N/A'}</td>
+                    <td className="py-3 px-4 text-right">
+                      <span className="font-semibold text-white flex items-center justify-end gap-0.5">
+                        <IndianRupee className="w-3 h-3" />{parseFloat(txn.total_amount || 0).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(96,165,250,0.15)', color: '#93C5FD' }}>
+                        <CreditCard className="w-3 h-3" />Online
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={statusStyle}>
+                        {txn.payment_status || 'pending'}
+                      </span>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+
+              {!transactions?.length && !coinPayments?.length && (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No transactions found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

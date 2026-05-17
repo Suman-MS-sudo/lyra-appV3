@@ -2,12 +2,28 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ArrowLeft } from 'lucide-react';
 import { updateCustomer } from '@/app/actions/admin';
+
+export const revalidate = 0;
+
+const CARD: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  borderRadius: 20,
+};
+
+const INPUT: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: '#f3f4f6',
+  borderRadius: 12,
+};
+
+const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -25,127 +41,111 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
 
   if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch customer
   const { data: customer } = await serviceSupabase
     .from('profiles')
-    .select(`
-      *,
-      organizations (
-        id,
-        name
-      )
-    `)
+    .select('*, organizations (id, name)')
     .eq('id', id)
     .single();
 
-  if (!customer || customer.account_type !== 'customer') {
-    redirect('/admin/customers');
-  }
+  if (!customer || customer.account_type !== 'customer') redirect('/admin/customers');
 
-  // Fetch organizations for dropdown
   const { data: organizations } = await serviceSupabase
     .from('organizations')
     .select('id, name')
     .order('name');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <Link href="/admin/customers" className="p-2 hover:bg-gray-100 rounded-lg">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Edit Customer</h1>
-              <p className="text-sm text-gray-500">Update customer details and permissions</p>
-            </div>
-          </div>
+    <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Edit Customer</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update customer details and permissions</p>
+      </div>
+
+      <form action={updateCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
+        <input type="hidden" name="user_id" value={id} />
+
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium mb-2" style={LABEL}>
+            Email Address
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            disabled
+            defaultValue={customer.email}
+            className="w-full px-4 py-2.5 cursor-not-allowed"
+            style={{ ...INPUT, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.40)' }}
+          />
+          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Email cannot be changed</p>
         </div>
-      </header>
 
-      <main className="container mx-auto px-6 py-8 max-w-2xl">
-        <form action={updateCustomer} className="bg-white rounded-xl shadow-sm p-6 space-y-6">
-          <input type="hidden" name="user_id" value={id} />
+        <div>
+          <label htmlFor="full_name" className="block text-sm font-medium mb-2" style={LABEL}>
+            Full Name
+          </label>
+          <input
+            type="text"
+            id="full_name"
+            name="full_name"
+            required
+            defaultValue={customer.full_name || ''}
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            style={INPUT}
+          />
+        </div>
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
+        <div>
+          <label htmlFor="organization_id" className="block text-sm font-medium mb-2" style={LABEL}>
+            Organization
+          </label>
+          <select
+            id="organization_id"
+            name="organization_id"
+            defaultValue={customer.organization_id || ''}
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            style={INPUT}
+          >
+            <option value="" style={{ background: '#1E0A3C' }}>Independent (No Organization)</option>
+            {organizations?.map((org: any) => (
+              <option key={org.id} value={org.id} style={{ background: '#1E0A3C' }}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-3 cursor-pointer">
             <input
-              type="email"
-              id="email"
-              name="email"
-              disabled
-              defaultValue={customer.email}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
+              type="checkbox"
+              name="can_edit"
+              defaultChecked={customer.permissions?.can_edit || false}
+              className="w-4 h-4 rounded accent-pink-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-          </div>
+            <span className="text-sm font-medium" style={LABEL}>
+              Can Edit (allow customer to make purchases and transactions)
+            </span>
+          </label>
+        </div>
 
-          <div>
-            <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="full_name"
-              name="full_name"
-              required
-              defaultValue={customer.full_name || ''}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700 mb-2">
-              Organization
-            </label>
-            <select
-              id="organization_id"
-              name="organization_id"
-              defaultValue={customer.organization_id || ''}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Independent (No Organization)</option>
-              {organizations?.map((org: any) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                name="can_edit"
-                defaultChecked={customer.permissions?.can_edit || false}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Can Edit (allow customer to make purchases and transactions)
-              </span>
-            </label>
-          </div>
-
-          <div className="flex gap-4 pt-4">
-            <button
-              type="submit"
-              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
-            >
-              Update Customer
-            </button>
-            <Link
-              href="/admin/customers"
-              className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
-      </main>
-    </div>
+        <div className="flex gap-4 pt-2">
+          <button
+            type="submit"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          >
+            Update Customer
+          </button>
+          <Link
+            href="/admin/customers"
+            className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+          >
+            Cancel
+          </Link>
+        </div>
+      </form>
+    </main>
   );
 }

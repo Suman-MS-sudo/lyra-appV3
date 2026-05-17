@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ArrowLeft } from 'lucide-react';
 import { MachineForm } from '@/components/MachineForm';
+
+export const revalidate = 0;
 
 export default async function NewMachinePage() {
   const supabase = await createClient();
@@ -23,37 +23,23 @@ export default async function NewMachinePage() {
 
   if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch organizations
   const { data: organizations } = await serviceSupabase
     .from('organizations')
     .select('id, name, contact_email, contact_phone, address')
     .order('name');
 
-  // Fetch all products
   const { data: products } = await serviceSupabase
     .from('products')
     .select('id, name, description, price')
     .order('name');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <Link href="/admin/machines" className="p-2 hover:bg-gray-100 rounded-lg">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Add Vending Machine</h1>
-              <p className="text-sm text-gray-500">Create a new vending machine with organization and product mapping</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-8 max-w-3xl">
-        <MachineForm organizations={organizations || []} products={products || []} />
-      </main>
-    </div>
+    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white">Add Vending Machine</h1>
+        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Create a new vending machine with organization and product mapping</p>
+      </div>
+      <MachineForm organizations={organizations || []} products={products || []} />
+    </main>
   );
 }

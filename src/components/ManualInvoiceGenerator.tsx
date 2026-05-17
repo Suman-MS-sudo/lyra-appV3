@@ -8,6 +8,21 @@ interface Organization {
   name: string;
 }
 
+const MODAL: React.CSSProperties = {
+  background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: 20,
+};
+
+const INPUT: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: '#f3f4f6',
+  borderRadius: 12,
+};
+
+const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+
 export function ManualInvoiceGenerator() {
   const [isOpen, setIsOpen] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -20,12 +35,10 @@ export function ManualInvoiceGenerator() {
   useEffect(() => {
     if (isOpen) {
       fetchOrganizations();
-      
-      // Set default to current month
+
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
       setPeriodStart(start.toISOString().split('T')[0]);
       setPeriodEnd(end.toISOString().split('T')[0]);
     }
@@ -85,7 +98,8 @@ export function ManualInvoiceGenerator() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
+        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
       >
         <FileText size={16} />
         Generate Manual Invoice
@@ -95,75 +109,69 @@ export function ManualInvoiceGenerator() {
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
+      <div
+        className="fixed inset-0 z-40"
+        style={{ background: 'rgba(0,0,0,0.70)' }}
         onClick={() => setIsOpen(false)}
       />
 
-      {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+        <div className="w-full max-w-md p-6" style={MODAL}>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Generate Invoice</h2>
+            <h2 className="text-xl font-bold text-white">Generate Invoice</h2>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-gray-600"
+              className="transition-opacity hover:opacity-70"
+              style={{ color: 'rgba(255,255,255,0.50)' }}
             >
-              <X size={24} />
+              <X size={22} />
             </button>
           </div>
 
           <div className="space-y-4">
-            {/* Organization Select */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Organization
-              </label>
+              <label className="block text-sm font-medium mb-2" style={LABEL}>Organization</label>
               <select
                 value={selectedOrg}
                 onChange={(e) => setSelectedOrg(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                style={INPUT}
                 disabled={loading}
               >
-                <option value="">Select organization...</option>
+                <option value="" style={{ background: '#1E0A3C' }}>Select organization...</option>
                 {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
+                  <option key={org.id} value={org.id} style={{ background: '#1E0A3C' }}>
                     {org.name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Period Start */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Period Start
-              </label>
+              <label className="block text-sm font-medium mb-2" style={LABEL}>Period Start</label>
               <input
                 type="date"
                 value={periodStart}
                 onChange={(e) => setPeriodStart(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                style={INPUT}
                 disabled={loading}
               />
             </div>
 
-            {/* Period End */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Period End
-              </label>
+              <label className="block text-sm font-medium mb-2" style={LABEL}>Period End</label>
               <input
                 type="date"
                 value={periodEnd}
                 onChange={(e) => setPeriodEnd(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                style={INPUT}
                 disabled={loading}
               />
             </div>
 
-            {/* Quick Select Buttons */}
+            {/* Quick Select */}
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -173,7 +181,8 @@ export function ManualInvoiceGenerator() {
                   setPeriodStart(start.toISOString().split('T')[0]);
                   setPeriodEnd(end.toISOString().split('T')[0]);
                 }}
-                className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: '#93C5FD' }}
                 disabled={loading}
               >
                 This Month
@@ -186,37 +195,40 @@ export function ManualInvoiceGenerator() {
                   setPeriodStart(start.toISOString().split('T')[0]);
                   setPeriodEnd(end.toISOString().split('T')[0]);
                 }}
-                className="text-xs px-3 py-1.5 bg-gray-50 text-gray-700 rounded hover:bg-gray-100"
+                className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.60)' }}
                 disabled={loading}
               >
                 Last Month
               </button>
             </div>
 
-            {/* Message */}
             {message && (
-              <div className={`p-3 rounded-lg text-sm ${
-                message.startsWith('✅') 
-                  ? 'bg-green-50 text-green-800' 
-                  : 'bg-red-50 text-red-800'
-              }`}>
+              <div
+                className="p-3 rounded-xl text-sm"
+                style={message.startsWith('✅')
+                  ? { background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }
+                  : { background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.25)', color: '#FCA5A5' }
+                }
+              >
                 {message}
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={handleGenerate}
                 disabled={loading || !selectedOrg || !periodStart || !periodEnd}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
               >
                 {loading ? 'Generating...' : 'Generate Invoice'}
               </button>
               <button
                 onClick={() => setIsOpen(false)}
                 disabled={loading}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+                className="px-4 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
               >
                 Cancel
               </button>

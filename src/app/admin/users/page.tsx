@@ -2,48 +2,39 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { UserPlus, Users, Shield, User, Building2, ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { UserPlus, Users, Shield, User, Building2, Pencil } from 'lucide-react';
+
+export const revalidate = 0;
+
+const CARD: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.10)',
+  borderRadius: 20,
+};
 
 export default async function UsersPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Use service role to fetch all data including profile check
   const serviceSupabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Check if user is admin using service role to bypass RLS
   const { data: profile } = await serviceSupabase
     .from('profiles')
     .select('role, account_type')
     .eq('id', user.id)
     .single();
 
-  // Only allow admins
-  if (profile?.role !== 'admin') {
-    redirect('/customer/dashboard');
-  }
+  if (profile?.role !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch all users
-  const { data: users, error } = await serviceSupabase
+  const { data: users } = await serviceSupabase
     .from('profiles')
     .select('id, email, role, account_type, organization_id, created_at')
     .in('account_type', ['customer', 'super_customer', 'admin'])
     .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching users:', error);
-  }
-
-  // Fetch organization names separately if needed
   const orgIds = users?.map(u => u.organization_id).filter(Boolean) || [];
   let organizations: any[] = [];
   if (orgIds.length > 0) {
@@ -54,219 +45,165 @@ export default async function UsersPage() {
     organizations = orgs || [];
   }
 
-  // Map organization names to users
   const usersWithOrgs = users?.map(u => ({
     ...u,
-    organizations: organizations.find(o => o.id === u.organization_id)
+    organizations: organizations.find(o => o.id === u.organization_id),
   })) || [];
 
+  const normalCount = usersWithOrgs.filter(u => u.account_type === 'customer').length;
+  const superCount = usersWithOrgs.filter(u => u.account_type === 'super_customer').length;
+  const adminCount = usersWithOrgs.filter(u => u.account_type === 'admin').length;
+
+  const accountTypeBadgeStyle = (accountType: string): React.CSSProperties => {
+    if (accountType === 'admin')          return { background: 'rgba(52,211,153,0.15)',  color: '#6EE7B7' };
+    if (accountType === 'super_customer') return { background: 'rgba(167,139,250,0.15)', color: '#A78BFA' };
+    return { background: 'rgba(96,165,250,0.15)', color: '#60A5FA' };
+  };
+
+  const avatarStyle = (accountType: string): React.CSSProperties => {
+    if (accountType === 'admin')          return { background: 'linear-gradient(135deg, #34D399, #059669)' };
+    if (accountType === 'super_customer') return { background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' };
+    return { background: 'linear-gradient(135deg, #60A5FA, #3B82F6)' };
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 rounded-lg">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">All Users</h1>
-                <p className="text-sm text-gray-500">Manage normal users and super users (organizations)</p>
-              </div>
-            </div>
-            <Link
-              href="/admin/users/new"
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add User
-            </Link>
-          </div>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      {/* Page title */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">All Users</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Manage normal users and super users (organizations)</p>
         </div>
-      </header>
+        <Link
+          href="/admin/users/new"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+        >
+          <UserPlus className="w-4 h-4" />
+          Add User
+        </Link>
+      </div>
 
-      <div className="container mx-auto px-6 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-
-          {/* Stats Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 border-b border-gray-200">
-            <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <User className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Normal Users</div>
-                  <div className="text-3xl font-bold text-gray-900">
-                    {usersWithOrgs?.filter(u => u.account_type === 'customer').length || 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-purple-50 rounded-lg p-6 border border-purple-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Building2 className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Super Users (Organizations)</div>
-                  <div className="text-3xl font-bold text-gray-900">
-                    {usersWithOrgs?.filter(u => u.account_type === 'super_customer').length || 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-green-50 rounded-lg p-6 border border-green-100">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <Shield className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Admin Users</div>
-                  <div className="text-3xl font-bold text-gray-900">
-                    {usersWithOrgs?.filter(u => u.account_type === 'admin').length || 0}
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(96,165,250,0.18)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(96,165,250,0.18)' }}>
+            <User className="w-5 h-5" style={{ color: '#60A5FA' }} />
           </div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Normal Users</p>
+          <p className="text-2xl font-bold text-white">{normalCount}</p>
+        </div>
 
-          {/* Users Table */}
-          <div className="p-6">
-            {!usersWithOrgs || usersWithOrgs.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No users found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Organization
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Role
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Joined
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {usersWithOrgs.map((user: any) => (
-                      <tr
-                        key={user.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold ${
-                              user.account_type === 'admin'
-                                ? 'bg-gradient-to-br from-green-500 to-green-600'
-                                : user.account_type === 'super_customer' 
-                                ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
-                                : 'bg-gradient-to-br from-blue-500 to-blue-600'
-                            }`}>
-                              {user.account_type === 'admin' ? (
-                                <Shield className="h-5 w-5" />
-                              ) : user.account_type === 'super_customer' ? (
-                                <Building2 className="h-5 w-5" />
-                              ) : (
-                                <User className="h-5 w-5" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">{user.email}</div>
-                              <div className="text-xs text-gray-500">{user.id.substring(0, 8)}...</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                            user.account_type === 'admin'
-                              ? 'bg-green-100 text-green-700 border border-green-200'
-                              : user.account_type === 'super_customer'
-                              ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                              : 'bg-blue-100 text-blue-700 border border-blue-200'
-                          }`}>
-                            {user.account_type === 'admin' ? (
-                              <>
-                                <Shield className="h-3 w-3" />
-                                Admin
-                              </>
-                            ) : user.account_type === 'super_customer' ? (
-                              <>
-                                <Building2 className="h-3 w-3" />
-                                Super User
-                              </>
-                            ) : (
-                              <>
-                                <User className="h-3 w-3" />
-                                Normal User
-                              </>
-                            )}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {user.organizations?.name ? (
-                            <span className="text-sm font-medium text-gray-900">
-                              {user.organizations.name}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-600 capitalize">{user.role}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-600">
-                            {new Date(user.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Link
-                              href={`/admin/users/${user.id}/edit`}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit user"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Link>
-                            <button
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete user"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+        <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(167,139,250,0.18)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(167,139,250,0.18)' }}>
+            <Building2 className="w-5 h-5" style={{ color: '#A78BFA' }} />
           </div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Super Users</p>
+          <p className="text-2xl font-bold text-white">{superCount}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(52,211,153,0.18)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(52,211,153,0.18)' }}>
+            <Shield className="w-5 h-5" style={{ color: '#34D399' }} />
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Admin Users</p>
+          <p className="text-2xl font-bold text-white">{adminCount}</p>
         </div>
       </div>
-    </div>
+
+      {/* Users Table */}
+      {usersWithOrgs.length === 0 ? (
+        <div className="rounded-2xl py-16 text-center" style={CARD}>
+          <Users className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
+          <p className="font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>No users found</p>
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={CARD}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  {['User', 'Type', 'Organization', 'Role', 'Joined', 'Actions'].map((h, i) => (
+                    <th
+                      key={h}
+                      className={`py-2.5 px-5 text-xs font-semibold uppercase tracking-wide ${i === 5 ? 'text-right' : 'text-left'}`}
+                      style={{ color: 'rgba(255,255,255,0.35)' }}
+                    >{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {usersWithOrgs.map((u: any) => (
+                  <tr
+                    key={u.id}
+                    className="row-hover"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                  >
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0"
+                          style={avatarStyle(u.account_type)}
+                        >
+                          {u.account_type === 'admin' ? (
+                            <Shield className="w-4 h-4" />
+                          ) : u.account_type === 'super_customer' ? (
+                            <Building2 className="w-4 h-4" />
+                          ) : (
+                            <User className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">{u.email}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{u.id.substring(0, 8)}…</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                        style={accountTypeBadgeStyle(u.account_type)}
+                      >
+                        {u.account_type === 'admin' ? (
+                          <><Shield className="w-3 h-3" />Admin</>
+                        ) : u.account_type === 'super_customer' ? (
+                          <><Building2 className="w-3 h-3" />Super User</>
+                        ) : (
+                          <><User className="w-3 h-3" />Normal User</>
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      {u.organizations?.name ? (
+                        <span className="font-medium text-white">{u.organizations.name}</span>
+                      ) : (
+                        <span style={{ color: 'rgba(255,255,255,0.30)' }}>—</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-5 capitalize" style={{ color: 'rgba(255,255,255,0.55)' }}>{u.role}</td>
+                    <td className="py-3.5 px-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                      {new Date(u.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <Link
+                        href={`/admin/users/${u.id}/edit`}
+                        className="p-2 rounded-lg inline-flex transition-colors hover:bg-white/10"
+                        title="Edit user"
+                        style={{ color: '#F472B6' }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

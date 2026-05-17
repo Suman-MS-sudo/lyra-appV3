@@ -314,15 +314,23 @@ export default async function CustomerDashboard() {
     return date.toLocaleDateString();
   };
 
+  const CARD: React.CSSProperties = {
+    border: '1px solid rgba(255,255,255,0.10)',
+    borderRadius: 20,
+  };
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
       {/* Invoice Banner */}
       {isSuperCustomer && totalPendingAmount > 0 && (
-        <div className={`rounded-xl border px-4 py-3 flex items-center justify-between gap-4 ${
-          overdueInvoices.length > 0
-            ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-            : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
-        }`}>
+        <div
+          className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
+          style={overdueInvoices.length > 0
+            ? { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.28)', color: '#FCA5A5' }
+            : { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.28)', color: '#FDE68A' }
+          }
+        >
           <div className="flex items-center gap-2 text-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>
@@ -334,7 +342,8 @@ export default async function CustomerDashboard() {
           </div>
           <Link
             href="/customer/billing"
-            className="text-xs font-semibold px-3 py-1.5 bg-white dark:bg-gray-800 border border-current/20 rounded-lg hover:opacity-80 transition-opacity whitespace-nowrap"
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-opacity hover:opacity-80 whitespace-nowrap"
+            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)', color: 'white' }}
           >
             View &amp; Pay →
           </Link>
@@ -342,122 +351,112 @@ export default async function CustomerDashboard() {
       )}
 
       {/* Page Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Real-time overview of your vending machine network</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Real-time overview of your vending machine network</p>
+        </div>
+        <div
+          className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
+          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Live
+        </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50 dark:bg-indigo-900/20 rounded-bl-full" />
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Revenue</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{formatAmount(totalRevenue)}</p>
-          <div className="flex items-center gap-1 mt-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-            <TrendingUp className="w-3.5 h-3.5" />
-            {(onlineTransactionCount + coinTransactionCount)} transactions
+        {[
+          { label: 'Total Revenue',    value: `₹${formatAmount(totalRevenue)}`,  sub: `${onlineTransactionCount + coinTransactionCount} transactions`, icon: TrendingUp, color: '#34D399', bg: 'rgba(52,211,153,0.18)'   },
+          { label: 'Online Payments',  value: `₹${formatAmount(onlineRevenue)}`, sub: `${onlineTransactionCount} paid`,                                icon: CreditCard, color: '#A78BFA', bg: 'rgba(167,139,250,0.18)'  },
+          { label: 'Coin Payments',    value: `₹${formatAmount(coinRevenue)}`,   sub: `${coinTransactionCount} collections`,                            icon: Coins,      color: '#FBBF24', bg: 'rgba(251,191,36,0.18)'   },
+          { label: 'Machines Online',  value: `${onlineMachines} / ${totalMachines}`, sub: needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy', icon: Wifi, color: '#60A5FA', bg: 'rgba(96,165,250,0.18)' },
+        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
+          <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+            <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full" style={{ background: bg, opacity: 0.4 }} />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
+              <Icon className="w-4 h-4" style={{ color }} />
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{label}</p>
+            <p className="text-xl font-bold text-white">{value}</p>
+            <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
           </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-50 dark:bg-purple-900/20 rounded-bl-full" />
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Online Payments</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{formatAmount(onlineRevenue)}</p>
-          <div className="flex items-center gap-1 mt-2 text-xs text-purple-600 dark:text-purple-400 font-medium">
-            <CreditCard className="w-3.5 h-3.5" />
-            {onlineTransactionCount} paid
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-50 dark:bg-amber-900/20 rounded-bl-full" />
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Coin Payments</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">₹{formatAmount(coinRevenue)}</p>
-          <div className="flex items-center gap-1 mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
-            <Coins className="w-3.5 h-3.5" />
-            {coinTransactionCount} collections
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-bl-full" />
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Machines Online</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{onlineMachines} <span className="text-gray-400 dark:text-gray-600 text-base font-normal">/ {totalMachines}</span></p>
-          <div className="flex items-center gap-1 mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-            <Wifi className="w-3.5 h-3.5" />
-            {needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy'}
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Charts Row */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
-          <div className="mb-4">
-            <h2 className="font-semibold text-gray-900 dark:text-white">Revenue Trend</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last 14 days — online vs coin</p>
-          </div>
+        <div className="lg:col-span-2 rounded-2xl p-5" style={CARD}>
+          <h2 className="font-semibold text-white mb-0.5">Revenue Trend</h2>
+          <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>Last 14 days — online vs coin</p>
           <RevenueAreaChart revenueTimeline={revenueTimeline} />
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-1">Payment Split</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Revenue by payment type</p>
+        <div className="rounded-2xl p-5" style={CARD}>
+          <h2 className="font-semibold text-white mb-0.5">Payment Split</h2>
+          <p className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.40)' }}>Revenue by payment type</p>
           <PaymentDonutChart
             onlineRevenue={onlineRevenue}
             coinRevenue={coinRevenue}
             onlineCount={onlineTransactionCount}
             coinCount={coinTransactionCount}
           />
-          <div className="flex flex-col gap-2 mt-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span className="w-3 h-3 rounded-full bg-indigo-500 inline-block" />Online</span>
-              <span className="font-medium text-gray-900 dark:text-white">₹{formatAmount(onlineRevenue)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />Coin</span>
-              <span className="font-medium text-gray-900 dark:text-white">₹{formatAmount(coinRevenue)}</span>
-            </div>
+          <div className="flex flex-col gap-2 mt-3">
+            {[
+              { label: 'Online', color: '#F43F5E', amount: onlineRevenue },
+              { label: 'Coin',   color: '#FBBF24', amount: coinRevenue   },
+            ].map(({ label, color, amount }) => (
+              <div key={label} className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.60)' }}>
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+                  {label}
+                </span>
+                <span className="font-semibold text-white">₹{formatAmount(amount)}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Machine Revenue + Status */}
+      {/* Machine Revenue + Health */}
       <div className="grid lg:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
-          <h2 className="font-semibold text-gray-900 dark:text-white mb-1">Revenue by Machine</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Top {Math.min(machineHealthData.length, 8)} by total revenue</p>
+        <div className="rounded-2xl p-5" style={CARD}>
+          <h2 className="font-semibold text-white mb-0.5">Revenue by Machine</h2>
+          <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>Top {Math.min(machineHealthData.length, 8)} by total revenue</p>
           <MachineRevenueBar machineHealthData={machineHealthData} />
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        <div className="rounded-2xl p-5" style={CARD}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Machine Health</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Real-time connectivity</p>
+              <h2 className="font-semibold text-white">Machine Health</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Real-time connectivity</p>
             </div>
-            <Link href="/customer/machines" className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">View all →</Link>
+            <Link href="/customer/machines" className="text-xs font-medium transition-colors hover:text-white" style={{ color: '#F472B6' }}>
+              View all →
+            </Link>
           </div>
           <MachineStatusBar online={onlineMachines} offline={totalMachines - onlineMachines} total={totalMachines} />
-          <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+          <div className="mt-4 space-y-0 max-h-48 overflow-y-auto">
             {machinesWithUpdatedStatus.map(m => (
-              <div key={m.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+              <div key={m.id} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="flex items-center gap-2 min-w-0">
                   {m.asset_online
-                    ? <Wifi className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    : <WifiOff className="w-3.5 h-3.5 text-red-400 shrink-0" />}
-                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{m.name}</span>
+                    ? <Wifi className="w-3.5 h-3.5 shrink-0" style={{ color: '#34D399' }} />
+                    : <WifiOff className="w-3.5 h-3.5 shrink-0" style={{ color: '#F87171' }} />}
+                  <span className="text-sm font-medium text-white truncate">{m.name}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                  <span>{formatLastSync(m.last_ping)}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{formatLastSync(m.last_ping)}</span>
                   {m.stock_level !== null && m.stock_level < 5 && (
-                    <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded font-medium">Low</span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
                   )}
                 </div>
               </div>
             ))}
             {machinesWithUpdatedStatus.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No machines assigned</p>
+              <p className="text-sm text-center py-4" style={{ color: 'rgba(255,255,255,0.28)' }}>No machines assigned</p>
             )}
           </div>
         </div>
@@ -468,52 +467,81 @@ export default async function CustomerDashboard() {
 
       {/* Team & Machine Access (super customer only) */}
       {isSuperCustomer && orgUsersWithMachines.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
-          <div className="flex items-center justify-between mb-4">
+        <div className="rounded-2xl p-5" style={CARD}>
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Team &amp; Machine Access</h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Users in your organization</p>
+              <h2 className="font-semibold text-white">Team &amp; Machine Access</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Users in your organization</p>
             </div>
-            <Link href="/customer/users" className="px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-90 rounded-lg transition-all">Manage Users</Link>
+            <Link
+              href="/customer/users"
+              className="px-3 py-1.5 text-xs font-semibold text-white rounded-xl transition-all active:scale-[0.97]"
+              style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 4px 14px rgba(244,63,94,0.30)' }}
+            >
+              Manage Users
+            </Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800">
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">User</th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Email</th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Role</th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Machines</th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Devices</th>
-                  <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actions</th>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  {['User', 'Email', 'Role', 'Machines', 'Devices', 'Actions'].map((h, i) => (
+                    <th
+                      key={h}
+                      className={`py-2 px-3 text-xs font-semibold uppercase tracking-wide ${i === 1 ? 'text-left hidden sm:table-cell' : i === 2 || i === 3 ? 'text-center' : i === 5 ? 'text-right' : 'text-left'}`}
+                      style={{ color: 'rgba(255,255,255,0.35)' }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {orgUsersWithMachines.map(orgUser => (
-                  <tr key={orgUser.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <tr
+                    key={orgUser.id}
+                    className="row-hover"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                  >
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0">
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #F43F5E, #A78BFA)' }}
+                        >
                           {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-gray-900 dark:text-white truncate max-w-[100px]">{orgUser.full_name || 'N/A'}</span>
+                        <span className="font-medium text-white truncate max-w-24">{orgUser.full_name || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{orgUser.email}</td>
+                    <td className="py-3 px-3 hidden sm:table-cell" style={{ color: 'rgba(255,255,255,0.45)' }}>{orgUser.email}</td>
                     <td className="py-3 px-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${orgUser.account_type === 'super_customer' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                      <span
+                        className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
+                        style={orgUser.account_type === 'super_customer'
+                          ? { background: 'rgba(167,139,250,0.18)', color: '#C4B5FD' }
+                          : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.50)' }
+                        }
+                      >
                         {orgUser.account_type === 'super_customer' ? 'Admin' : 'Member'}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-center">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 font-semibold text-xs">{orgUser.machineCount}</span>
+                      <span
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold"
+                        style={{ background: 'rgba(96,165,250,0.18)', color: '#93C5FD' }}
+                      >
+                        {orgUser.machineCount}
+                      </span>
                     </td>
                     <td className="py-3 px-3">
                       <MachineAssignmentPopup machines={orgUser.machines} userName={orgUser.full_name || orgUser.email} />
                     </td>
                     <td className="py-3 px-3 text-right">
                       {orgUser.account_type !== 'super_customer' && (
-                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Edit →</Link>
+                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium hover:text-white transition-colors" style={{ color: '#F472B6' }}>
+                          Edit →
+                        </Link>
                       )}
                     </td>
                   </tr>
@@ -526,27 +554,47 @@ export default async function CustomerDashboard() {
 
       {/* Machines needing attention */}
       {needsAttentionMachines.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+        <div className="rounded-2xl p-5" style={CARD}>
           <div className="flex items-center gap-2 mb-4">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <h2 className="font-semibold text-gray-900 dark:text-white">Machines Needing Attention</h2>
-            <span className="ml-auto px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 rounded-full text-xs font-semibold">{needsAttentionMachines.length}</span>
+            <AlertCircle className="w-5 h-5" style={{ color: '#F87171' }} />
+            <h2 className="font-semibold text-white">Machines Needing Attention</h2>
+            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.18)', color: '#FCA5A5' }}>
+              {needsAttentionMachines.length}
+            </span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {needsAttentionMachines.map(m => (
-              <div key={m.id} className={`rounded-lg border p-4 ${!m.asset_online ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30' : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30'}`}>
+              <div
+                key={m.id}
+                className="rounded-xl p-4"
+                style={!m.asset_online
+                  ? { background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)' }
+                  : { background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)' }
+                }
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{m.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{m.location}</p>
+                    <p className="font-semibold text-white text-sm">{m.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{m.location}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {(m.issues as string[]).map((issue: string) => (
-                      <span key={issue} className={`px-2 py-0.5 rounded text-xs font-semibold ${issue === 'Offline' ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200' : 'bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200'}`}>{issue}</span>
+                      <span
+                        key={issue}
+                        className="px-2 py-0.5 rounded text-xs font-semibold"
+                        style={issue === 'Offline'
+                          ? { background: 'rgba(239,68,68,0.25)', color: '#FCA5A5' }
+                          : { background: 'rgba(251,191,36,0.25)', color: '#FDE68A' }
+                        }
+                      >
+                        {issue}
+                      </span>
                     ))}
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Last seen: {formatLastSync(m.last_ping)}</p>
+                <p className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                  Last seen: {formatLastSync(m.last_ping)}
+                </p>
               </div>
             ))}
           </div>

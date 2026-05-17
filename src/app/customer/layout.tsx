@@ -6,7 +6,6 @@ import CustomerNav from '@/components/CustomerNav';
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) redirect('/login');
 
   const serviceSupabase = createServiceClient(
@@ -25,11 +24,12 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const isSuperCustomer = profile?.account_type === 'super_customer';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div
+      className="min-h-screen"
+      style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)' }}
+    >
       <CustomerNav userEmail={user.email ?? ''} isSuperCustomer={isSuperCustomer} />
-      <div className="flex-1">
-        {children}
-      </div>
+      <div className="flex-1">{children}</div>
     </div>
   );
 }

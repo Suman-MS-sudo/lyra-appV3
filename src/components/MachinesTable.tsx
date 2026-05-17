@@ -2,7 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Filter, Download, RefreshCw, MapPin, Activity, AlertCircle, CheckCircle, Clock, Edit2, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import {
+  Search, Filter, Download, MapPin, AlertCircle,
+  CheckCircle, Clock, Edit2, Trash2, ChevronUp, ChevronDown,
+  ChevronsUpDown, Building2,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Machine {
@@ -22,458 +26,381 @@ interface Machine {
   created_at: string;
 }
 
-interface MachinesTableProps {
-  machines: Machine[];
+// ── Helpers ────────────────────────────────────────────────
+function formatDate(dateString: string) {
+  const d = new Date(dateString);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60)     return 'Just now';
+  if (diff < 3600)   return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toISOString().split('T')[0];
 }
 
-export default function MachinesTable({ machines }: MachinesTableProps) {
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [customerFilter, setCustomerFilter] = useState<string>('all');
-  const [onlineFilter, setOnlineFilter] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [showFilters, setShowFilters] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<keyof Machine>('name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
+  if (!active) return <ChevronsUpDown className="w-3 h-3 ml-1 inline opacity-25" />;
+  return dir === 'asc'
+    ? <ChevronUp   className="w-3 h-3 ml-1 inline" style={{ color: '#F472B6' }} />
+    : <ChevronDown className="w-3 h-3 ml-1 inline" style={{ color: '#F472B6' }} />;
+}
 
-  // Get unique customers
+const CARD: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.10)',
+  borderRadius: 20,
+};
+
+const INPUT_STYLE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: 'white',
+  borderRadius: 12,
+  outline: 'none',
+};
+
+const SELECT_STYLE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  color: 'rgba(255,255,255,0.80)',
+  borderRadius: 10,
+  outline: 'none',
+};
+
+// ── Component ──────────────────────────────────────────────
+export default function MachinesTable({ machines }: { machines: Machine[] }) {
+  const router = useRouter();
+  const [searchQuery, setSearchQuery]     = useState('');
+  const [statusFilter, setStatusFilter]   = useState('all');
+  const [customerFilter, setCustomerFilter] = useState('all');
+  const [onlineFilter, setOnlineFilter]   = useState('all');
+  const [currentPage, setCurrentPage]     = useState(1);
+  const [itemsPerPage, setItemsPerPage]   = useState(25);
+  const [showFilters, setShowFilters]     = useState(false);
+  const [deletingId, setDeletingId]       = useState<string | null>(null);
+  const [sortBy, setSortBy]               = useState<keyof Machine>('name');
+  const [sortDir, setSortDir]             = useState<'asc' | 'desc'>('asc');
+
   const customers = useMemo(() => {
-    const uniqueCustomers = new Set(machines.map(m => m.customer_name).filter(Boolean));
-    return Array.from(uniqueCustomers).sort();
+    return Array.from(new Set(machines.map(m => m.customer_name).filter(Boolean))).sort();
   }, [machines]);
 
-  // Handle sorting
-  const handleSort = (column: keyof Machine) => {
-    if (sortBy === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(column);
-      setSortDirection('asc');
-    }
-    setCurrentPage(1); // Reset to first page when sorting
-  };
+  function handleSort(col: keyof Machine) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+    setCurrentPage(1);
+  }
 
-  // Filter, search, and sort machines
-  const filteredAndSortedMachines = useMemo(() => {
-    const filtered = machines.filter(machine => {
-      const matchesSearch = 
-        machine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        machine.machine_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        machine.mac_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        machine.location.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || machine.status === statusFilter;
-      const matchesCustomer = customerFilter === 'all' || machine.customer_name === customerFilter;
-      const matchesOnline = 
-        onlineFilter === 'all' ||
-        (onlineFilter === 'online' && machine.asset_online) ||
-        (onlineFilter === 'offline' && !machine.asset_online);
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return machines
+      .filter(m =>
+        (m.name.toLowerCase().includes(q) ||
+         m.machine_id.toLowerCase().includes(q) ||
+         m.mac_id.toLowerCase().includes(q) ||
+         m.location.toLowerCase().includes(q)) &&
+        (statusFilter  === 'all' || m.status === statusFilter) &&
+        (customerFilter === 'all' || m.customer_name === customerFilter) &&
+        (onlineFilter  === 'all' ||
+          (onlineFilter === 'online'  && m.asset_online) ||
+          (onlineFilter === 'offline' && !m.asset_online))
+      )
+      .sort((a, b) => {
+        let av: any = a[sortBy];
+        let bv: any = b[sortBy];
+        if (sortBy === 'asset_online') { av = a.asset_online ? 1 : 0; bv = b.asset_online ? 1 : 0; }
+        else if (sortBy === 'last_ping') { av = a.last_ping ? new Date(a.last_ping).getTime() : 0; bv = b.last_ping ? new Date(b.last_ping).getTime() : 0; }
+        else if (sortBy === 'stock_level') { av = a.stock_level ?? -1; bv = b.stock_level ?? -1; }
+        else if (typeof av === 'string') { av = av.toLowerCase(); bv = (bv as string).toLowerCase(); }
+        if (av == null) av = ''; if (bv == null) bv = '';
+        return av < bv ? (sortDir === 'asc' ? -1 : 1) : av > bv ? (sortDir === 'asc' ? 1 : -1) : 0;
+      });
+  }, [machines, searchQuery, statusFilter, customerFilter, onlineFilter, sortBy, sortDir]);
 
-      return matchesSearch && matchesStatus && matchesCustomer && matchesOnline;
-    });
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const start = (currentPage - 1) * itemsPerPage;
+  const page = filtered.slice(start, start + itemsPerPage);
 
-    // Sort the filtered results
-    return filtered.sort((a, b) => {
-      let aValue: any = a[sortBy];
-      let bValue: any = b[sortBy];
-
-      // Handle special sorting cases
-      if (sortBy === 'asset_online') {
-        aValue = a.asset_online ? 1 : 0;
-        bValue = b.asset_online ? 1 : 0;
-      } else if (sortBy === 'last_ping') {
-        aValue = a.last_ping ? new Date(a.last_ping).getTime() : 0;
-        bValue = b.last_ping ? new Date(b.last_ping).getTime() : 0;
-      } else if (sortBy === 'stock_level') {
-        aValue = a.stock_level ?? -1;
-        bValue = b.stock_level ?? -1;
-      } else if (typeof aValue === 'string' && typeof bValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      // Handle null/undefined values
-      if (aValue == null) aValue = '';
-      if (bValue == null) bValue = '';
-
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [machines, searchQuery, statusFilter, customerFilter, onlineFilter, sortBy, sortDirection]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedMachines.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedMachines = filteredAndSortedMachines.slice(startIndex, startIndex + itemsPerPage);
-
-  // Stats
   const stats = useMemo(() => ({
-    total: machines.length,
-    online: machines.filter(m => m.asset_online).length,
-    offline: machines.filter(m => !m.asset_online).length,
+    total:    machines.length,
+    online:   machines.filter(m => m.asset_online).length,
+    offline:  machines.filter(m => !m.asset_online).length,
     lowStock: machines.filter(m => m.stock_level !== null && m.stock_level < 5).length,
   }), [machines]);
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      online: 'bg-green-100 text-green-800',
-      offline: 'bg-gray-100 text-gray-800',
-      maintenance: 'bg-yellow-100 text-yellow-800',
-    }[status] || 'bg-gray-100 text-gray-800';
-    
-    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles}`}>{status}</span>;
-  };
-
-  // Format date consistently between server and client
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    // For older dates, use ISO format to avoid timezone issues
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
-  };
-
-  const handleDelete = async (machineId: string, machineName: string) => {
-    if (!confirm(`Are you sure you want to delete "${machineName}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    setDeletingId(machineId);
-    
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    setDeletingId(id);
     try {
-      const response = await fetch(`/api/machines/delete`, {
+      const res = await fetch('/api/machines/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ machineId }),
+        body: JSON.stringify({ machineId: id }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete machine');
-      }
-
-      alert('Machine deleted successfully');
+      if (!res.ok) throw new Error();
       router.refresh();
-    } catch (error) {
-      console.error('Delete error:', error);
+    } catch {
       alert('Failed to delete machine. Please try again.');
     } finally {
       setDeletingId(null);
     }
-  };
+  }
 
-  const exportToCSV = () => {
-    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Stock Level', 'Last Ping'];
-    const rows = filteredAndSortedMachines.map(m => [
-      m.name,
-      m.machine_id,
-      m.mac_id,
-      m.location,
-      m.status,
-      m.customer_name,
-      m.machine_type,
-      m.stock_level?.toString() || '0',
-      m.last_ping ? new Date(m.last_ping).toLocaleString() : 'Never'
+  function exportToCSV() {
+    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Stock', 'Last Ping'];
+    const rows = filtered.map(m => [
+      m.name, m.machine_id, m.mac_id, m.location, m.status,
+      m.customer_name, m.machine_type, m.stock_level?.toString() ?? '0',
+      m.last_ping ? new Date(m.last_ping).toLocaleString() : 'Never',
     ]);
-    
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     a.download = `machines-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-  };
+  }
 
-  // Render sortable column header
-  const renderSortableHeader = (label: string, column: keyof Machine) => {
-    const isSorted = sortBy === column;
-    const Icon = isSorted ? (sortDirection === 'asc' ? ChevronUp : ChevronDown) : ChevronUp;
-    
-    return (
-      <button
-        onClick={() => handleSort(column)}
-        className="flex items-center gap-1 text-left hover:text-gray-700 transition-colors group"
-      >
-        <span>{label}</span>
-        <Icon className={`h-4 w-4 transition-opacity ${isSorted ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`} />
-      </button>
-    );
-  };
+  const activeFilters = statusFilter !== 'all' || customerFilter !== 'all' || onlineFilter !== 'all';
+  const thStyle: React.CSSProperties = { color: 'rgba(255,255,255,0.35)' };
+  const thClass = 'py-3 px-4 text-xs font-semibold uppercase tracking-wide text-left select-none cursor-pointer hover:text-white transition-colors';
 
   return (
-    <div className="space-y-4">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Machines</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+    <div className="space-y-5">
+
+      {/* ── Stat cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Machines', value: stats.total,   icon: Building2,     iconColor: '#60A5FA', iconBg: 'rgba(96,165,250,0.18)'  },
+          { label: 'Online',         value: stats.online,  icon: CheckCircle,   iconColor: '#34D399', iconBg: 'rgba(52,211,153,0.18)'  },
+          { label: 'Offline',        value: stats.offline, icon: Clock,         iconColor: 'rgba(255,255,255,0.50)', iconBg: 'rgba(255,255,255,0.08)' },
+          { label: 'Low Stock',      value: stats.lowStock,icon: AlertCircle,   iconColor: '#FBBF24', iconBg: 'rgba(251,191,36,0.18)'  },
+        ].map(({ label, value, icon: Icon, iconColor, iconBg }) => (
+          <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
+              <Icon className="w-5 h-5" style={{ color: iconColor }} />
             </div>
-            <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Activity className="h-5 w-5 text-blue-600" />
-            </div>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{label}</p>
+            <p className="text-2xl font-bold text-white">{value}</p>
           </div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Online</p>
-              <p className="text-2xl font-bold text-green-600">{stats.online}</p>
-            </div>
-            <div className="h-10 w-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Offline</p>
-              <p className="text-2xl font-bold text-gray-600">{stats.offline}</p>
-            </div>
-            <div className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-              <Clock className="h-5 w-5 text-gray-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Low Stock</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.lowStock}</p>
-            </div>
-            <div className="h-10 w-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="h-5 w-5 text-orange-600" />
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
+      {/* ── Search & filter bar ── */}
+      <div className="rounded-2xl p-4 space-y-3" style={CARD}>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(255,255,255,0.35)' }} />
             <input
               type="text"
-              placeholder="Search by name, machine ID, MAC address, location..."
+              placeholder="Search name, machine ID, MAC, location…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              className="w-full pl-10 pr-4 py-2.5 text-sm"
+              style={INPUT_STYLE}
             />
           </div>
-          
+          {/* Filter toggle */}
           <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            onClick={() => setShowFilters(f => !f)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
+            style={activeFilters
+              ? { background: 'rgba(244,63,94,0.18)', border: '1px solid rgba(244,63,94,0.35)', color: '#F472B6' }
+              : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.65)' }
+            }
           >
-            <Filter className="h-4 w-4" />
-            Filters {(statusFilter !== 'all' || customerFilter !== 'all' || onlineFilter !== 'all') && '(Active)'}
+            <Filter className="w-4 h-4" />
+            Filters{activeFilters && ' •'}
           </button>
-          
+          {/* Export */}
           <button
             onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.65)' }}
           >
-            <Download className="h-4 w-4" />
+            <Download className="w-4 h-4" />
             Export
           </button>
         </div>
 
-        {/* Advanced Filters */}
         {showFilters && (
-          <div className="grid md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-              >
-                <option value="all" className="text-gray-900">All Status</option>
-                <option value="online" className="text-gray-900">Online</option>
-                <option value="offline" className="text-gray-900">Offline</option>
-                <option value="maintenance" className="text-gray-900">Maintenance</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-              <select
-                value={customerFilter}
-                onChange={(e) => setCustomerFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-              >
-                <option value="all" className="text-gray-900">All Customers</option>
-                {customers.map(customer => (
-                  <option key={customer} value={customer} className="text-gray-900">{customer}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Connection</label>
-              <select
-                value={onlineFilter}
-                onChange={(e) => setOnlineFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-              >
-                <option value="all" className="text-gray-900">All</option>
-                <option value="online" className="text-gray-900">Connected</option>
-                <option value="offline" className="text-gray-900">Disconnected</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            {[
+              {
+                label: 'Status', value: statusFilter, set: setStatusFilter,
+                options: [['all', 'All Status'], ['online', 'Online'], ['offline', 'Offline'], ['maintenance', 'Maintenance']],
+              },
+              {
+                label: 'Customer', value: customerFilter, set: setCustomerFilter,
+                options: [['all', 'All Customers'], ...customers.map(c => [c, c])],
+              },
+              {
+                label: 'Connection', value: onlineFilter, set: setOnlineFilter,
+                options: [['all', 'All'], ['online', 'Connected'], ['offline', 'Disconnected']],
+              },
+            ].map(({ label, value, set, options }) => (
+              <div key={label}>
+                <p className="text-xs font-semibold mb-1.5" style={{ color: 'rgba(255,255,255,0.40)' }}>{label}</p>
+                <select
+                  value={value}
+                  onChange={e => { set(e.target.value); setCurrentPage(1); }}
+                  className="w-full px-3 py-2 text-sm"
+                  style={SELECT_STYLE}
+                >
+                  {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Results Info */}
-      <div className="flex items-center justify-between text-sm text-gray-600">
-        <p>
-          Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredAndSortedMachines.length)} of {filteredAndSortedMachines.length} machines
+      {/* ── Results info ── */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.40)' }}>
+          Showing {Math.min(start + 1, filtered.length)}–{Math.min(start + itemsPerPage, filtered.length)} of {filtered.length} machines
         </p>
         <select
           value={itemsPerPage}
-          onChange={(e) => {
-            setItemsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="px-3 py-1 border border-gray-300 rounded-lg text-gray-900 bg-white"
+          onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+          className="px-3 py-1.5 text-xs rounded-lg"
+          style={SELECT_STYLE}
         >
-          <option value={25} className="text-gray-900">25 per page</option>
-          <option value={50} className="text-gray-900">50 per page</option>
-          <option value={100} className="text-gray-900">100 per page</option>
-          <option value={250} className="text-gray-900">250 per page</option>
+          {[25, 50, 100, 250].map(n => <option key={n} value={n}>{n} per page</option>)}
         </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* ── Table ── */}
+      <div className="rounded-2xl overflow-hidden" style={CARD}>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Name', 'name')}
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th className={thClass} style={thStyle} onClick={() => handleSort('name')}>
+                  Name <SortIcon active={sortBy === 'name'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Machine ID', 'machine_id')}
+                <th className={`${thClass} hidden md:table-cell`} style={thStyle} onClick={() => handleSort('machine_id')}>
+                  Machine ID <SortIcon active={sortBy === 'machine_id'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Location', 'location')}
+                <th className={`${thClass} hidden lg:table-cell`} style={thStyle} onClick={() => handleSort('location')}>
+                  Location <SortIcon active={sortBy === 'location'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Customer', 'customer_name')}
+                <th className={`${thClass} hidden lg:table-cell`} style={thStyle} onClick={() => handleSort('customer_name')}>
+                  Customer <SortIcon active={sortBy === 'customer_name'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Status', 'status')}
+                <th className={thClass} style={thStyle} onClick={() => handleSort('asset_online')}>
+                  Status <SortIcon active={sortBy === 'asset_online'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Connection', 'asset_online')}
+                <th className={`${thClass} hidden sm:table-cell`} style={thStyle} onClick={() => handleSort('last_ping')}>
+                  Last Ping <SortIcon active={sortBy === 'last_ping'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Last Sync', 'last_ping')}
+                <th className={`${thClass} hidden sm:table-cell text-right`} style={thStyle} onClick={() => handleSort('stock_level')}>
+                  Stock <SortIcon active={sortBy === 'stock_level'} dir={sortDir} />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {renderSortableHeader('Stock', 'stock_level')}
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wide text-right" style={thStyle}>
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedMachines.map((machine) => (
-                <tr key={machine.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{machine.name}</div>
-                    <div className="text-xs text-gray-500">{machine.machine_type}</div>
+            <tbody>
+              {page.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-16 text-center">
+                    <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
+                    <p className="font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>No machines match your filters</p>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-gray-900">{machine.machine_id}</div>
-                    <div className="text-xs text-gray-500">{machine.mac_id}</div>
+                </tr>
+              ) : page.map(m => (
+                <tr key={m.id} className="row-hover" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  {/* Name */}
+                  <td className="py-3.5 px-4">
+                    <p className="font-semibold text-white">{m.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>{m.machine_type}</p>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center text-sm text-gray-900">
-                      <MapPin className="h-4 w-4 mr-1 text-gray-400" />
-                      {machine.location}
+
+                  {/* Machine ID */}
+                  <td className="py-3.5 px-4 hidden md:table-cell">
+                    <p className="font-mono text-xs text-white">{m.machine_id}</p>
+                    <p className="font-mono text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>{m.mac_id}</p>
+                  </td>
+
+                  {/* Location */}
+                  <td className="py-3.5 px-4 hidden lg:table-cell">
+                    <div className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                      <span className="text-sm">{m.location}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{machine.customer_name || '-'}</td>
-                  <td className="px-4 py-3">{getStatusBadge(machine.status)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center">
-                      <div className={`h-2 w-2 rounded-full mr-2 ${machine.asset_online ? 'bg-green-500' : 'bg-gray-300'}`} />
-                      <span className="text-sm text-gray-900">{machine.asset_online ? 'Online' : 'Offline'}</span>
-                    </div>
+
+                  {/* Customer */}
+                  <td className="py-3.5 px-4 text-sm hidden lg:table-cell" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    {m.customer_name || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {machine.last_ping ? formatDate(machine.last_ping) : 'Never'}
+
+                  {/* Status */}
+                  <td className="py-3.5 px-4">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={m.asset_online
+                        ? { background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }
+                        : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.40)' }
+                      }
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${m.asset_online ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+                      {m.asset_online ? 'Online' : 'Offline'}
+                    </span>
+                    {m.status !== 'online' && m.status !== 'offline' && (
+                      <span
+                        className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{ background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }}
+                      >
+                        {m.status}
+                      </span>
+                    )}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {machine.stock_level !== null ? (
-                        <>
-                          <span className={`text-sm font-medium ${
-                            machine.stock_level === 0 
-                              ? 'text-red-600' 
-                              : machine.stock_level < 5 
-                                ? 'text-amber-600' 
-                                : 'text-gray-900'
-                          }`}>
-                            {machine.stock_level}
-                          </span>
-                          {machine.stock_level === 0 && (
-                            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
-                              Empty
-                            </span>
-                          )}
-                          {machine.stock_level > 0 && machine.stock_level < 5 && (
-                            <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium">
-                              Low
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
-                    </div>
+
+                  {/* Last ping */}
+                  <td className="py-3.5 px-4 text-xs hidden sm:table-cell" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                    {m.last_ping ? formatDate(m.last_ping) : '—'}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
+
+                  {/* Stock */}
+                  <td className="py-3.5 px-4 text-right hidden sm:table-cell">
+                    {m.stock_level !== null ? (
+                      <span
+                        className="font-semibold text-sm"
+                        style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#FBBF24' : 'white' }}
+                      >
+                        {m.stock_level}
+                        {m.stock_level === 0 && (
+                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.18)', color: '#FCA5A5' }}>Empty</span>
+                        )}
+                        {m.stock_level > 0 && m.stock_level < 5 && (
+                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="py-3.5 px-4">
+                    <div className="flex items-center justify-end gap-1.5">
                       <Link
-                        href={`/admin/machines/${machine.id}/edit`}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        href={`/admin/machines/${m.id}/edit`}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.20)' }}
                         title="Edit machine"
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <Edit2 className="w-3.5 h-3.5" style={{ color: '#60A5FA' }} />
                       </Link>
                       <button
-                        onClick={() => handleDelete(machine.id, machine.name)}
-                        disabled={deletingId === machine.id}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => handleDelete(m.id, m.name)}
+                        disabled={deletingId === m.id}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
+                        style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.20)' }}
                         title="Delete machine"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: '#FCA5A5' }} />
                       </button>
                     </div>
                   </td>
@@ -484,53 +411,53 @@ export default function MachinesTable({ machines }: MachinesTableProps) {
         </div>
       </div>
 
-      {/* Pagination */}
+      {/* ── Pagination ── */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }}
           >
             Previous
           </button>
-          
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-            const page = i + 1;
-            return (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-4 py-2 border rounded-lg ${
-                  currentPage === page
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
+
+          {(() => {
+            const pages: number[] = [];
+            if (totalPages <= 7) {
+              for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+              pages.push(1);
+              if (currentPage > 3) pages.push(-1);
+              for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+              if (currentPage < totalPages - 2) pages.push(-2);
+              pages.push(totalPages);
+            }
+            return pages.map((p) =>
+              p < 0 ? (
+                <span key={p} className="px-1 text-sm" style={{ color: 'rgba(255,255,255,0.30)' }}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className="w-9 h-9 rounded-xl text-sm font-semibold transition-colors"
+                  style={currentPage === p
+                    ? { background: 'linear-gradient(135deg,#F43F5E,#EC4899)', color: 'white' }
+                    : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }
+                  }
+                >
+                  {p}
+                </button>
+              )
             );
-          })}
-          
-          {totalPages > 5 && <span className="px-2">...</span>}
-          
-          {totalPages > 5 && (
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              className={`px-4 py-2 border rounded-lg ${
-                currentPage === totalPages
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {totalPages}
-            </button>
-          )}
-          
+          })()}
+
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
+            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }}
           >
             Next
           </button>

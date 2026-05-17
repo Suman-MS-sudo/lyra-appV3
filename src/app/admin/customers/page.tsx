@@ -2,15 +2,20 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { ArrowLeft, UserPlus, Search, Mail, Calendar } from 'lucide-react';
+import { UserPlus, Search, Mail, Calendar } from 'lucide-react';
+
+export const revalidate = 0;
+
+const CARD: React.CSSProperties = {
+  border: '1px solid rgba(255,255,255,0.10)',
+  borderRadius: 20,
+};
 
 export default async function CustomersPage() {
   const supabase = await createClient();
-  
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Use service role to check admin status and fetch data
   const serviceSupabase = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -24,144 +29,117 @@ export default async function CustomersPage() {
 
   if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
 
-  // Fetch all organizations (super_customers) and their members
   const { data: customers } = await serviceSupabase
     .from('profiles')
-    .select(`
-      *,
-      organizations (
-        name
-      )
-    `)
+    .select(`*, organizations (name)`)
     .eq('account_type', 'super_customer')
     .order('created_at', { ascending: false });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/admin/dashboard" className="p-2 hover:bg-gray-100 rounded-lg">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Organizations</h1>
-                <p className="text-sm text-gray-500">Manage organization accounts</p>
-              </div>
-            </div>
-            <Link
-              href="/admin/customers/new"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add Organization
-            </Link>
-          </div>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+      {/* Page title */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Organizations</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Manage organization accounts</p>
         </div>
-      </header>
+        <Link
+          href="/admin/customers/new"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+        >
+          <UserPlus className="w-4 h-4" />
+          Add Organization
+        </Link>
+      </div>
 
-      <main className="container mx-auto px-6 py-8">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search customers..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(255,255,255,0.35)' }} />
+        <input
+          type="text"
+          placeholder="Search customers..."
+          className="w-full pl-11 pr-4 py-3 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#f3f4f6' }}
+        />
+      </div>
 
-        {/* Customers Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Organization
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Permissions
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joined
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+      {/* Customers Table */}
+      <div className="rounded-2xl overflow-hidden" style={CARD}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              {['Customer', 'Email', 'Organization', 'Permissions', 'Joined', 'Actions'].map((h, i) => (
+                <th
+                  key={h}
+                  className={`py-2.5 px-5 text-xs font-semibold uppercase tracking-wide ${i === 5 ? 'text-right' : 'text-left'}`}
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                >{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {customers && customers.length > 0 ? customers.map((customer: any) => (
+              <tr
+                key={customer.id}
+                className="row-hover"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+              >
+                <td className="py-3.5 px-5">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}
+                    >
+                      {(customer.full_name?.charAt(0) || customer.email.charAt(0)).toUpperCase()}
+                    </div>
+                    <span className="font-medium text-white">{customer.full_name || 'No name'}</span>
+                  </div>
+                </td>
+                <td className="py-3.5 px-5">
+                  <div className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    <Mail className="w-3.5 h-3.5 shrink-0" />
+                    {customer.email}
+                  </div>
+                </td>
+                <td className="py-3.5 px-5" style={{ color: customer.organizations ? 'white' : 'rgba(255,255,255,0.30)' }}>
+                  {customer.organizations ? customer.organizations.name : <em>Independent</em>}
+                </td>
+                <td className="py-3.5 px-5">
+                  <span
+                    className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                    style={customer.permissions?.can_edit
+                      ? { background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }
+                      : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.45)' }
+                    }
+                  >
+                    {customer.permissions?.can_edit ? 'Can Edit' : 'Read Only'}
+                  </span>
+                </td>
+                <td className="py-3.5 px-5">
+                  <div className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                    {new Date(customer.created_at).toLocaleDateString('en-IN')}
+                  </div>
+                </td>
+                <td className="py-3.5 px-5 text-right">
+                  <Link
+                    href={`/admin/customers/${customer.id}`}
+                    className="text-xs font-medium transition-colors hover:text-white"
+                    style={{ color: '#F472B6' }}
+                  >
+                    Edit
+                  </Link>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {customers && customers.length > 0 ? (
-                customers.map((customer: any) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                          {customer.full_name?.charAt(0) || customer.email.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {customer.full_name || 'No name'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Mail className="h-4 w-4 mr-2" />
-                        {customer.email}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {customer.organizations ? customer.organizations.name : (
-                        <span className="text-gray-400 italic">Independent</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        customer.permissions?.can_edit 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {customer.permissions?.can_edit ? 'Can Edit' : 'Read Only'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(customer.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <Link
-                        href={`/admin/customers/${customer.id}`}
-                        className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                      >
-                        Edit
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                    No customers found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </main>
-    </div>
+            )) : (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No customers found</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </main>
   );
 }

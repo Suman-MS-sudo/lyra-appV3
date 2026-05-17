@@ -2,7 +2,8 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ShoppingCart, Wifi, WifiOff, Heart, Package, X, Minus, Plus } from 'lucide-react';
+import { ShoppingCart, Heart, Package, X, Minus, Plus } from 'lucide-react';
+import { OfflineMachineGame } from '@/components/OfflineMachineGame';
 import { Header } from '@/components/landing/header';
 import { HeroSection } from '@/components/landing/hero-section';
 import { AboutSection } from '@/components/landing/about-section';
@@ -468,10 +469,49 @@ function HomeContent() {
   if (machineId) {
     if (loading) {
       return (
-        <div className="min-h-screen bg-linear-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
-          <div className="text-center text-white">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-            <p className="text-xl">Loading...</p>
+        <div
+          className="min-h-screen flex flex-col items-center justify-center"
+          style={{ background: 'linear-gradient(160deg, #1C0930 0%, #110720 50%, #0D0518 100%)' }}
+        >
+          {/* Ambient glow */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)' }} />
+            <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.10) 0%, transparent 70%)' }} />
+          </div>
+
+          {/* Logo + branding */}
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="relative mb-8">
+              <div
+                className="absolute inset-0 rounded-full animate-ping"
+                style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.35) 0%, transparent 70%)', animationDuration: '2s' }}
+              />
+              <div
+                className="relative w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 0 48px rgba(244,63,94,0.45)' }}
+              >
+                {/* Pad/drop icon */}
+                <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none">
+                  <ellipse cx="20" cy="22" rx="13" ry="9" fill="rgba(255,255,255,0.30)" />
+                  <ellipse cx="20" cy="22" rx="8" ry="5" fill="rgba(255,255,255,0.25)" />
+                  <path d="M20 10 C20 10 26 16 26 21 A6 6 0 0 1 14 21 C14 16 20 10 20 10Z" fill="rgba(255,255,255,0.55)" />
+                </svg>
+              </div>
+            </div>
+
+            <p className="text-2xl font-black text-white mb-1">Lyra <span style={{ color: '#F472B6' }}>Care</span></p>
+            <p className="text-sm mb-10" style={{ color: 'rgba(255,255,255,0.38)' }}>Smart hygiene access, anytime.</p>
+
+            {/* Bouncing dots */}
+            <div className="flex items-center gap-2">
+              {[0, 150, 300].map((delay) => (
+                <div
+                  key={delay}
+                  className="w-2 h-2 rounded-full animate-bounce"
+                  style={{ background: '#F472B6', animationDelay: `${delay}ms` }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       );
@@ -480,87 +520,101 @@ function HomeContent() {
     // Show error page if there's an error
     if (error) {
       return (
-        <div className="min-h-screen bg-linear-to-br from-red-50 via-white to-gray-50 flex items-center justify-center px-4">
-          <div className="max-w-2xl w-full">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 sm:p-12 text-center border border-gray-100">
-              {/* Error Icon */}
-              <div className="mb-6">
+        <div
+          className="min-h-screen flex items-center justify-center px-5"
+          style={{ background: 'linear-gradient(160deg, #1C0930 0%, #110720 50%, #0D0518 100%)' }}
+        >
+          {/* Ambient glow */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.12) 0%, transparent 70%)' }} />
+            <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.08) 0%, transparent 70%)' }} />
+          </div>
+
+          <div className="max-w-md w-full relative z-10">
+            {/* Glass card */}
+            <div
+              className="rounded-3xl p-8 sm:p-10 text-center"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+              }}
+            >
+              {/* Icon */}
+              <div className="mb-7">
                 {error.type === 'not_found' ? (
-                  <div className="w-24 h-24 mx-auto bg-red-100 rounded-full flex items-center justify-center">
-                    <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  <div
+                    className="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)' }}
+                  >
+                    <svg className="w-10 h-10" style={{ color: '#FCD34D' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                 ) : error.type === 'network_error' ? (
-                  <div className="w-24 h-24 mx-auto bg-orange-100 rounded-full flex items-center justify-center">
-                    <svg className="w-12 h-12 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+                  <div
+                    className="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(251,146,60,0.12)', border: '1px solid rgba(251,146,60,0.25)' }}
+                  >
+                    <svg className="w-10 h-10" style={{ color: '#FB923C' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
                     </svg>
                   </div>
                 ) : (
-                  <div className="w-24 h-24 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div
+                    className="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}
+                  >
+                    <svg className="w-10 h-10" style={{ color: '#F472B6' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 )}
               </div>
 
-              {/* Error Message */}
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                {error.message}
-              </h1>
-              
-              <p className="text-gray-600 mb-2">
+              <h1 className="text-2xl font-black text-white mb-3">{error.message}</h1>
+              <p className="text-sm mb-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.40)' }}>
                 {error.type === 'not_found' && (
-                  <>Machine ID: <span className="font-mono font-semibold text-gray-900">{machineId}</span> does not exist in our system.</>
+                  <>Machine <span className="font-mono font-semibold" style={{ color: 'rgba(255,255,255,0.65)' }}>{machineId}</span> is not registered in our network.</>
                 )}
-                {error.type === 'network_error' && (
-                  <>Unable to connect to the server. Please check your internet connection.</>
-                )}
-                {error.type === 'server_error' && (
-                  <>Our servers are experiencing issues. We're working to fix it.</>
-                )}
-                {error.type === 'invalid' && (
-                  <>The machine ID provided is not valid. Please check and try again.</>
-                )}
-                {error.type === 'error' && (
-                  <>Something went wrong while loading the machine data.</>
-                )}
+                {error.type === 'network_error' && <>Unable to reach our servers. Please check your connection and try again.</>}
+                {error.type === 'server_error' && <>Our servers are temporarily unavailable. We&apos;re working on it.</>}
+                {error.type === 'invalid' && <>The machine ID format is not recognized. Please scan the QR code again.</>}
+                {error.type === 'error' && <>Something went wrong loading this machine&apos;s data.</>}
               </p>
 
-              {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+              {/* Buttons */}
+              <div className="flex flex-col gap-3">
                 {(error.type === 'network_error' || error.type === 'server_error' || error.type === 'error') && (
                   <button
                     onClick={() => fetchMachineAndProducts()}
-                    className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                    className="w-full py-3.5 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98]"
+                    style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 8px 24px rgba(244,63,94,0.35)' }}
                   >
                     Try Again
                   </button>
                 )}
                 <button
-                  onClick={() => window.location.href = '/'}
-                  className="px-8 py-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-lg transition-colors border border-gray-300"
+                  onClick={() => { window.location.href = '/'; }}
+                  className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }}
                 >
                   Go to Home
                 </button>
               </div>
 
-              {/* Additional Help */}
-              <div className="mt-8 pt-8 border-t border-gray-200">
-                <p className="text-sm text-gray-500 mb-2">Need help?</p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center text-sm">
-                  <a href="#contact" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Contact Support
-                  </a>
-                  <span className="hidden sm:inline text-gray-300">|</span>
-                  <a href="#about" className="text-blue-600 hover:text-blue-700 font-medium">
-                    About Lyra
-                  </a>
-                </div>
+              {/* Footer links */}
+              <div className="flex items-center justify-center gap-4 mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <a href="#contact" className="text-xs font-medium transition-colors" style={{ color: 'rgba(244,63,94,0.70)' }}>Contact Support</a>
+                <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.12)' }} />
+                <a href="#about" className="text-xs font-medium transition-colors" style={{ color: 'rgba(244,63,94,0.70)' }}>About Lyra</a>
               </div>
             </div>
+
+            <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.18)' }}>
+              Secure · Contactless · Instant
+            </p>
           </div>
         </div>
       );
@@ -568,563 +622,598 @@ function HomeContent() {
 
     return (
       <>
-        <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white border-b sticky top-0 z-10">
-          <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4">
-            <div className="flex items-center justify-between gap-2">
-              <button 
+        {/* ═══════════════════════════════════════════
+            DARK LUXURY WOMEN-CENTRIC DESIGN
+        ═══════════════════════════════════════════ */}
+        <div className="min-h-screen relative" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 50%, #150828 100%)' }}>
+
+          {/* Ambient glow blobs — drifting */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.28) 0%, transparent 65%)' }} />
+            <div className="absolute top-1/3 -left-32 w-96 h-96 rounded-full animate-glow-drift-2" style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.22) 0%, transparent 65%)', animationDelay: '2s' }} />
+            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.18) 0%, transparent 65%)', animationDelay: '4s' }} />
+          </div>
+
+          {/* ── HEADER ── */}
+          <header className="fixed top-0 left-0 right-0 z-30" style={{ background: 'rgba(26,8,52,0.88)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
+            <div className="max-w-md mx-auto px-5 h-14 flex items-center justify-between">
+              {/* Back button — dark glass pill */}
+              <button
                 onClick={() => window.history.back()}
-                className="flex items-center gap-1 sm:gap-2 text-gray-700 hover:text-gray-900 transition-colors min-w-0"
+                className="lyra-icon-btn w-9 h-9 flex items-center justify-center rounded-full"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
               >
-                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                 </svg>
-                <span className="hidden sm:inline">Back</span>
               </button>
 
-              <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center min-w-0">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-linear-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-base sm:text-lg font-bold text-gray-900">Lyra</div>
-                  <div className="text-[10px] sm:text-xs text-gray-500">Enterprises</div>
-                </div>
+              {/* Brand */}
+              <div className="flex flex-col items-center leading-none">
+                <span className="text-sm font-black tracking-wide" style={{ color: 'rgba(255,255,255,0.92)' }}>
+                  Lyra <span style={{ color: '#F472B6' }}>Care</span>
+                </span>
+                <span className="text-[9px] font-medium tracking-widest" style={{ color: 'rgba(255,255,255,0.28)' }}>BY LYRA ENTERPRISES</span>
               </div>
 
-              <button 
-                onClick={() => setShowCart(true)}
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-w-0 shrink-0"
-              >
-                <ShoppingCart className="w-5 h-5 shrink-0" />
-                <span className="hidden sm:inline">Cart</span>
+              {/* Cart button — rose glow */}
+              <button onClick={() => setShowCart(true)} className="relative">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 4px 16px rgba(244,63,94,0.45)' }}
+                >
+                  <ShoppingCart className="w-4 h-4 text-white" />
+                </div>
                 {getTotalItems() > 0 && (
-                  <span className="bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                  <span
+                    className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-black rounded-full flex items-center justify-center"
+                    style={{ background: '#1C0930', border: '2px solid #F43F5E' }}
+                  >
                     {getTotalItems()}
                   </span>
                 )}
               </button>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Main Content */}
-        <main className="container mx-auto px-3 sm:px-6 py-4 sm:py-8 max-w-6xl pb-32">
-          {/* Machine Info */}
-          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-4 sm:mb-6 wrap-break-word">{machine?.name || machineId}</h1>
-            
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-6">
-              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
-                <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                  {machine?.asset_online ? (
-                    <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg shrink-0">
-                      <Wifi className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                    </div>
-                  ) : (
-                    <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg shrink-0">
-                      <WifiOff className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
-                    </div>
-                  )}
-                  <span className="text-xs sm:text-sm text-gray-600">Machine State</span>
+          {/* ── Hero ── */}
+          <div className="relative pt-14 pb-0">
+            {/* Bottom separator */}
+            <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(to right, transparent 0%, rgba(244,63,94,0.30) 35%, rgba(167,139,250,0.30) 65%, transparent 100%)' }} />
+            <div className="max-w-md mx-auto px-5 pt-10 pb-10" style={{ position: 'relative', zIndex: 1 }}>
+              <p
+                className="text-xs font-semibold tracking-widest uppercase mb-2 animate-float-up"
+                style={{ color: '#F472B6', animationDelay: '0.05s' }}
+              >
+                {machine?.customer_name}
+              </p>
+              <h1
+                className="text-3xl sm:text-4xl font-bold leading-snug mb-2 text-white wrap-break-word animate-float-up"
+                style={{ animationDelay: '0.15s' }}
+              >
+                {machine?.name || machineId}
+              </h1>
+              <p
+                className="text-sm mb-5 animate-float-up"
+                style={{ color: 'rgba(255,255,255,0.42)', animationDelay: '0.25s' }}
+              >
+                Smart hygiene access, anytime.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 animate-float-up" style={{ animationDelay: '0.35s' }}>
+                <div
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold"
+                  style={
+                    machine?.asset_online
+                      ? { background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.35)', color: '#6EE7B7' }
+                      : { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.50)' }
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'animate-pulse' : ''}`}
+                    style={{ background: machine?.asset_online ? '#34D399' : 'rgba(255,255,255,0.30)' }}
+                  />
+                  {machine?.asset_online ? 'Live & Online' : 'Offline'}
                 </div>
-                <div className={`text-base sm:text-lg font-semibold ${machine?.asset_online ? 'text-green-600' : 'text-red-600'}`}>
-                  {machine?.asset_online ? 'Online' : 'Offline'}
-                </div>
+                {machine?.firmware_version && (
+                  <span
+                    className="text-xs font-medium px-3 py-1 rounded-full"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
+                  >
+                    {machine.firmware_version}
+                  </span>
+                )}
                 {machine?.last_ping && (
-                  <div className="text-xs text-gray-500 mt-1 wrap-break-word">
-                    Last: {new Date(machine.last_ping).toLocaleString('en-IN', { 
-                      timeZone: 'Asia/Kolkata',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
+                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                    Last seen {new Date(machine.last_ping).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 )}
               </div>
-
-              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
-                <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                  <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg shrink-0">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs sm:text-sm text-gray-600">Firmware</span>
-                </div>
-                <div className="text-base sm:text-lg font-semibold text-blue-600">
-                  {machine?.firmware_version || 'Unknown'}
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border">
-                <div className="flex items-center gap-2 sm:gap-3 mb-2">
-                  <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg shrink-0">
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  </div>
-                  <span className="text-xs sm:text-sm text-gray-600">Customer</span>
-                </div>
-                <div className="text-base sm:text-lg font-semibold text-gray-900 wrap-break-word">
-                  {machine?.customer_name || 'N/A'}
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Products Section */}
-          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border">
-            <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Products</h2>
-              <div className="flex items-center gap-1.5 sm:gap-2 text-blue-600 shrink-0">
-                <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-                <span className="text-sm sm:text-base font-semibold">{products.length}</span>
-              </div>
-            </div>
+          {/* ── Main scrollable content ── */}
+          <main className="max-w-md mx-auto px-5 pb-40" style={{ position: 'relative', zIndex: 1 }}>
 
+            {/* Offline: show game instead of products */}
+            {!machine?.asset_online && (
+              <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.38s' }}>
+                <div className="text-center py-2">
+                  <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#F472B6' }}>Machine Status</p>
+                  <h2 className="text-xl font-bold text-white mb-1">Your machine is offline</h2>
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.40)' }}>Play while you wait for it to come back online</p>
+                </div>
+                <OfflineMachineGame machineName={machine?.name || machineId!} inline />
+              </div>
+            )}
+
+            {machine?.asset_online && (<>
+            {/* Product cards */}
             {products.length > 0 ? (
               <div className="space-y-4">
-                {products.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-gray-50 rounded-lg p-4 sm:p-6 border hover:shadow-md transition-all"
-                  >
-                    <div className="flex flex-col gap-4">
-                      <div className="flex items-start gap-3 sm:gap-4">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-linear-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center shrink-0">
-                          <Package className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 wrap-break-word">
-                            {item.products.name}
-                          </h3>
-                          <p className="text-gray-600 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">
-                            {item.products.description || 'Premium quality sanitary product'}
-                          </p>
-                          
-                          {/* Low Stock Warning */}
-                          {item.stock > 0 && item.stock < 5 && (
-                            <div className="flex items-center gap-2 mb-2 sm:mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                              <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                              </svg>
-                              <span className="text-xs sm:text-sm text-amber-800 font-medium">
-                                Only {item.stock} left! Grab yours before it's gone 🔥
-                              </span>
-                            </div>
-                          )}
-                          
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                              ₹{parseFloat(item.price).toFixed(0)}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${item.stock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                              <span className={`text-xs sm:text-sm font-medium ${item.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {item.stock > 0 ? `${item.stock} in stock` : 'Out of Stock'}
-                              </span>
-                            </div>
+                {products.map((item, index) => {
+                  const n = item.products.name.toLowerCase();
+                  const isNight = n.includes('overnight') || n.includes('night');
+                  const isXL = n.includes('xl') || n.includes('extra') || n.includes('large');
+                  const typeLabel = isNight ? 'Maximum Coverage' : isXL ? 'Extra Protection' : 'Daily Comfort';
+                  const tileGrad = isNight
+                    ? 'linear-gradient(145deg, #1E1B4B 0%, #3730A3 50%, #6D28D9 100%)'
+                    : isXL
+                    ? 'linear-gradient(145deg, #7F1D1D 0%, #9D174D 50%, #BE185D 100%)'
+                    : 'linear-gradient(145deg, #9D174D 0%, #DB2777 50%, #7C3AED 100%)';
+                  return (
+                    <div
+                      key={item.id}
+                      className="lyra-card lyra-border-breathe rounded-3xl overflow-hidden animate-card-enter"
+                      style={{
+                        background: 'rgba(255,255,255,0.07)',
+                        border: '1px solid rgba(255,255,255,0.13)',
+                        boxShadow: '0 4px 40px rgba(0,0,0,0.30)',
+                        animationDelay: `${0.48 + index * 0.12}s`,
+                      }}
+                    >
+                      {/* ── Image tile ── */}
+                      <div
+                        className="relative h-52 flex items-center justify-center overflow-hidden tile-shimmer"
+                        style={{ background: tileGrad }}
+                      >
+                        {/* Decorative orbs */}
+                        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                        <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.40) 0%, transparent 55%)' }} />
+
+                        {item.products.image_url ? (
+                          <img src={item.products.image_url} alt={item.products.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="relative z-10 select-none pointer-events-none">
+                            <svg viewBox="0 0 120 68" className="w-36 h-auto" fill="none">
+                              <path d="M22 34 C14 28 6 22 8 15 C10 9 18 9 24 18" fill="rgba(255,255,255,0.16)" />
+                              <path d="M98 34 C106 28 114 22 112 15 C110 9 102 9 96 18" fill="rgba(255,255,255,0.16)" />
+                              <rect x="22" y="10" width="76" height="48" rx="24" fill="rgba(255,255,255,0.28)" />
+                              <rect x="34" y="20" width="52" height="28" rx="14" fill="rgba(255,255,255,0.22)" />
+                              <line x1="47" y1="27" x2="47" y2="41" stroke="rgba(255,255,255,0.24)" strokeWidth="1.5" strokeLinecap="round" />
+                              <line x1="60" y1="25" x2="60" y2="43" stroke="rgba(255,255,255,0.24)" strokeWidth="1.5" strokeLinecap="round" />
+                              <line x1="73" y1="27" x2="73" y2="41" stroke="rgba(255,255,255,0.24)" strokeWidth="1.5" strokeLinecap="round" />
+                              {isNight && <path d="M91 13 C88 10 88 6 91 4 A8 8 0 1 0 99 17 A8 8 0 0 1 91 13Z" fill="rgba(255,255,255,0.45)" />}
+                            </svg>
                           </div>
+                        )}
+
+                        {/* Product type badge */}
+                        <div
+                          className="absolute bottom-3 left-4 px-3 py-1 rounded-full"
+                          style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.18)' }}
+                        >
+                          <span className="text-[10px] font-semibold text-white tracking-widest uppercase">{typeLabel}</span>
                         </div>
+
+                        {/* Low stock */}
+                        {item.stock > 0 && item.stock < 5 && (
+                          <div
+                            className="absolute top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-semibold"
+                            style={{ background: 'rgba(251,191,36,0.90)', backdropFilter: 'blur(8px)' }}
+                          >
+                            Only {item.stock} left!
+                          </div>
+                        )}
+
+                        {/* Out of stock */}
+                        {item.stock === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.58)', backdropFilter: 'blur(4px)' }}>
+                            <span
+                              className="text-white font-semibold text-sm px-5 py-2 rounded-full uppercase tracking-wider"
+                              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)' }}
+                            >
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Favourite */}
+                        <button
+                          onClick={() => toggleFavorite(item.product_id)}
+                          className="absolute top-3 right-4 w-9 h-9 rounded-full flex items-center justify-center transition-all"
+                          style={
+                            favorites.has(item.product_id)
+                              ? { background: '#F43F5E', boxShadow: '0 4px 16px rgba(244,63,94,0.55)' }
+                              : { background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.22)' }
+                          }
+                        >
+                          <Heart className="w-4 h-4" style={{ color: 'white', fill: favorites.has(item.product_id) ? 'white' : 'transparent' }} />
+                        </button>
                       </div>
 
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <button
-                            onClick={() => toggleFavorite(item.product_id)}
-                            className="p-2 sm:p-3 bg-white hover:bg-gray-100 rounded-lg border transition-colors shrink-0"
+                      {/* ── Details ── */}
+                      <div className="px-5 pt-4 pb-5">
+                        {/* Name row + stock pill */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-base font-semibold text-white leading-snug">{item.products.name}</h3>
+                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                              {item.products.description || 'Premium sanitary care product'}
+                            </p>
+                          </div>
+                          <div
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full shrink-0 mt-0.5"
+                            style={
+                              item.stock > 0
+                                ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)' }
+                                : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }
+                            }
                           >
-                            <Heart
-                              className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                                favorites.has(item.product_id)
-                                  ? 'fill-pink-500 text-pink-500'
-                                  : 'text-gray-400'
-                              }`}
-                            />
-                          </button>
-                          
-                          <button
-                            onClick={() => addToCart(item)}
-                            disabled={item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3}
-                            className={`flex-1 px-4 sm:px-8 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-all ${
-                              item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
-                            }`}
-                          >
-                            {item.stock === 0 ? 'Out of Stock' : getTotalItems() >= 3 ? 'Cart Full' : 'Add to Cart'}
-                          </button>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.stock > 0 ? '#34D399' : 'rgba(255,255,255,0.25)' }} />
+                            <span className="text-[10px] font-medium" style={{ color: item.stock > 0 ? '#6EE7B7' : 'rgba(255,255,255,0.35)' }}>
+                              {item.stock > 0 ? `${item.stock} left` : 'Sold out'}
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Quantity Counter */}
-                        {cart.has(item.product_id) && (
-                          <div className="flex items-center justify-center gap-3 bg-white rounded-lg p-2 border">
+                        {/* Price */}
+                        <div className="mb-4">
+                          <span
+                            className="text-2xl font-bold"
+                            style={{
+                              background: 'linear-gradient(135deg, #FDA4AF, #F43F5E)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text',
+                            }}
+                          >
+                            ₹{parseFloat(item.price).toFixed(0)}
+                          </span>
+                        </div>
+
+                        {/* Qty controls or Add button */}
+                        {cart.has(item.product_id) ? (
+                          <div
+                            className="rounded-2xl p-1 flex items-center justify-between"
+                            style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.24)' }}
+                          >
                             <button
                               onClick={() => updateQuantity(item.product_id, -1)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              className="w-11 h-11 rounded-xl flex items-center justify-center transition-all"
+                              style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.13)' }}
                             >
-                              <Minus className="w-5 h-5 text-gray-700" />
+                              <Minus className="w-4 h-4" style={{ color: '#F472B6' }} />
                             </button>
-                            <div className="flex items-center gap-2 min-w-20 justify-center">
-                              <span className="text-gray-900 font-bold text-lg">
-                                {cart.get(item.product_id)?.quantity || 0}
-                              </span>
-                              <span className="text-gray-500 text-sm">in cart</span>
+                            <div className="text-center">
+                              <span className="text-lg font-bold text-white">{cart.get(item.product_id)?.quantity}</span>
+                              <span className="text-xs ml-1.5" style={{ color: 'rgba(255,255,255,0.40)' }}>in cart</span>
                             </div>
                             <button
                               onClick={() => updateQuantity(item.product_id, 1)}
                               disabled={getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock}
-                              className={`p-2 rounded-lg transition-colors ${
+                              className="w-11 h-11 rounded-xl flex items-center justify-center transition-all"
+                              style={
                                 getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'hover:bg-gray-100'
-                              }`}
+                                  ? { background: 'rgba(255,255,255,0.04)', cursor: 'not-allowed' }
+                                  : { background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.13)' }
+                              }
                             >
-                              <Plus className="w-5 h-5 text-gray-700" />
+                              <Plus
+                                className="w-4 h-4"
+                                style={{ color: getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock ? 'rgba(255,255,255,0.20)' : '#F472B6' }}
+                              />
                             </button>
                           </div>
+                        ) : (
+                          <button
+                            onClick={() => addToCart(item)}
+                            disabled={item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3}
+                            className={`w-full py-3.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] ${item.stock > 0 && item.is_active !== 0 && getTotalItems() < 3 ? 'btn-glow' : ''}`}
+                            style={
+                              item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3
+                                ? { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.30)', cursor: 'not-allowed' }
+                                : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white' }
+                            }
+                          >
+                            {item.stock === 0 ? 'Out of Stock' : getTotalItems() >= 3 ? 'Cart Full (Max 3)' : '+ Add to Cart'}
+                          </button>
                         )}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-24">
+                <div
+                  className="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center"
+                  style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.22)' }}
+                >
+                  <Package className="w-12 h-12" style={{ color: 'rgba(244,63,94,0.45)' }} />
+                </div>
+                <p className="text-lg font-semibold text-white mb-2">No products yet</p>
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.38)' }}>This machine has no products assigned</p>
+              </div>
+            )}
+
+            {/* ── Machine Status card ── */}
+            <div
+              className="mt-5 rounded-3xl overflow-hidden lyra-border-breathe animate-fade-in"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', animationDelay: '0.6s' }}
+            >
+              <p className="text-xs font-semibold tracking-widest uppercase px-4 pt-4 mb-3" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                Machine Status
+              </p>
+              <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+                {[
+                  {
+                    label: machine?.wifi_rssi == null ? 'Network' : 'Signal',
+                    value: machine?.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'Ethernet',
+                    sub: machine?.wifi_rssi != null ? (machine.wifi_rssi > -50 ? 'Excellent' : machine.wifi_rssi > -70 ? 'Good' : 'Weak') : 'Connected',
+                  },
+                  { label: 'Stock', value: `${products.reduce((s, p) => s + p.stock, 0)}`, sub: 'units' },
+                  {
+                    label: 'Uptime',
+                    value: machine?.uptime != null ? (() => { const h = Math.floor(machine.uptime / 3600000); const d = Math.floor(h / 24); if (d > 0) return `${d}d ${h % 24}h`; if (h > 0) return `${h}h`; return `${Math.floor(machine.uptime / 60000)}m`; })() : '—',
+                    sub: '',
+                  },
+                  { label: 'Memory', value: machine?.free_heap != null ? `${(machine.free_heap / 1024).toFixed(0)} KB` : '—', sub: machine?.free_heap != null ? (machine.free_heap > 100000 ? 'Healthy' : 'Normal') : '' },
+                  { label: 'Speed', value: machine?.network_speed != null ? `${machine.network_speed.toFixed(0)} KB/s` : '—', sub: machine?.network_speed != null ? (machine.network_speed > 50 ? 'Fast' : 'Slow') : '' },
+                  { label: 'Temp', value: machine?.temperature != null ? `${machine.temperature.toFixed(0)}°C` : '—', sub: machine?.temperature != null ? (machine.temperature > 45 ? 'Hot' : 'Normal') : '' },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-2xl px-3 py-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
+                    <p className="text-sm font-semibold text-white leading-tight truncate">{stat.value}</p>
+                    {stat.sub && <p className="text-[10px] font-medium mt-0.5" style={{ color: '#F472B6' }}>{stat.sub}</p>}
+                    <p className="text-[10px] uppercase tracking-wider mt-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{stat.label}</p>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-16">
-                <Package className="w-20 h-20 mx-auto mb-4 text-gray-300" />
-                <p className="text-xl font-medium text-gray-900 mb-2">No products available</p>
-                <p className="text-gray-500">This machine has no products assigned yet</p>
+            </div>
+
+            {/* ── Trust bar ── */}
+            <div className="flex items-center justify-center gap-6 mt-5 mb-1 py-3 rounded-2xl animate-fade-in"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', animationDelay: '0.7s' }}>
+              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>Secure</span>
+              <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.15)' }} />
+              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>Contactless</span>
+              <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.15)' }} />
+              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>Instant</span>
+            </div>
+            <p className="text-center text-[10px] mt-2 mb-4" style={{ color: 'rgba(255,255,255,0.22)' }}>
+              Care without compromise
+            </p>
+            </>)}
+
+            {/* ── Sticky Pay Now bar ── */}
+            {cart.size > 0 && (
+              <div
+                className="fixed bottom-0 left-0 right-0 z-20"
+                style={{
+                  background: 'rgba(17,7,32,0.92)',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                  borderTop: '1px solid rgba(255,255,255,0.07)',
+                  boxShadow: '0 -8px 40px rgba(244,63,94,0.14)',
+                }}
+              >
+                <div className="max-w-md mx-auto px-5 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div
+                        className="rounded-2xl px-4 py-2 text-center"
+                        style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.20)' }}
+                      >
+                        <p className="text-[10px] font-semibold leading-none mb-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Items</p>
+                        <p className="text-lg font-black leading-none" style={{ color: '#F472B6' }}>
+                          {getTotalItems()}<span className="text-xs font-normal" style={{ color: 'rgba(255,255,255,0.30)' }}>/3</span>
+                        </p>
+                      </div>
+                      <div
+                        className="rounded-2xl px-4 py-2 text-center"
+                        style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.20)' }}
+                      >
+                        <p className="text-[10px] font-semibold leading-none mb-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Total</p>
+                        <p className="text-lg font-black leading-none" style={{ color: '#F472B6' }}>₹{getTotalAmount().toFixed(0)}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-1">
+                      <button
+                        onClick={() => setShowCart(true)}
+                        className="hidden sm:flex px-4 py-3 rounded-2xl text-sm font-bold transition-all"
+                        style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+                      >
+                        View Cart
+                      </button>
+                      <button
+                        onClick={handleCheckout}
+                        disabled={isProcessing || !razorpayLoaded}
+                        className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] ${!isProcessing && razorpayLoaded ? 'btn-glow' : ''}`}
+                        style={
+                          isProcessing || !razorpayLoaded
+                            ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.30)', cursor: 'not-allowed' }
+                            : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white' }
+                        }
+                      >
+                        {isProcessing ? 'Processing...' : !razorpayLoaded ? 'Loading...' : `Pay Now  ₹${getTotalAmount().toFixed(0)}`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Machine Health Metrics */}
-          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border mt-4 sm:mt-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Health</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              {/* WiFi Signal / Network Status */}
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <div className="flex items-center gap-2 mb-1">
-                  <Wifi className={`w-4 h-4 ${
-                    machine?.wifi_rssi == null ? 'text-blue-600' :
-                    machine.wifi_rssi > -50 ? 'text-green-600' :
-                    machine.wifi_rssi > -70 ? 'text-yellow-600' : 'text-red-600'
-                  }`} />
-                  <span className="text-xs text-gray-600">
-                    {machine?.wifi_rssi == null ? 'Network' : 'WiFi Signal'}
-                  </span>
-                </div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {machine?.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'Ethernet'}
-                </div>
-                {machine?.wifi_rssi != null ? (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {machine.wifi_rssi > -50 ? 'Excellent' :
-                     machine.wifi_rssi > -70 ? 'Good' : 'Weak'}
+            {/* ── Cart Modal (dark bottom sheet) ── */}
+            {showCart && (
+              <div
+                className="fixed inset-0 flex items-end sm:items-center justify-center z-50"
+                style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+              >
+                <div
+                  className="w-full sm:max-w-lg sm:mx-4 rounded-t-4xl sm:rounded-4xl max-h-[90vh] overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(160deg, #200D35 0%, #170922 100%)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 -16px 60px rgba(0,0,0,0.50)',
+                  }}
+                >
+                  {/* Handle bar (mobile) */}
+                  <div className="flex justify-center pt-3 pb-1 sm:hidden">
+                    <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} />
                   </div>
-                ) : (
-                  <div className="text-xs text-blue-600 mt-0.5">
-                    Connected
-                  </div>
-                )}
-              </div>
 
-              {/* Stock Level */}
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className={`w-4 h-4 ${
-                    (() => {
-                      const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
-                      return totalStock === 0 ? 'text-gray-400' :
-                             totalStock > 20 ? 'text-green-600' :
-                             totalStock > 10 ? 'text-yellow-600' : 'text-red-600';
-                    })()
-                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                  <span className="text-xs text-gray-600">Stock Level</span>
-                </div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {(() => {
-                    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
-                    return `${totalStock} units`;
-                  })()}
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {(() => {
-                    const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
-                    return totalStock > 20 ? 'Full' :
-                           totalStock > 10 ? 'Medium' :
-                           totalStock > 0 ? 'Low' : 'Empty';
-                  })()}
-                </div>
-              </div>
-
-              {/* Uptime */}
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-xs text-gray-600">Uptime</span>
-                </div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {machine?.uptime != null ? (
-                    (() => {
-                      const hours = Math.floor(machine.uptime / 3600000);
-                      const days = Math.floor(hours / 24);
-                      if (days > 0) return `${days}d ${hours % 24}h`;
-                      if (hours > 0) return `${hours}h ${Math.floor((machine.uptime % 3600000) / 60000)}m`;
-                      return `${Math.floor(machine.uptime / 60000)}m`;
-                    })()
-                  ) : 'N/A'}
-                </div>
-              </div>
-
-              {/* Memory */}
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                  </svg>
-                  <span className="text-xs text-gray-600">Free Memory</span>
-                </div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {machine?.free_heap != null ? `${(machine.free_heap / 1024).toFixed(1)} KB` : 'N/A'}
-                </div>
-                {machine?.free_heap != null && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {machine.free_heap > 100000 ? 'Healthy' :
-                     machine.free_heap > 50000 ? 'Normal' : 'Low'}
-                  </div>
-                )}
-              </div>
-
-              {/* Network Speed */}
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className={`w-4 h-4 ${
-                    machine?.network_speed == null ? 'text-gray-400' :
-                    machine.network_speed > 50 ? 'text-green-600' :
-                    machine.network_speed > 20 ? 'text-yellow-600' : 'text-red-600'
-                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <span className="text-xs text-gray-600">Network Speed</span>
-                </div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {machine?.network_speed != null ? `${machine.network_speed.toFixed(1)} KB/s` : 'N/A'}
-                </div>
-                {machine?.network_speed != null && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {machine.network_speed > 50 ? 'Fast' :
-                     machine.network_speed > 20 ? 'Good' : 'Slow'}
-                  </div>
-                )}
-              </div>
-
-              {/* Temperature */}
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className={`w-4 h-4 ${
-                    machine?.temperature == null ? 'text-gray-400' :
-                    machine.temperature > 60 ? 'text-red-600' :
-                    machine.temperature > 45 ? 'text-orange-600' :
-                    machine.temperature > 30 ? 'text-yellow-600' : 'text-blue-600'
-                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <span className="text-xs text-gray-600">Temperature</span>
-                </div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {machine?.temperature != null ? `${machine.temperature.toFixed(1)}°C` : 'N/A'}
-                </div>
-                {machine?.temperature != null && (
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {machine.temperature > 60 ? 'Critical' :
-                     machine.temperature > 45 ? 'Hot' :
-                     machine.temperature > 30 ? 'Warm' : 'Normal'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Sticky Pay Now Button */}
-          {cart.size > 0 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
-              <div className="container mx-auto px-3 sm:px-6 py-3 sm:py-4 max-w-6xl">
-                <div className="flex items-center justify-between gap-2 sm:gap-4">
-                  <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                    <div className="bg-blue-50 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-blue-200">
-                      <div className="text-xs text-gray-600 font-medium">Items</div>
-                      <div className="text-base sm:text-xl font-bold text-blue-600">
-                        {getTotalItems()}/3
-                      </div>
-                    </div>
-                    <div className="bg-blue-50 px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg border border-blue-200">
-                      <div className="text-xs text-gray-600 font-medium">Total</div>
-                      <div className="text-lg sm:text-2xl font-bold text-blue-600">
-                        ₹{getTotalAmount().toFixed(0)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <button
-                      onClick={() => setShowCart(true)}
-                      className="hidden sm:block px-4 sm:px-6 py-2 sm:py-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 rounded-lg font-semibold transition-all text-sm sm:text-base"
-                    >
-                      View Cart
-                    </button>
-                    <button
-                      onClick={handleCheckout}
-                      disabled={isProcessing || !razorpayLoaded}
-                      className={`px-8 py-3 rounded-lg font-bold text-lg transition-all ${
-                        isProcessing || !razorpayLoaded
-                          ? 'bg-gray-300 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg'
-                      }`}
-                    >
-                      {isProcessing ? 'Processing...' : !razorpayLoaded ? 'Loading Payment Gateway...' : `Pay Now ₹${getTotalAmount().toFixed(0)}`}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Cart Modal */}
-          {showCart && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
-                  <div className="flex items-center gap-3">
-                    <ShoppingCart className="w-6 h-6 text-blue-600" />
-                    <h2 className="text-2xl font-bold text-gray-900">Your Cart</h2>
-                    <span className="bg-blue-100 text-blue-600 text-sm font-bold px-3 py-1 rounded-full">
-                      {getTotalItems()} / 3
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setShowCart(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  {/* Header */}
+                  <div
+                    className="flex items-center justify-between px-6 pt-4 pb-4"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
                   >
-                    <X className="w-6 h-6 text-gray-600" />
-                  </button>
-                </div>
-
-                {/* Cart Items */}
-                <div className="p-6 overflow-y-auto max-h-[50vh]">
-                  {cart.size === 0 ? (
-                    <div className="text-center py-12">
-                      <ShoppingCart className="w-20 h-20 mx-auto mb-4 text-gray-300" />
-                      <p className="text-xl font-medium text-gray-900 mb-2">Your cart is empty</p>
-                      <p className="text-gray-500">Add up to 3 items to get started</p>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                        style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.25)' }}
+                      >
+                        <ShoppingCart className="w-5 h-5" style={{ color: '#F472B6' }} />
+                      </div>
+                      <div>
+                        <h2 className="text-base font-semibold text-white">Your Cart</h2>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.40)' }}>{getTotalItems()} of 3 items</p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {Array.from(cart.values()).map((item) => (
+                    <button
+                      onClick={() => setShowCart(false)}
+                      className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.10)' }}
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+
+                  {/* Items */}
+                  <div className="px-6 py-4 overflow-y-auto max-h-[45vh]">
+                    {cart.size === 0 ? (
+                      <div className="text-center py-10">
                         <div
-                          key={item.product_id}
-                          className="bg-gray-50 rounded-lg p-4 border"
+                          className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+                          style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.18)' }}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                                {item.name}
-                              </h3>
-                              <p className="text-gray-600 text-sm">
-                                ₹{parseFloat(item.price).toFixed(0)} × {item.quantity} = ₹
-                                {(parseFloat(item.price) * item.quantity).toFixed(0)}
+                          <ShoppingCart className="w-8 h-8" style={{ color: 'rgba(244,63,94,0.45)' }} />
+                        </div>
+                        <p className="font-bold text-white mb-1">Your cart is empty</p>
+                        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Add up to 3 items to get started</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {Array.from(cart.values()).map((item) => (
+                          <div
+                            key={item.product_id}
+                            className="flex items-center gap-3 rounded-2xl p-3"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                          >
+                            <div
+                              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                              style={{ background: 'linear-gradient(135deg, #BE185D, #9333EA)' }}
+                            >
+                              <Package className="w-6 h-6" style={{ color: 'rgba(255,255,255,0.60)' }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-white truncate">{item.name}</p>
+                              <p className="text-xs font-semibold" style={{ color: '#F472B6' }}>
+                                ₹{parseFloat(item.price).toFixed(0)} × {item.quantity} = ₹{(parseFloat(item.price) * item.quantity).toFixed(0)}
                               </p>
                             </div>
-
-                            <div className="flex items-center gap-3">
-                              {/* Quantity Controls */}
-                              <div className="flex items-center gap-2 bg-white rounded-lg p-1 border">
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div
+                                className="flex items-center gap-1 rounded-xl px-1 py-1"
+                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}
+                              >
                                 <button
                                   onClick={() => updateQuantity(item.product_id, -1)}
-                                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
                                 >
-                                  <Minus className="w-4 h-4 text-gray-700" />
+                                  <Minus className="w-3.5 h-3.5" style={{ color: '#F472B6' }} />
                                 </button>
-                                <span className="text-gray-900 font-semibold min-w-8 text-center">
-                                  {item.quantity}
-                                </span>
+                                <span className="text-sm font-semibold text-white min-w-6 text-center">{item.quantity}</span>
                                 <button
                                   onClick={() => updateQuantity(item.product_id, 1)}
                                   disabled={getTotalItems() >= 3 || item.quantity >= item.stock}
-                                  className={`p-1 rounded transition-colors ${
-                                    getTotalItems() >= 3 || item.quantity >= item.stock
-                                      ? 'opacity-50 cursor-not-allowed'
-                                      : 'hover:bg-gray-100'
-                                  }`}
+                                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${getTotalItems() >= 3 || item.quantity >= item.stock ? 'opacity-30 cursor-not-allowed' : ''}`}
                                 >
-                                  <Plus className="w-4 h-4 text-gray-700" />
+                                  <Plus className="w-3.5 h-3.5" style={{ color: '#F472B6' }} />
                                 </button>
                               </div>
-
-                              {/* Remove Button */}
                               <button
                                 onClick={() => removeFromCart(item.product_id)}
-                                className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                className="w-7 h-7 flex items-center justify-center rounded-xl transition-colors"
+                                style={{ background: 'rgba(239,68,68,0.12)' }}
                               >
-                                <X className="w-5 h-5 text-red-500" />
+                                <X className="w-3.5 h-3.5" style={{ color: '#FCA5A5' }} />
                               </button>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  {cart.size > 0 && (
+                    <div className="px-6 py-5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.45)' }}>Total Amount</span>
+                        <span
+                          className="text-xl font-bold"
+                          style={{
+                            background: 'linear-gradient(135deg, #FDA4AF, #F43F5E)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            backgroundClip: 'text',
+                          }}
+                        >
+                          ₹{getTotalAmount().toFixed(0)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleCheckout}
+                        disabled={isProcessing}
+                        className={`w-full py-4 rounded-2xl font-semibold text-sm transition-all active:scale-[0.97] ${!isProcessing ? 'btn-glow' : ''}`}
+                        style={
+                          isProcessing
+                            ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.30)', cursor: 'not-allowed' }
+                            : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white' }
+                        }
+                      >
+                        {isProcessing ? 'Processing...' : `Pay ₹${getTotalAmount().toFixed(0)}`}
+                      </button>
+                      <p className="text-center text-xs mt-3" style={{ color: 'rgba(255,255,255,0.25)' }}>Secure payment via Razorpay</p>
                     </div>
                   )}
                 </div>
-
-                {/* Footer */}
-                {cart.size > 0 && (
-                  <div className="p-6 border-t bg-gray-50">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-lg text-gray-700">Total Amount</span>
-                      <span className="text-3xl font-bold text-gray-900">
-                        ₹{getTotalAmount().toFixed(0)}
-                      </span>
-                    </div>
-                    <button
-                      onClick={handleCheckout}
-                      disabled={isProcessing}
-                      className={`w-full py-4 rounded-lg font-bold text-lg transition-all ${
-                        isProcessing
-                          ? 'bg-gray-300 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700'
-                      } text-white shadow-lg`}
-                    >
-                      {isProcessing ? 'Processing...' : `Pay ₹${getTotalAmount().toFixed(0)}`}
-                    </button>
-                    <p className="text-center text-gray-500 text-sm mt-3">
-                      Secure payment powered by Razorpay
-                    </p>
-                  </div>
-                )}
               </div>
-            </div>
-          )}
-        </main>
-        <Footer />
-      </div>
+            )}
+          </main>
+
+          <Footer />
+        </div>
       </>
     );
   }
 
   // Show landing page if no machine ID
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)' }}>
       <Header />
-      <main className="pt-16">
+      <main>
         <HeroSection />
         <AboutSection />
         <FeaturesSection />
@@ -1138,10 +1227,18 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-14 h-14 mx-auto mb-5 relative">
+            <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.35) 0%, transparent 70%)', animationDuration: '1.5s' }} />
+            <div className="relative w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 0 32px rgba(244,63,94,0.45)' }}>
+              <svg className="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-sm font-medium" style={{ color: '#F472B6' }}>Loading...</p>
         </div>
       </div>
     }>
