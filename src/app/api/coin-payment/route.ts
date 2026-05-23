@@ -88,6 +88,19 @@ export async function POST(request: NextRequest) {
       // Log error but don't fail the request - payment already recorded
     }
 
+    // Keep vending_machines.stock_level in sync
+    const { data: machine } = await supabase
+      .from('vending_machines')
+      .select('stock_level')
+      .eq('id', machine_id)
+      .single();
+    if (machine) {
+      await supabase
+        .from('vending_machines')
+        .update({ stock_level: Math.max(0, (machine.stock_level ?? 0) - 1) })
+        .eq('id', machine_id);
+    }
+
     console.log(`💰 Coin payment recorded: ${machine_id} / ${product.name} / ₹${amountInRupees} / Stock: ${machineProduct.stock} → ${newStock}`);
 
     return successResponse({

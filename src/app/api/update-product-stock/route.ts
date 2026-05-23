@@ -59,6 +59,35 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to update stock', 'UPDATE_FAILED', 500);
     }
 
+    // Keep vending_machines.stock_level in sync
+    if (mode === 'set') {
+      // Recalculate total from all products on this machine
+      const { data: allProducts } = await supabase
+        .from('machine_products')
+        .select('stock')
+        .eq('machine_id', machine_id);
+      if (allProducts) {
+        const totalStock = allProducts.reduce((sum, p) => sum + (p.stock ?? 0), 0);
+        await supabase
+          .from('vending_machines')
+          .update({ stock_level: totalStock })
+          .eq('id', machine_id);
+      }
+    } else {
+      // Decrement machine stock_level by the same quantity
+      const { data: machine } = await supabase
+        .from('vending_machines')
+        .select('stock_level')
+        .eq('id', machine_id)
+        .single();
+      if (machine) {
+        await supabase
+          .from('vending_machines')
+          .update({ stock_level: Math.max(0, (machine.stock_level ?? 0) - quantity) })
+          .eq('id', machine_id);
+      }
+    }
+
     console.log(`📦 Stock updated: ${machine_id} / product ${product_id} -> ${newStock}`);
 
     return successResponse({
