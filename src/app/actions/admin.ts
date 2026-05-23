@@ -163,6 +163,19 @@ export async function deleteMachine(machineId: string) {
   revalidatePath('/admin/machines');
 }
 
+export async function deleteOrganization(orgId: string) {
+  const { error } = await serviceSupabase
+    .from('organizations')
+    .delete()
+    .eq('id', orgId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath('/admin/organizations');
+}
+
 export async function updateCustomer(formData: FormData) {
   const userId = formData.get('user_id') as string;
   const fullName = formData.get('full_name') as string;

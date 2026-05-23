@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { Plus, Building2, MapPin, Pencil } from 'lucide-react';
+import { DeleteOrganizationButton } from '@/components/DeleteOrganizationButton';
 
 export const revalidate = 0;
 
@@ -102,6 +103,7 @@ export default async function OrganizationsPage() {
                   >
                     <Pencil className="w-4 h-4" />
                   </Link>
+                  <DeleteOrganizationButton orgId={org.id} orgName={org.name} />
                 </div>
               </div>
             </div>
