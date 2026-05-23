@@ -73,43 +73,17 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to record coin payment', 'INSERT_FAILED', 500);
     }
 
-    // Update stock in machine_products (decrement by 1)
-    const newStock = Math.max(0, machineProduct.stock - 1);
-    const { error: stockError } = await supabase
-      .from('machine_products')
-      .update({ 
-        stock: newStock,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', machineProduct.id);
+    // Stock is managed by /api/update-product-stock (called separately by ESP32
+    // with the EEPROM count after each dispense). Modifying it here too would
+    // cause a double-decrement since the ESP calls both endpoints per dispense.
 
-    if (stockError) {
-      console.error('Stock update error:', stockError);
-      // Log error but don't fail the request - payment already recorded
-    }
-
-    // Keep vending_machines.stock_level in sync
-    const { data: machine } = await supabase
-      .from('vending_machines')
-      .select('stock_level')
-      .eq('id', machine_id)
-      .single();
-    if (machine) {
-      await supabase
-        .from('vending_machines')
-        .update({ stock_level: Math.max(0, (machine.stock_level ?? 0) - 1) })
-        .eq('id', machine_id);
-    }
-
-    console.log(`💰 Coin payment recorded: ${machine_id} / ${product.name} / ₹${amountInRupees} / Stock: ${machineProduct.stock} → ${newStock}`);
+    console.log(`💰 Coin payment recorded: ${machine_id} / ${product.name} / ₹${amountInRupees}`);
 
     return successResponse({
-      message: 'Coin payment recorded and stock updated',
+      message: 'Coin payment recorded',
       payment_id: coinPayment.id,
       amount: amountInRupees,
       product_name: product.name,
-      old_stock: machineProduct.stock,
-      new_stock: newStock,
     });
 
   } catch (error: any) {
