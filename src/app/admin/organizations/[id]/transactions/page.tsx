@@ -7,7 +7,7 @@ import { OrgTransactionsTable, TxRow } from '@/components/OrgTransactionsTable';
 
 export const revalidate = 0;
 
-export default async function OrgTransactionsPage({ params }: { params: { id: string } }) {
+export default async function OrgTransactionsPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -25,7 +25,7 @@ export default async function OrgTransactionsPage({ params }: { params: { id: st
 
   if (profile?.account_type !== 'admin') redirect('/customer/dashboard');
 
-  const orgId = params.id;
+  const { id: orgId } = await params;
 
   // Fetch org name
   const { data: org } = await serviceSupabase
