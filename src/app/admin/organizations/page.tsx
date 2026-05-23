@@ -64,7 +64,9 @@ export default async function OrganizationsPage() {
                   {org.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-white truncate">{org.name}</h3>
+                  <Link href={`/admin/organizations/${org.id}/transactions`}>
+                    <h3 className="font-semibold text-white truncate hover:text-pink-400 transition-colors cursor-pointer">{org.name}</h3>
+                  </Link>
                   {org.profiles && (
                     <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.45)' }}>{org.profiles.full_name}</p>
                   )}

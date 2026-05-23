@@ -163,6 +163,30 @@ export async function deleteMachine(machineId: string) {
   revalidatePath('/admin/machines');
 }
 
+export async function deleteOrgTransactions(
+  onlineIds: string[],
+  coinIds: string[],
+  orgId: string
+) {
+  if (onlineIds.length > 0) {
+    const { error } = await serviceSupabase
+      .from('transactions')
+      .delete()
+      .in('id', onlineIds);
+    if (error) throw new Error(error.message);
+  }
+
+  if (coinIds.length > 0) {
+    const { error } = await serviceSupabase
+      .from('coin_payments')
+      .delete()
+      .in('id', coinIds);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath(`/admin/organizations/${orgId}/transactions`);
+}
+
 export async function deleteOrganization(orgId: string) {
   const { error } = await serviceSupabase
     .from('organizations')
