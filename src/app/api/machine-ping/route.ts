@@ -79,6 +79,15 @@ export async function POST(request: NextRequest) {
         .update(updateData)
         .eq('id', resolvedId);
 
+      // Sync machine_products.stock to ESP32's EEPROM count (ground truth)
+      if (stock_count !== undefined && stock_count !== null) {
+        await supabase
+          .from('machine_products')
+          .update({ stock: stock_count })
+          .eq('machine_id', resolvedId)
+          .eq('is_active', 1);
+      }
+
       if (updateError) {
         console.error('Error updating machine ping:', updateError);
       }
