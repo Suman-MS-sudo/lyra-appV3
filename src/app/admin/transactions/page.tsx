@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import {
   Search, IndianRupee, Calendar, User,
-  TrendingUp, TrendingDown, DollarSign, ShoppingCart, CreditCard, Coins,
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, CreditCard, Coins, Nfc,
 } from 'lucide-react';
 
 export const revalidate = 0;
@@ -66,9 +66,14 @@ export default async function TransactionsPage() {
     .from('coin_payments')
     .select(`*, products (name), vending_machines (name, location)`);
 
+  const rfidPaymentsQuery = serviceSupabase
+    .from('rfid_payments')
+    .select(`*, products (name), vending_machines (name, location), rfid_cards (uid, holder_name)`);
+
   const [
     { data: transactions },
     { data: coinPayments },
+    { data: rfidPayments },
   ] = await Promise.all([
     isSuperCustomer && machineIds.length > 0
       ? transactionsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
@@ -76,12 +81,16 @@ export default async function TransactionsPage() {
     isSuperCustomer && machineIds.length > 0
       ? coinPaymentsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
       : coinPaymentsQuery.order('created_at', { ascending: false }).limit(50),
+    isSuperCustomer && machineIds.length > 0
+      ? rfidPaymentsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
+      : rfidPaymentsQuery.order('created_at', { ascending: false }).limit(50),
   ]);
 
   const onlineRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const totalRevenue = onlineRevenue + coinRevenue;
-  const totalTransactionCount = (transactions?.length || 0) + (coinPayments?.length || 0);
+  const rfidRevenue = (rfidPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue = onlineRevenue + coinRevenue + rfidRevenue;
+  const totalTransactionCount = (transactions?.length || 0) + (coinPayments?.length || 0) + (rfidPayments?.length || 0);
   const pendingTransactions = transactions?.filter(tx => tx.payment_status === 'pending') || [];
   const failedTransactions = transactions?.filter(tx => tx.payment_status === 'failed') || [];
 
@@ -97,6 +106,10 @@ export default async function TransactionsPage() {
     const productName = tx.products?.name || 'Unknown';
     productRevenue.set(productName, (productRevenue.get(productName) || 0) + (tx.amount_in_paisa / 100));
   });
+  rfidPayments?.forEach(tx => {
+    const productName = tx.products?.name || 'Unknown';
+    productRevenue.set(productName, (productRevenue.get(productName) || 0) + (tx.amount_in_paisa / 100));
+  });
   const topProducts = Array.from(productRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const machineRevenue = new Map<string, number>();
@@ -105,6 +118,10 @@ export default async function TransactionsPage() {
     machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + parseFloat(tx.total_amount || 0));
   });
   coinPayments?.forEach(tx => {
+    const machineName = tx.vending_machines?.name || 'Unknown';
+    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + (tx.amount_in_paisa / 100));
+  });
+  rfidPayments?.forEach(tx => {
     const machineName = tx.vending_machines?.name || 'Unknown';
     machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + (tx.amount_in_paisa / 100));
   });
@@ -119,9 +136,11 @@ export default async function TransactionsPage() {
   const dailyRevenue = last7Days.map(date => {
     const dayOnline = transactions?.filter(tx => tx.created_at.startsWith(date) && tx.payment_status === 'paid') || [];
     const dayCoin = coinPayments?.filter(tx => tx.created_at.startsWith(date)) || [];
+    const dayRfid = rfidPayments?.filter(tx => tx.created_at.startsWith(date)) || [];
     const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
     const coinRev = dayCoin.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    return { date, revenue: onlineRev + coinRev, count: dayOnline.length + dayCoin.length };
+    const rfidRev = dayRfid.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+    return { date, revenue: onlineRev + coinRev + rfidRev, count: dayOnline.length + dayCoin.length + dayRfid.length };
   });
 
   const maxDailyRevenue = Math.max(...dailyRevenue.map(d => d.revenue), 1);
@@ -137,7 +156,7 @@ export default async function TransactionsPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={DollarSign}    label="Total Revenue"     value={`₹${totalRevenue.toFixed(2)}`}     accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"  sub={`${coinPayments?.length || 0} coin + ${transactions?.length || 0} online`} />
+        <StatCard icon={DollarSign}    label="Total Revenue"     value={`₹${totalRevenue.toFixed(2)}`}     accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"  sub={`${coinPayments?.length || 0} coin + ${transactions?.length || 0} online + ${rfidPayments?.length || 0} rfid`} />
         <StatCard icon={ShoppingCart}  label="Total Transactions" value={String(totalTransactionCount)}     accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"  sub="Last 50 per type" />
         <StatCard icon={TrendingUp}    label="Pending"            value={String(pendingTransactions.length)} accentColor="#FBBF24" iconBg="rgba(251,191,36,0.18)" sub="Awaiting payment" />
         <StatCard icon={TrendingDown}  label="Failed"             value={String(failedTransactions.length)}  accentColor="#F43F5E" iconBg="rgba(244,63,94,0.18)"  sub="Failed payments" />
@@ -254,7 +273,7 @@ export default async function TransactionsPage() {
       <div className="rounded-2xl overflow-hidden" style={CARD}>
         <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <h3 className="font-semibold text-white">Recent Transactions</h3>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>Last 50 coin &amp; online payments</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>Last 50 coin, online &amp; RFID payments</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -357,7 +376,47 @@ export default async function TransactionsPage() {
                 );
               })}
 
-              {!transactions?.length && !coinPayments?.length && (
+              {/* RFID Payments */}
+              {rfidPayments && rfidPayments.map((txn: any) => (
+                <tr
+                  key={`rfid-${txn.id}`}
+                  className="row-hover"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <td className="py-3 px-4 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      {new Date(txn.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <User className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgba(255,255,255,0.35)' }} />
+                      <span style={{ color: 'rgba(255,255,255,0.55)' }}>{txn.rfid_cards?.holder_name || txn.card_uid}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-white">{txn.products?.name || 'Unknown'}</td>
+                  <td className="py-3 px-4">
+                    <p className="text-white">{txn.vending_machines?.name || 'Unknown'}</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>{txn.vending_machines?.location}</p>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <span className="font-semibold text-white flex items-center justify-end gap-0.5">
+                      <IndianRupee className="w-3 h-3" />{(txn.amount_in_paisa / 100).toFixed(2)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(167,139,250,0.15)', color: '#C4B5FD' }}>
+                      <Nfc className="w-3 h-3" />RFID
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }}>Dispensed</span>
+                  </td>
+                </tr>
+              ))}
+
+              {!transactions?.length && !coinPayments?.length && !rfidPayments?.length && (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No transactions found</td>
                 </tr>

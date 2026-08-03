@@ -1,11 +1,13 @@
 ﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { TrendingUp, CreditCard, AlertCircle, Users, Wifi, WifiOff, Coins, Activity } from 'lucide-react';
+import { TrendingUp, CreditCard, AlertCircle, Users, Wifi, WifiOff, Coins, Activity, Nfc, Calendar, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import MachineAssignmentPopup from '@/components/MachineAssignmentPopup';
 import { PaymentDonutChart, MachineRevenueBar, RevenueAreaChart, MachineStatusBar } from '@/components/DashboardCharts';
 import TransactionsTable from '@/components/TransactionsTable';
+import DashboardTabs from '@/components/DashboardTabs';
+import RfidCardsUsagePanel from '@/components/RfidCardsUsagePanel';
 
 // Force dynamic rendering - never cache this page to ensure real-time status
 export const revalidate = 0;
@@ -60,13 +62,13 @@ export default async function CustomerDashboard() {
   if (isSuperCustomer && profile?.organization_id) {
     const { data } = await serviceSupabase
       .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
+      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping, rfid_enabled')
       .eq('customer_id', profile.organization_id);
     orgMachines = data;
   } else {
     const { data } = await serviceSupabase
       .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping')
+      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping, rfid_enabled')
       .eq('customer_id', user.id);
     orgMachines = data;
   }
@@ -116,10 +118,11 @@ export default async function CustomerDashboard() {
     return machine;
   }) || [];
 
-  // Fetch all transactions and coin payments for customer's machines
+  // Fetch all transactions, coin payments, and RFID payments for customer's machines
   const [
     { data: onlineTransactions },
-    { data: coinPayments }
+    { data: coinPayments },
+    { data: rfidPayments }
   ] = await Promise.all([
     serviceSupabase
       .from('transactions')
@@ -150,6 +153,21 @@ export default async function CustomerDashboard() {
         vending_machines (name, location)
       `)
       .in('machine_id', machineIds)
+      .order('created_at', { ascending: false }),
+    serviceSupabase
+      .from('rfid_payments')
+      .select(`
+        id,
+        amount_in_paisa,
+        dispensed,
+        created_at,
+        machine_id,
+        card_uid,
+        products (name),
+        vending_machines (name, location),
+        rfid_cards (holder_name)
+      `)
+      .in('machine_id', machineIds)
       .order('created_at', { ascending: false })
   ]);
 
@@ -161,7 +179,8 @@ export default async function CustomerDashboard() {
   // Transaction stats
   const totalOnlineTransactions = onlineTransactions?.length || 0;
   const totalCoinTransactions = coinPayments?.length || 0;
-  const totalTransactions = totalOnlineTransactions + totalCoinTransactions;
+  const totalRfidTransactions = rfidPayments?.length || 0;
+  const totalTransactions = totalOnlineTransactions + totalCoinTransactions + totalRfidTransactions;
 
   // Revenue calculations
   const onlineRevenue = onlineTransactions?.reduce((sum, tx) => {
@@ -172,7 +191,8 @@ export default async function CustomerDashboard() {
   }, 0) || 0;
 
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const totalRevenue = onlineRevenue + coinRevenue;
+  const rfidRevenue = (rfidPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue = onlineRevenue + coinRevenue + rfidRevenue;
 
   // Machine health analysis using real-time status
   const healthyMachines = machinesWithUpdatedStatus?.filter(m => m.asset_online && (m.stock_level || 0) >= 5) || [];
@@ -191,6 +211,7 @@ export default async function CustomerDashboard() {
   // Breakdown by payment method
   const onlineTransactionCount = onlineTransactions?.filter(tx => tx.payment_status === 'paid').length || 0;
   const coinTransactionCount = coinPayments?.length || 0;
+  const rfidTransactionCount = rfidPayments?.length || 0;
 
   // Format date for last sync display
   const formatLastSync = (dateString: string | null) => {
@@ -218,18 +239,21 @@ export default async function CustomerDashboard() {
       tx.machine_id === machine.id && tx.payment_status === 'paid'
     ) || [];
     const machineCoinTx = coinPayments?.filter(tx => tx.machine_id === machine.id) || [];
+    const machineRfidTx = rfidPayments?.filter(tx => tx.machine_id === machine.id) || [];
     const machineOnlineRev = machineOnlineTx.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
     const machineCoinRev = machineCoinTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+    const machineRfidRev = machineRfidTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
     return {
       ...machine,
       name: machine.name?.substring(0, 12) || 'Unknown',
       fullName: machine.name || 'Unknown',
       online: machine.asset_online ? 1 : 0,
       offline: machine.asset_online ? 0 : 1,
-      revenue: machineOnlineRev + machineCoinRev,
+      revenue: machineOnlineRev + machineCoinRev + machineRfidRev,
       onlineRevenue: machineOnlineRev,
       coinRevenue: machineCoinRev,
-      totalTransactions: machineOnlineTx.length + machineCoinTx.length,
+      rfidRevenue: machineRfidRev,
+      totalTransactions: machineOnlineTx.length + machineCoinTx.length + machineRfidTx.length,
     };
   }).sort((a, b) => b.revenue - a.revenue) || [];
 
@@ -256,7 +280,14 @@ export default async function CustomerDashboard() {
       })
       .reduce((sum, tx) => sum + tx.amount_in_paisa, 0) || 0) / 100;
 
-    return { date: dateStr, online: Math.round(dayOnline * 100) / 100, coin: Math.round(dayCoin * 100) / 100 };
+    const dayRfid = (rfidPayments
+      ?.filter(tx => {
+        const t = new Date(tx.created_at);
+        return t >= dayStart && t <= dayEnd;
+      })
+      .reduce((sum, tx) => sum + tx.amount_in_paisa, 0) || 0) / 100;
+
+    return { date: dateStr, online: Math.round(dayOnline * 100) / 100, coin: Math.round(dayCoin * 100) / 100, rfid: Math.round(dayRfid * 100) / 100 };
   });
 
   // Last 10 per type — the client component handles filtering
@@ -281,8 +312,104 @@ export default async function CustomerDashboard() {
     created_at: tx.created_at,
   }));
 
-  const last10Transactions = [...last10Online, ...last10Coin]
+  const last10Rfid = (rfidPayments || []).slice(0, 10).map(tx => ({
+    id: tx.id,
+    type: 'rfid' as const,
+    amount: (tx.amount_in_paisa || 0) / 100,
+    status: tx.dispensed ? 'dispensed' : 'pending',
+    machine: (tx.vending_machines as any)?.name || 'Unknown',
+    product: (tx.products as any)?.name || 'Unknown',
+    items: 1,
+    created_at: tx.created_at,
+  }));
+
+  const last10Transactions = [...last10Online, ...last10Coin, ...last10Rfid]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // ══════════════════════════ RFID USAGE ANALYTICS ══════════════════════════
+  // Only shown as a dashboard tab when this customer has at least one
+  // RFID-enabled machine assigned to them.
+  const hasRfidMachines = machinesWithUpdatedStatus.some(m => (m as any).rfid_enabled);
+
+  // Top consumers — grouped by card (holder name if known, else UID)
+  const consumerStats = new Map<string, { label: string; uid: string; count: number; amount: number; lastTap: string }>();
+  rfidPayments?.forEach(tx => {
+    const holder = (tx.rfid_cards as any)?.holder_name;
+    const key = tx.card_uid;
+    const label = holder || tx.card_uid;
+    const existing = consumerStats.get(key);
+    const amt = (tx.amount_in_paisa || 0) / 100;
+    if (existing) {
+      existing.count++;
+      existing.amount += amt;
+      if (new Date(tx.created_at) > new Date(existing.lastTap)) existing.lastTap = tx.created_at;
+    } else {
+      consumerStats.set(key, { label, uid: tx.card_uid, count: 1, amount: amt, lastTap: tx.created_at });
+    }
+  });
+  const topConsumers = Array.from(consumerStats.values()).sort((a, b) => b.count - a.count).slice(0, 10);
+
+  // Per-machine RFID stats + daily average (over the span from first tap to now, min 1 day)
+  const rfidMachineStats = machinesWithUpdatedStatus
+    .filter(m => (m as any).rfid_enabled)
+    .map(machine => {
+      const machineTx = rfidPayments?.filter(tx => tx.machine_id === machine.id) || [];
+      const revenue = machineTx.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) / 100;
+      let dailyAverage = 0;
+      if (machineTx.length > 0) {
+        const timestamps = machineTx.map(tx => new Date(tx.created_at).getTime());
+        const spanDays = Math.max(1, Math.ceil((Date.now() - Math.min(...timestamps)) / (24 * 60 * 60 * 1000)));
+        dailyAverage = machineTx.length / spanDays;
+      }
+      return {
+        id: machine.id,
+        name: machine.name,
+        location: machine.location,
+        transactionCount: machineTx.length,
+        revenue,
+        dailyAverage,
+      };
+    })
+    .sort((a, b) => b.transactionCount - a.transactionCount);
+
+  // 14-day tap-count trend (separate from the revenue timeline above, which mixes payment types)
+  const rfidDailyTrend = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (13 - i));
+    const dateStr = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
+    const dayTx = rfidPayments?.filter(tx => {
+      const t = new Date(tx.created_at);
+      return t >= dayStart && t <= dayEnd;
+    }) || [];
+    return { date: dateStr, count: dayTx.length };
+  });
+
+  const rfidActiveDays = new Set(rfidPayments?.map(tx => new Date(tx.created_at).toDateString())).size;
+  const rfidOverallDailyAverage = rfidActiveDays > 0 ? (rfidPayments?.length || 0) / rfidActiveDays : 0;
+  const uniqueCardCount = consumerStats.size;
+
+  // Actual card records (not just tap history) for the Wallet / No Limit
+  // management sub-tabs, so balances can be adjusted right from here.
+  // Includes org-wide ("any machine") cards, which have machine_id = NULL and
+  // so wouldn't match a plain .in(machine_id) filter.
+  const rfidMachineIds = machinesWithUpdatedStatus.filter(m => (m as any).rfid_enabled).map(m => m.id);
+  const rfidCardFilters: string[] = [];
+  if (rfidMachineIds.length > 0) rfidCardFilters.push(`machine_id.in.(${rfidMachineIds.join(',')})`);
+  if (profile?.organization_id) rfidCardFilters.push(`and(machine_id.is.null,organization_id.eq.${profile.organization_id})`);
+
+  const { data: rfidCardRecords } = rfidCardFilters.length > 0
+    ? await serviceSupabase
+        .from('rfid_cards')
+        .select(`
+          id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa,
+          machine_id, created_at,
+          machine:vending_machines ( id, name, location )
+        `)
+        .or(rfidCardFilters.join(','))
+        .order('created_at', { ascending: false })
+    : { data: [] };
 
   // Pending invoices for the banner
   const { data: pendingInvoices } = await serviceSupabase
@@ -365,12 +492,16 @@ export default async function CustomerDashboard() {
         </div>
       </div>
 
+      <DashboardTabs
+        overview={
+      <>
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: 'Total Revenue',    value: `₹${formatAmount(totalRevenue)}`,  sub: `${onlineTransactionCount + coinTransactionCount} transactions`, icon: TrendingUp, color: '#34D399', bg: 'rgba(52,211,153,0.18)'   },
+          { label: 'Total Revenue',    value: `₹${formatAmount(totalRevenue)}`,  sub: `${onlineTransactionCount + coinTransactionCount + rfidTransactionCount} transactions`, icon: TrendingUp, color: '#34D399', bg: 'rgba(52,211,153,0.18)'   },
           { label: 'Online Payments',  value: `₹${formatAmount(onlineRevenue)}`, sub: `${onlineTransactionCount} paid`,                                icon: CreditCard, color: '#A78BFA', bg: 'rgba(167,139,250,0.18)'  },
           { label: 'Coin Payments',    value: `₹${formatAmount(coinRevenue)}`,   sub: `${coinTransactionCount} collections`,                            icon: Coins,      color: '#FBBF24', bg: 'rgba(251,191,36,0.18)'   },
+          { label: 'RFID Payments',    value: `₹${formatAmount(rfidRevenue)}`,   sub: `${rfidTransactionCount} taps`,                                   icon: Nfc,        color: '#F472B6', bg: 'rgba(244,63,94,0.18)'    },
           { label: 'Machines Online',  value: `${onlineMachines} / ${totalMachines}`, sub: needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy', icon: Wifi, color: '#60A5FA', bg: 'rgba(96,165,250,0.18)' },
         ].map(({ label, value, sub, icon: Icon, color, bg }) => (
           <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
@@ -389,7 +520,7 @@ export default async function CustomerDashboard() {
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-2xl p-5" style={CARD}>
           <h2 className="font-semibold text-white mb-0.5">Revenue Trend</h2>
-          <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>Last 14 days — online vs coin</p>
+          <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>Last 14 days — online vs coin vs RFID</p>
           <RevenueAreaChart revenueTimeline={revenueTimeline} />
         </div>
 
@@ -399,13 +530,16 @@ export default async function CustomerDashboard() {
           <PaymentDonutChart
             onlineRevenue={onlineRevenue}
             coinRevenue={coinRevenue}
+            rfidRevenue={rfidRevenue}
             onlineCount={onlineTransactionCount}
             coinCount={coinTransactionCount}
+            rfidCount={rfidTransactionCount}
           />
           <div className="flex flex-col gap-2 mt-3">
             {[
               { label: 'Online', color: '#F43F5E', amount: onlineRevenue },
               { label: 'Coin',   color: '#FBBF24', amount: coinRevenue   },
+              { label: 'RFID',   color: '#A78BFA', amount: rfidRevenue  },
             ].map(({ label, color, amount }) => (
               <div key={label} className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.60)' }}>
@@ -600,6 +734,135 @@ export default async function CustomerDashboard() {
           </div>
         </div>
       )}
+      </>
+        }
+        rfid={hasRfidMachines ? (
+          <>
+            {/* RFID KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'Total RFID Taps',   value: String(rfidTransactionCount),           sub: `across ${rfidMachineStats.length} machine${rfidMachineStats.length !== 1 ? 's' : ''}`, icon: Nfc,       color: '#A78BFA', bg: 'rgba(167,139,250,0.18)' },
+                { label: 'Total RFID Revenue', value: `₹${formatAmount(rfidRevenue)}`,         sub: 'all-time',                                                                              icon: TrendingUp, color: '#34D399', bg: 'rgba(52,211,153,0.18)' },
+                { label: 'Unique Cards Used',  value: String(uniqueCardCount),                 sub: 'distinct RFID cards',                                                                   icon: Users,      color: '#60A5FA', bg: 'rgba(96,165,250,0.18)' },
+                { label: 'Daily Average',      value: rfidOverallDailyAverage.toFixed(1),       sub: 'taps per active day',                                                                   icon: Calendar,   color: '#FBBF24', bg: 'rgba(251,191,36,0.18)' },
+              ].map(({ label, value, sub, icon: Icon, color, bg }) => (
+                <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full" style={{ background: bg, opacity: 0.4 }} />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
+                    <Icon className="w-4 h-4" style={{ color }} />
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{label}</p>
+                  <p className="text-xl font-bold text-white">{value}</p>
+                  <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Card holders — wallet / no-limit sub-tabs with balance controls */}
+            <RfidCardsUsagePanel initialCards={(rfidCardRecords as any) || []} />
+
+            {/* 14-day tap trend */}
+            <div className="rounded-2xl p-5" style={CARD}>
+              <h2 className="font-semibold text-white mb-0.5">Tap Activity</h2>
+              <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>Last 14 days — RFID taps per day</p>
+              <div className="flex items-end gap-1.5 h-32">
+                {(() => {
+                  const max = Math.max(...rfidDailyTrend.map(d => d.count), 1);
+                  return rfidDailyTrend.map((d, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group relative">
+                      <span className="text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#C4B5FD' }}>{d.count}</span>
+                      <div
+                        className="w-full rounded-t-md transition-all"
+                        style={{
+                          height: `${Math.max((d.count / max) * 100, d.count > 0 ? 6 : 2)}%`,
+                          background: d.count > 0 ? 'linear-gradient(180deg, #A78BFA, #7C3AED)' : 'rgba(255,255,255,0.06)',
+                        }}
+                      />
+                      <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.30)' }}>{d.date.split(' ')[1]}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-4">
+              {/* Top consumers */}
+              <div className="rounded-2xl p-5" style={CARD}>
+                <div className="flex items-center gap-2 mb-4">
+                  <Trophy className="w-4 h-4" style={{ color: '#FBBF24' }} />
+                  <h2 className="font-semibold text-white">Top Consumers</h2>
+                </div>
+                {topConsumers.length > 0 ? (
+                  <div className="space-y-0 max-h-80 overflow-y-auto">
+                    {topConsumers.map((c, i) => (
+                      <div key={c.label + i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={i === 0
+                              ? { background: 'rgba(251,191,36,0.20)', color: '#FDE68A' }
+                              : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.50)' }}
+                          >
+                            {i + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{c.label}</p>
+                            {c.label !== c.uid && (
+                              <p className="text-xs font-mono truncate" style={{ color: 'rgba(255,255,255,0.30)' }}>{c.uid}</p>
+                            )}
+                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Last tap {formatTimeAgo(c.lastTap)}</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <p className="text-sm font-bold text-white">{c.count} taps</p>
+                          <p className="text-xs" style={{ color: '#C4B5FD' }}>₹{formatAmount(c.amount)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-center py-8" style={{ color: 'rgba(255,255,255,0.28)' }}>No RFID taps recorded yet</p>
+                )}
+              </div>
+
+              {/* Per-machine RFID breakdown */}
+              <div className="rounded-2xl p-5" style={CARD}>
+                <h2 className="font-semibold text-white mb-0.5">By Machine</h2>
+                <p className="text-xs mb-4" style={{ color: 'rgba(255,255,255,0.40)' }}>Taps, revenue &amp; daily average per machine</p>
+                {rfidMachineStats.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                          <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Machine</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Taps</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Revenue</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Avg/Day</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rfidMachineStats.map(m => (
+                          <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <td className="py-2.5 px-2">
+                              <p className="font-medium text-white truncate max-w-32">{m.name}</p>
+                              <p className="text-xs truncate max-w-32" style={{ color: 'rgba(255,255,255,0.35)' }}>{m.location}</p>
+                            </td>
+                            <td className="py-2.5 px-2 text-right font-semibold text-white">{m.transactionCount}</td>
+                            <td className="py-2.5 px-2 text-right" style={{ color: '#C4B5FD' }}>₹{formatAmount(m.revenue)}</td>
+                            <td className="py-2.5 px-2 text-right" style={{ color: 'rgba(255,255,255,0.55)' }}>{m.dailyAverage.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-center py-8" style={{ color: 'rgba(255,255,255,0.28)' }}>No RFID-enabled machines with activity yet</p>
+                )}
+              </div>
+            </div>
+          </>
+        ) : undefined}
+      />
     </main>
   );
 }

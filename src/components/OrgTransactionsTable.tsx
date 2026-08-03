@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 
 export interface TxRow {
   id: string;
-  type: 'online' | 'coin';
+  type: 'online' | 'coin' | 'rfid';
   machine_name: string;
   product: string;
   amount: number;
@@ -64,7 +64,8 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
     try {
       const onlineIds = targetIds.filter(id => rows.find(r => r.id === id)?.type === 'online');
       const coinIds   = targetIds.filter(id => rows.find(r => r.id === id)?.type === 'coin');
-      await deleteOrgTransactions(onlineIds, coinIds, orgId);
+      const rfidIds   = targetIds.filter(id => rows.find(r => r.id === id)?.type === 'rfid');
+      await deleteOrgTransactions(onlineIds, coinIds, orgId, rfidIds);
       setSelected(new Set());
       setShowConfirm(false);
       router.refresh();
@@ -146,10 +147,12 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                     className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={row.type === 'online'
                       ? { background: 'rgba(139,92,246,0.15)', color: '#C4B5FD' }
+                      : row.type === 'rfid'
+                      ? { background: 'rgba(96,165,250,0.15)', color: '#93C5FD' }
                       : { background: 'rgba(234,179,8,0.15)', color: '#FDE047' }
                     }
                   >
-                    {row.type === 'online' ? 'Online' : 'Coin'}
+                    {row.type === 'online' ? 'Online' : row.type === 'rfid' ? 'RFID' : 'Coin'}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-white">{row.machine_name}</td>

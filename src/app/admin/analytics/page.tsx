@@ -50,6 +50,7 @@ export default async function AnalyticsPage() {
   const [
     { count: totalTransactions },
     { count: totalCoinPayments },
+    { count: totalRfidPayments },
     { count: totalMachines },
     { count: totalProducts },
     { count: totalCustomers },
@@ -57,10 +58,12 @@ export default async function AnalyticsPage() {
     { data: topProducts },
     { data: machineStats },
     { data: coinPayments },
+    { data: rfidPayments },
     { data: allMachines },
   ] = await Promise.all([
     serviceSupabase.from('transactions').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
+    serviceSupabase.from('rfid_payments').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('vending_machines').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('products').select('*', { count: 'exact', head: true }),
     serviceSupabase.from('organizations').select('*', { count: 'exact', head: true }),
@@ -79,6 +82,10 @@ export default async function AnalyticsPage() {
       .limit(10),
     serviceSupabase
       .from('coin_payments')
+      .select('id, created_at, amount_in_paisa, product_id, machine_id, products(name), vending_machines(name, customer_name)')
+      .limit(100),
+    serviceSupabase
+      .from('rfid_payments')
       .select('id, created_at, amount_in_paisa, product_id, machine_id, products(name), vending_machines(name, customer_name)')
       .limit(100),
     serviceSupabase.from('vending_machines').select('customer_name, name'),
@@ -106,7 +113,16 @@ export default async function AnalyticsPage() {
     total_amount: (tx.amount_in_paisa || 0) / 100,
     payment_status: 'paid',
   }));
-  const recentCombined = [...onlineRows, ...coinRows]
+  const rfidRows = (rfidPayments || []).map((tx: any) => ({
+    id: tx.id,
+    type: 'rfid' as const,
+    created_at: tx.created_at,
+    machineName: tx.vending_machines?.name || 'N/A',
+    productName: tx.products?.name || 'N/A',
+    total_amount: (tx.amount_in_paisa || 0) / 100,
+    payment_status: 'paid',
+  }));
+  const recentCombined = [...onlineRows, ...coinRows, ...rfidRows]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 10);
 
@@ -117,7 +133,8 @@ export default async function AnalyticsPage() {
 
   const onlineRevenue = allTransactions?.reduce((sum, tx) => sum + (parseFloat(tx.total_amount?.toString() || '0')), 0) || 0;
   const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const totalRevenue = onlineRevenue + coinRevenue;
+  const rfidRevenue = (rfidPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue = onlineRevenue + coinRevenue + rfidRevenue;
 
   const productSales = new Map<string, { name: string; count: number; revenue: number }>();
   topProducts?.forEach((tx: any) => {
@@ -131,6 +148,13 @@ export default async function AnalyticsPage() {
     });
   });
   coinPayments?.forEach((tx: any) => {
+    const productName = tx.products?.name || 'Unknown';
+    const revenue = (tx.amount_in_paisa || 0) / 100;
+    const existing = productSales.get(productName);
+    if (existing) { existing.count++; existing.revenue += revenue; }
+    else productSales.set(productName, { name: productName, count: 1, revenue });
+  });
+  rfidPayments?.forEach((tx: any) => {
     const productName = tx.products?.name || 'Unknown';
     const revenue = (tx.amount_in_paisa || 0) / 100;
     const existing = productSales.get(productName);
@@ -152,25 +176,39 @@ export default async function AnalyticsPage() {
     if (existing) { existing.revenue += revenue; existing.count++; }
     else machineRevenueMap.set(machineName, { name: machineName, revenue, count: 1 });
   });
+  rfidPayments?.forEach((tx: any) => {
+    const machineName = tx.vending_machines?.name || 'Unknown';
+    const revenue = (tx.amount_in_paisa || 0) / 100;
+    const existing = machineRevenueMap.get(machineName);
+    if (existing) { existing.revenue += revenue; existing.count++; }
+    else machineRevenueMap.set(machineName, { name: machineName, revenue, count: 1 });
+  });
   const machineRevenue = Array.from(machineRevenueMap.values()).sort((a, b) => b.revenue - a.revenue);
 
-  const organizationStats = new Map<string, { name: string; onlineCount: number; coinCount: number; onlineRevenue: number; coinRevenue: number }>();
+  const organizationStats = new Map<string, { name: string; onlineCount: number; coinCount: number; rfidCount: number; onlineRevenue: number; coinRevenue: number; rfidRevenue: number }>();
   topProducts?.forEach((tx: any) => {
     const customerName = tx.vending_machines?.customer_name || 'Unknown';
     const revenue = parseFloat(tx.total_amount || 0);
     const existing = organizationStats.get(customerName);
     if (existing) { existing.onlineCount++; existing.onlineRevenue += revenue; }
-    else organizationStats.set(customerName, { name: customerName, onlineCount: 1, coinCount: 0, onlineRevenue: revenue, coinRevenue: 0 });
+    else organizationStats.set(customerName, { name: customerName, onlineCount: 1, coinCount: 0, rfidCount: 0, onlineRevenue: revenue, coinRevenue: 0, rfidRevenue: 0 });
   });
   coinPayments?.forEach((tx: any) => {
     const customerName = tx.vending_machines?.customer_name || 'Unknown';
     const revenue = (tx.amount_in_paisa || 0) / 100;
     const existing = organizationStats.get(customerName);
     if (existing) { existing.coinCount++; existing.coinRevenue += revenue; }
-    else organizationStats.set(customerName, { name: customerName, onlineCount: 0, coinCount: 1, onlineRevenue: 0, coinRevenue: revenue });
+    else organizationStats.set(customerName, { name: customerName, onlineCount: 0, coinCount: 1, rfidCount: 0, onlineRevenue: 0, coinRevenue: revenue, rfidRevenue: 0 });
+  });
+  rfidPayments?.forEach((tx: any) => {
+    const customerName = tx.vending_machines?.customer_name || 'Unknown';
+    const revenue = (tx.amount_in_paisa || 0) / 100;
+    const existing = organizationStats.get(customerName);
+    if (existing) { existing.rfidCount++; existing.rfidRevenue += revenue; }
+    else organizationStats.set(customerName, { name: customerName, onlineCount: 0, coinCount: 0, rfidCount: 1, onlineRevenue: 0, coinRevenue: 0, rfidRevenue: revenue });
   });
   const organizationList = Array.from(organizationStats.values())
-    .sort((a, b) => (b.onlineRevenue + b.coinRevenue) - (a.onlineRevenue + a.coinRevenue));
+    .sort((a, b) => (b.onlineRevenue + b.coinRevenue + b.rfidRevenue) - (a.onlineRevenue + a.coinRevenue + a.rfidRevenue));
 
   const organizationMachines = new Map<string, number>();
   allMachines?.forEach((machine: any) => {
@@ -203,9 +241,9 @@ export default async function AnalyticsPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={DollarSign} label="Total Revenue" value={`₹${totalRevenue.toFixed(2)}`} accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"
-          sub={`₹${onlineRevenue.toFixed(2)} + ₹${coinRevenue.toFixed(2)} coin`} />
-        <StatCard icon={ShoppingCart} label="Transactions" value={String((totalTransactions || 0) + (totalCoinPayments || 0))} accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"
-          sub={`${totalTransactions || 0} online · ${totalCoinPayments || 0} coin`} />
+          sub={`₹${onlineRevenue.toFixed(2)} online + ₹${coinRevenue.toFixed(2)} coin + ₹${rfidRevenue.toFixed(2)} rfid`} />
+        <StatCard icon={ShoppingCart} label="Transactions" value={String((totalTransactions || 0) + (totalCoinPayments || 0) + (totalRfidPayments || 0))} accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"
+          sub={`${totalTransactions || 0} online · ${totalCoinPayments || 0} coin · ${totalRfidPayments || 0} rfid`} />
         <StatCard icon={Activity} label="Total Machines" value={String(totalMachines || 0)} accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)"
           sub={`${organizationMachineList.length} organizations`} />
         <StatCard icon={Building2} label="Organizations" value={String(totalCustomers || 0)} accentColor="#FBBF24" iconBg="rgba(251,191,36,0.18)"
@@ -328,11 +366,11 @@ export default async function AnalyticsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                {['Organization', 'Online', 'Coin', 'Total', 'Online Rev', 'Coin Rev', 'Total Rev'].map((h, i) => (
+                {['Organization', 'Online', 'Coin', 'RFID', 'Total', 'Online Rev', 'Coin Rev', 'RFID Rev', 'Total Rev'].map((h, i) => (
                   <th
                     key={h}
                     className={`py-2.5 px-4 text-xs font-semibold uppercase tracking-wide ${
-                      i === 0 ? 'text-left' : i < 3 ? 'text-center' : 'text-right'
+                      i === 0 ? 'text-left' : i < 4 ? 'text-center' : 'text-right'
                     }`}
                     style={{ color: 'rgba(255,255,255,0.35)' }}
                   >{h}</th>
@@ -341,8 +379,8 @@ export default async function AnalyticsPage() {
             </thead>
             <tbody>
               {organizationList.length > 0 ? organizationList.map((org, i) => {
-                const orgTotal = org.onlineRevenue + org.coinRevenue;
-                const totalPurchases = org.onlineCount + org.coinCount;
+                const orgTotal = org.onlineRevenue + org.coinRevenue + org.rfidRevenue;
+                const totalPurchases = org.onlineCount + org.coinCount + org.rfidCount;
                 return (
                   <tr
                     key={i}
@@ -357,16 +395,20 @@ export default async function AnalyticsPage() {
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }}>{org.coinCount}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(167,139,250,0.15)', color: '#C4B5FD' }}>{org.rfidCount}</span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.60)' }}>{totalPurchases}</span>
                     </td>
                     <td className="py-3 px-4 text-right" style={{ color: '#60A5FA' }}>₹{org.onlineRevenue.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right" style={{ color: '#FBBF24' }}>₹{org.coinRevenue.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right" style={{ color: '#C4B5FD' }}>₹{org.rfidRevenue.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right font-bold" style={{ color: '#34D399' }}>₹{orgTotal.toFixed(2)}</td>
                   </tr>
                 );
               }) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No organization data available</td>
+                  <td colSpan={9} className="py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No organization data available</td>
                 </tr>
               )}
             </tbody>
@@ -413,6 +455,8 @@ export default async function AnalyticsPage() {
                       style={
                         tx.type === 'online'
                           ? { background: 'rgba(96,165,250,0.15)', color: '#60A5FA' }
+                          : tx.type === 'rfid'
+                          ? { background: 'rgba(167,139,250,0.15)', color: '#C4B5FD' }
                           : { background: 'rgba(251,191,36,0.15)', color: '#FBBF24' }
                       }
                     >

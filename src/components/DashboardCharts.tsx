@@ -9,10 +9,12 @@ import {
 interface DashboardChartsProps {
   onlineRevenue: number;
   coinRevenue: number;
+  rfidRevenue: number;
   onlineCount: number;
   coinCount: number;
+  rfidCount: number;
   machineHealthData: { name: string; online: number; offline: number; revenue: number }[];
-  revenueTimeline: { date: string; online: number; coin: number }[];
+  revenueTimeline: { date: string; online: number; coin: number; rfid: number }[];
 }
 
 const PALETTE = ['#F43F5E', '#A78BFA', '#34D399', '#FBBF24', '#60A5FA', '#F472B6'];
@@ -29,11 +31,12 @@ const TOOLTIP_STYLE = {
 const formatRupee = (v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export function PaymentDonutChart({
-  onlineRevenue, coinRevenue, onlineCount, coinCount,
-}: Pick<DashboardChartsProps, 'onlineRevenue' | 'coinRevenue' | 'onlineCount' | 'coinCount'>) {
+  onlineRevenue, coinRevenue, rfidRevenue, onlineCount, coinCount, rfidCount,
+}: Pick<DashboardChartsProps, 'onlineRevenue' | 'coinRevenue' | 'rfidRevenue' | 'onlineCount' | 'coinCount' | 'rfidCount'>) {
   const data = [
     { name: 'Online', value: onlineRevenue, count: onlineCount },
     { name: 'Coin',   value: coinRevenue,   count: coinCount   },
+    { name: 'RFID',   value: rfidRevenue,   count: rfidCount   },
   ].filter(d => d.value > 0);
 
   if (data.length === 0) {
@@ -136,6 +139,10 @@ export function RevenueAreaChart({
             <stop offset="5%"  stopColor="#FBBF24" stopOpacity={0.35} />
             <stop offset="95%" stopColor="#FBBF24" stopOpacity={0}    />
           </linearGradient>
+          <linearGradient id="rfidGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#A78BFA" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#A78BFA" stopOpacity={0}    />
+          </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
         <XAxis
@@ -159,6 +166,7 @@ export function RevenueAreaChart({
         />
         <Area type="monotone" dataKey="online" name="Online" stroke="#F43F5E" fill="url(#onlineGrad)" strokeWidth={2} dot={false} />
         <Area type="monotone" dataKey="coin"   name="Coin"   stroke="#FBBF24" fill="url(#coinGrad)"   strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="rfid"   name="RFID"   stroke="#A78BFA" fill="url(#rfidGrad)"   strokeWidth={2} dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   );

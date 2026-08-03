@@ -63,22 +63,27 @@ export default async function CustomerMachinesPage() {
   const [
     { data: onlineTransactions },
     { data: coinPayments },
+    { data: rfidPayments },
   ] = await Promise.all([
     serviceSupabase.from('transactions').select('machine_id, total_amount, payment_status').in('machine_id', machineIds),
     serviceSupabase.from('coin_payments').select('machine_id, amount_in_paisa').in('machine_id', machineIds),
+    serviceSupabase.from('rfid_payments').select('machine_id, amount_in_paisa').in('machine_id', machineIds),
   ]);
 
   const machinesWithStats = machinesWithUpdatedStatus.map(machine => {
     const machineOnlineTx = onlineTransactions?.filter(tx => tx.machine_id === machine.id && tx.payment_status === 'paid') || [];
     const machineCoinTx = coinPayments?.filter(tx => tx.machine_id === machine.id) || [];
+    const machineRfidTx = rfidPayments?.filter(tx => tx.machine_id === machine.id) || [];
     const onlineRevenue = machineOnlineTx.reduce((sum, tx) => sum + parseFloat(tx.total_amount || '0'), 0);
     const coinRevenue = machineCoinTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
+    const rfidRevenue = machineRfidTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
     return {
       ...machine,
       onlineTransactions: machineOnlineTx.length,
       coinTransactions: machineCoinTx.length,
-      totalTransactions: machineOnlineTx.length + machineCoinTx.length,
-      totalRevenue: onlineRevenue + coinRevenue,
+      rfidTransactions: machineRfidTx.length,
+      totalTransactions: machineOnlineTx.length + machineCoinTx.length + machineRfidTx.length,
+      totalRevenue: onlineRevenue + coinRevenue + rfidRevenue,
     };
   });
 

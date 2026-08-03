@@ -1,0 +1,518 @@
+#include <MCUFRIEND_kbv.h>
+#include <SPI.h>
+#include <SoftwareSerial.h>
+#include "qrcode.h"   // "QRCode by Richard Moore" — Arduino Library Manager
+
+MCUFRIEND_kbv tft;
+
+// Wiring: ESP32 TX2(17) → UNO pin 2 | ESP32 RX2(16) → UNO pin 3
+SoftwareSerial espSerial(2, 3);
+
+#define QR_URL  "https://lyra-app.co.in/?value=Lyra_SNVM_008"
+
+// ── RGB565 palette ──────────────────────────────────────────────────────────
+#define CLR_BG        0x0841   // near-black purple-dark
+#define CLR_PINK      0xF1EB   // Lyra rose
+#define CLR_PURPLE    0x799D   // Lyra purple
+#define CLR_PURPLE2   0x400F   // deep purple card bg
+#define CLR_WHITE     0xFFFF
+#define CLR_BLACK     0x0000
+#define CLR_GREEN     0x2DC6
+#define CLR_GREEN2    0x0240   // dark green
+#define CLR_RED       0xF1A9
+#define CLR_RED2      0x3000   // dark red
+#define CLR_YELLOW    0xFEA0
+#define CLR_YELLOW2   0x4200   // dark yellow / amber
+#define CLR_BLUE      0x349F
+#define CLR_BLUE2     0x0010   // deep blue
+#define CLR_GRAY      0x8C71
+#define CLR_DIMGRAY   0x4208
+#define CLR_GOLD      0xFEC0
+#define CLR_GOLD2     0x8400
+
+int W, H;
+
+// ── Pre-computed QR (generated once in setup, reused on every showQRReady call) ──
+// Buffer size = ((4*version+17)^2 + 7) / 8 + 1 = ((29*29)+7)/8+1 = 107 for version 3
+#define QR_BUF_SIZE 107
+static QRCode  g_qr;
+static uint8_t g_qrBuf[QR_BUF_SIZE];
+
+// ── Screen state — skip full redraw if same screen requested again ──────────
+static char g_curScreen = 0;
+
+// ── Forward declarations ────────────────────────────────────────────────────
+void showBoot();
+void showThankYou();
+void showReady();
+void showQRReady();
+void showDispensing();
+void showCoinInserted();
+void showCollect();
+void showNetworkError();
+void showStockReset();
+void showOutOfStock();
+void processCommand(char c);
+
+// ── Primitive helpers ───────────────────────────────────────────────────────
+void bg(uint16_t col = CLR_BG)     { tft.fillScreen(col); }
+void hline(int y, uint16_t c)      { tft.drawFastHLine(0, y, W, c); }
+void topBar(int h, uint16_t c)     { tft.fillRect(0, 0, W, h, c); }
+void bottomBar(int h, uint16_t c)  { tft.fillRect(0, H - h, W, h, c); }
+void pill(int x,int y,int w,int h,uint16_t c){ tft.fillRoundRect(x,y,w,h,h/2,c); }
+
+// Card with subtle shadow
+void card(int x, int y, int w, int h, uint16_t bg_col, uint16_t border_col) {
+  tft.fillRoundRect(x + 2, y + 3, w, h, 8, CLR_BLACK);  // shadow
+  tft.fillRoundRect(x, y, w, h, 8, bg_col);
+  tft.drawRoundRect(x, y, w, h, 8, border_col);
+}
+
+// Modern progress bar: track + fill + inner shine
+void progressBar(int x, int y, int w, int h, int pct, uint16_t col) {
+  tft.fillRoundRect(x, y, w, h, h/2, CLR_DIMGRAY);
+  int fw = max(h, (w * pct) / 100);
+  tft.fillRoundRect(x, y, fw, h, h/2, col);
+  if (fw > 6) tft.drawFastHLine(x + 3, y + 2, fw - 6, (uint16_t)(col | 0x1082));
+}
+
+// Glow ring — 2 rings only (was 4; each drawCircle is O(r) pixel writes)
+void glowCircle(int cx, int cy, int r, uint16_t dim_col) {
+  tft.drawCircle(cx, cy, r + 1, dim_col);
+  tft.drawCircle(cx, cy, r + 2, dim_col);
+}
+
+// Centre-print Flash string
+void centreText(const __FlashStringHelper* s, int y, uint16_t col, uint8_t sz,
+                uint16_t bg_col = CLR_BG) {
+  tft.setTextColor(col, bg_col);
+  tft.setTextSize(sz);
+  int len = 0;
+  PGM_P p = reinterpret_cast<PGM_P>(s);
+  while (pgm_read_byte(p++)) len++;
+  tft.setCursor(max(0, (W - len * 6 * sz) / 2), y);
+  tft.print(s);
+}
+
+// Centre-print RAM string
+void centreText(const char* s, int y, uint16_t col, uint8_t sz,
+                uint16_t bg_col = CLR_BG) {
+  tft.setTextColor(col, bg_col);
+  tft.setTextSize(sz);
+  tft.setCursor(max(0, (W - (int)strlen(s) * 6 * sz) / 2), y);
+  tft.print(s);
+}
+
+// Thick check mark — fixed 2-px thickness (5 lines), not radius-scaled loop
+void drawCheck(int cx, int cy, int r, uint16_t col) {
+  for (int i = -2; i <= 2; i++) {
+    tft.drawLine(cx - r, cy + i, cx - r/4, cy + r*3/4 + i, col);
+    tft.drawLine(cx - r/4, cy + r*3/4 + i, cx + r, cy - r/2 + i, col);
+  }
+}
+
+// Thick X — fixed 2-px thickness
+void drawX(int cx, int cy, int r, uint16_t col) {
+  for (int i = -2; i <= 2; i++) {
+    tft.drawLine(cx - r + i, cy - r, cx + r + i, cy + r, col);
+    tft.drawLine(cx + r + i, cy - r, cx - r + i, cy + r, col);
+  }
+}
+
+// Down arrow
+void drawDownArrow(int cx, int cy, int sz, uint16_t col) {
+  tft.fillTriangle(cx, cy + sz, cx - sz, cy - sz/2, cx + sz, cy - sz/2, col);
+  tft.fillRect(cx - sz/3, cy - sz, sz*2/3, sz/2 + 2, col);
+}
+
+// WiFi arcs (3 arcs + dot, centred at cx,cy)
+void drawWifi(int cx, int cy, uint16_t col) {
+  tft.fillCircle(cx, cy + 2, 4, col);
+  tft.drawCircle(cx, cy + 2, 12, col); tft.drawCircle(cx, cy + 2, 13, col);
+  tft.drawCircle(cx, cy + 2, 22, col); tft.drawCircle(cx, cy + 2, 23, col);
+  tft.drawCircle(cx, cy + 2, 32, col); tft.drawCircle(cx, cy + 2, 33, col);
+  // Mask bottom half
+  tft.fillRect(cx - 40, cy + 4, 80, 40, CLR_BG);
+}
+
+// ── SCREEN 0 — Boot ────────────────────────────────────────────────────────
+void showBoot() {
+  bg();
+  // Header gradient effect: 3 colour bands
+  tft.fillRect(0,  0, W, 40, CLR_PURPLE);
+  tft.fillRect(0, 40, W, 30, 0x5C1B);   // mid purple
+  tft.fillRect(0, 70, W, 20, CLR_PINK);
+  tft.fillRect(0, 90, W,  3, CLR_PINK);
+
+  centreText(F("LYRA"), 10, CLR_WHITE, 5);
+  centreText(F("ENTERPRISES"), 60, 0xCDB7, 2);
+
+  // Tagline card
+  card((W - 180)/2, 105, 180, 36, CLR_PURPLE2, CLR_PURPLE);
+  centreText(F("SMART HYGIENE"), 113, CLR_GRAY, 2, CLR_PURPLE2);
+  centreText(F("ACCESS"), 130, CLR_GRAY, 2, CLR_PURPLE2);
+
+  // Progress bar
+  progressBar(20, H - 62, W - 40, 14, 75, CLR_PINK);
+  centreText(F("Initializing system..."), H - 38, CLR_GRAY, 1);
+
+  // Version pill
+  pill((W - 50)/2, H - 18, 50, 12, CLR_PURPLE);
+  tft.setTextColor(CLR_WHITE, CLR_PURPLE);
+  tft.setTextSize(1);
+  tft.setCursor((W - 50)/2 + 5, H - 14);
+  tft.print(F("v2.0"));
+}
+
+// ── SCREEN 1 — Thank You ──────────────────────────────────────────────────
+void showThankYou() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_GREEN);
+
+  int cx = W / 2, cy = 128;
+  // Single fill + ring (two fillCircle calls was wasteful — inner overwrites outer)
+  tft.fillCircle(cx, cy, 48, CLR_GREEN);
+  for (int rr = 49; rr <= 54; rr++) tft.drawCircle(cx, cy, rr, CLR_GREEN2);
+  glowCircle(cx, cy, 54, CLR_GREEN2);
+  drawCheck(cx, cy - 4, 26, CLR_WHITE);
+
+  centreText(F("THANK YOU!"), 205, CLR_WHITE, 3);
+
+  // Subtitle card
+  card((W - 160)/2, 242, 160, 22, CLR_GREEN2, CLR_GREEN);
+  tft.setTextColor(CLR_GREEN, CLR_GREEN2);
+  tft.setTextSize(1);
+  tft.setCursor((W - 160)/2 + 10, 250);
+  tft.print(F("Enjoy your product"));
+
+  tft.fillRect(0, H - 30, W, 30, CLR_GREEN);
+  centreText(F("Have a great day"), H - 20, CLR_WHITE, 1, CLR_GREEN);
+}
+
+// ── SCREEN 2 — Ready (Idle) ───────────────────────────────────────────────
+void showReady() {
+  bg();
+  // Dual-tone top stripe
+  tft.fillRect(0, 0, W/2, 5, CLR_PINK);
+  tft.fillRect(W/2, 0, W - W/2, 5, CLR_PURPLE);
+
+  centreText(F("LYRA"), 16, CLR_PINK, 4);
+  centreText(F("Smart Hygiene Access"), 58, CLR_GRAY, 1);
+  hline(76, CLR_DIMGRAY);
+
+  int cx = W / 2;
+  tft.fillCircle(cx, 142, 28, CLR_GREEN);
+  for (int rr = 29; rr <= 34; rr++) tft.drawCircle(cx, 142, rr, CLR_GREEN2);
+  glowCircle(cx, 142, 34, CLR_GREEN2);
+  tft.setTextColor(CLR_WHITE, CLR_GREEN);
+  tft.setTextSize(2);
+  tft.setCursor(cx - 23, 135);
+  tft.print(F("LIVE"));
+
+  centreText(F("READY"), 192, CLR_WHITE, 3);
+  hline(224, CLR_DIMGRAY);
+
+  // Payment option pills side by side
+  pill(6,  232, 100, 22, CLR_DIMGRAY);
+  tft.setTextColor(CLR_WHITE, CLR_DIMGRAY);
+  tft.setTextSize(1);
+  tft.setCursor(14, 239);
+  tft.print(F("Insert Coin"));
+
+  pill(W - 106, 232, 100, 22, CLR_DIMGRAY);
+  tft.setTextColor(CLR_WHITE, CLR_DIMGRAY);
+  tft.setCursor(W - 98, 239);
+  tft.print(F("  Scan QR"));
+
+  tft.fillRect(0, H - 28, W, 28, CLR_PURPLE);
+  centreText(F("lyra-app.co.in"), H - 19, CLR_WHITE, 1, CLR_PURPLE);
+}
+
+// ── SCREEN 3 — Dispensing ─────────────────────────────────────────────────
+void showDispensing() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_YELLOW);
+
+  centreText(F("DISPENSING"), 15, CLR_YELLOW, 3);
+  centreText(F("Please wait..."), 52, CLR_GRAY, 2);
+
+  // Package box — outline/flat style
+  int bx = W/2 - 36, by = 108, bw = 72, bh = 56;
+  // Shadow
+  tft.fillRoundRect(bx + 3, by + 18, bw, bh, 6, CLR_DIMGRAY);
+  // Box body
+  tft.fillRoundRect(bx, by + 15, bw, bh, 6, CLR_YELLOW2);
+  tft.drawRoundRect(bx, by + 15, bw, bh, 6, CLR_YELLOW);
+  // Tape stripe
+  tft.fillRect(bx + bw/2 - 5, by + 15, 10, bh, CLR_YELLOW);
+  // Lid
+  tft.fillRoundRect(bx - 4, by, bw + 8, 18, 4, CLR_YELLOW);
+  tft.drawRoundRect(bx - 4, by, bw + 8, 18, 4, CLR_GOLD);
+  // Lid flap open gap
+  tft.fillRect(bx + bw/2 - 10, by, 20, 4, CLR_BG);
+  // Motion dashes left side
+  for (int i = 0; i < 3; i++) {
+    int lw = 10 - i * 2;
+    tft.fillRoundRect(bx - 18 - i * 6, by + 26 + i * 12, lw, 3, 1, CLR_YELLOW);
+  }
+
+  progressBar(18, 208, W - 36, 14, 60, CLR_YELLOW);
+  centreText(F("Do not remove until"), 234, CLR_GRAY, 1);
+  centreText(F("dispensing is complete"), 248, CLR_GRAY, 1);
+
+  tft.fillRect(0, H - 24, W, 24, CLR_YELLOW2);
+  centreText(F("Processing your order"), H - 15, CLR_YELLOW, 1, CLR_YELLOW2);
+}
+
+// ── SCREEN 4 — Coin Inserted ──────────────────────────────────────────────
+void showCoinInserted() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_YELLOW);
+  centreText(F("COIN ACCEPTED"), 15, CLR_YELLOW, 2);
+
+  // Coin — 2 fillCircle + thin ring outlines (5 overlapping fills was 3× overdraw)
+  int cx = W / 2, cy = 128;
+  tft.fillCircle(cx, cy, 52, CLR_GOLD2);          // full dark disk
+  tft.fillCircle(cx, cy, 46, CLR_GOLD);           // light inner disk
+  for (int rr = 39; rr <= 42; rr++) tft.drawCircle(cx, cy, rr, CLR_GOLD2);  // dark ridge
+  for (int rr = 33; rr <= 36; rr++) tft.drawCircle(cx, cy, rr, CLR_GOLD);   // light ridge
+  tft.fillCircle(cx, cy, 26, 0x6300);             // centre emboss
+  // "Rs" label (ASCII — no encoding issue)
+  tft.setTextColor(CLR_GOLD, 0x6300);
+  tft.setTextSize(2);
+  tft.setCursor(cx - 12, cy - 8);
+  tft.print(F("Rs"));
+  // Shine arc stub
+  tft.drawCircle(cx - 10, cy - 14, 18, 0xFFE0);
+
+  centreText(F("PROCESSING"), 198, CLR_WHITE, 3);
+
+  card((W - 168)/2, 238, 168, 22, CLR_DIMGRAY, CLR_GRAY);
+  tft.setTextColor(CLR_GRAY, CLR_DIMGRAY);
+  tft.setTextSize(1);
+  tft.setCursor((W - 168)/2 + 8, 246);
+  tft.print(F("Activating dispenser"));
+
+  tft.fillRect(0, H - 28, W, 28, CLR_PURPLE);
+  centreText(F("Please wait..."), H - 19, CLR_WHITE, 1, CLR_PURPLE);
+}
+
+// ── SCREEN 5 — Please Collect ─────────────────────────────────────────────
+void showCollect() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_BLUE);
+
+  centreText(F("COLLECT YOUR"), 18, CLR_WHITE, 3);
+  centreText(F("ITEM"), 54, CLR_WHITE, 3);
+
+  // Animated arrow (with glow shadow)
+  int cx = W/2;
+  tft.fillTriangle(cx, 218, cx - 44, 155, cx + 44, 155, CLR_BLUE2);  // shadow
+  drawDownArrow(cx, 212, 44, CLR_BLUE);
+
+  // Tray shelf
+  tft.fillRoundRect(cx - 55, 226, 110, 10, 3, CLR_BLUE);
+  tft.fillRect(cx - 60, 234, 120, 4, 0x18BF);
+
+  // "Item dispensed!" badge
+  pill((W - 130)/2, 248, 130, 20, CLR_GREEN2);
+  tft.setTextColor(CLR_GREEN, CLR_GREEN2);
+  tft.setTextSize(1);
+  tft.setCursor((W - 130)/2 + 12, 255);
+  tft.print(F("Item dispensed!"));
+
+  tft.fillRect(0, H - 26, W, 26, CLR_BLUE);
+  centreText(F("Thank you for using Lyra"), H - 17, CLR_WHITE, 1, CLR_BLUE);
+}
+
+// ── SCREEN 6 — Network Error ──────────────────────────────────────────────
+void showNetworkError() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_RED);
+
+  centreText(F("NETWORK"), 18, CLR_RED, 3);
+  centreText(F("ERROR"), 53, CLR_RED, 3);
+
+  // WiFi icon with X overlay
+  int cx = W/2, cy = 158;
+  drawWifi(cx, cy, CLR_GRAY);
+  drawX(cx, cy - 8, 20, CLR_RED);
+
+  centreText(F("Connection lost"), 212, CLR_GRAY, 2);
+
+  // Retrying pill
+  pill((W - 90)/2, 240, 90, 18, CLR_RED2);
+  tft.setTextColor(CLR_RED, CLR_RED2);
+  tft.setTextSize(1);
+  tft.setCursor((W - 90)/2 + 8, 247);
+  tft.print(F("Retrying..."));
+
+  tft.fillRect(0, H - 28, W, 28, 0x6000);
+  centreText(F("Coin payments still work"), H - 19, CLR_WHITE, 1, 0x6000);
+}
+
+// ── SCREEN 8 — Stock Reset ────────────────────────────────────────────────
+void showStockReset() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_BLUE);
+
+  int cx = W / 2, cy = 128;
+  tft.fillCircle(cx, cy, 46, CLR_BLUE);
+  for (int rr = 47; rr <= 52; rr++) tft.drawCircle(cx, cy, rr, CLR_BLUE2);
+  glowCircle(cx, cy, 52, CLR_BLUE2);
+  drawCheck(cx, cy - 4, 24, CLR_WHITE);
+
+  centreText(F("STOCK RESET"), 202, CLR_WHITE, 2);
+
+  card((W - 176)/2, 228, 176, 36, CLR_DIMGRAY, CLR_BLUE);
+  tft.setTextColor(CLR_GRAY, CLR_DIMGRAY);
+  tft.setTextSize(1);
+  tft.setCursor((W - 176)/2 + 8, 236);
+  tft.print(F("Machine is ready"));
+  tft.setCursor((W - 176)/2 + 8, 250);
+  tft.print(F("Stock updated OK"));
+
+  tft.fillRect(0, H - 26, W, 26, CLR_BLUE);
+  centreText(F("Admin action complete"), H - 17, CLR_WHITE, 1, CLR_BLUE);
+}
+
+// ── SCREEN 9 — Out of Stock ───────────────────────────────────────────────
+void showOutOfStock() {
+  bg();
+  tft.fillRect(0, 0, W, 5, CLR_RED);
+
+  int cx = W / 2, cy = 128;
+  tft.fillCircle(cx, cy, 46, CLR_RED);
+  for (int rr = 47; rr <= 52; rr++) tft.drawCircle(cx, cy, rr, CLR_RED2);
+  glowCircle(cx, cy, 52, CLR_RED2);
+  drawX(cx, cy, 24, CLR_WHITE);
+
+  centreText(F("OUT OF"), 202, CLR_WHITE, 3);
+  centreText(F("STOCK"), 237, CLR_WHITE, 3);
+
+  tft.fillRect(0, H - 30, W, 30, 0x6000);
+  centreText(F("Please contact staff"), H - 21, CLR_WHITE, 1, 0x6000);
+}
+
+// ── QR Screen ─────────────────────────────────────────────────────────────
+void showQRReady() {
+  // g_qr is pre-computed in setup() — no Reed-Solomon math here
+  uint8_t qrSize  = g_qr.size;
+  uint8_t modSize = (W - 20) / (qrSize + 8);
+  if (modSize < 2) modSize = 2;
+  if (modSize > 7) modSize = 7;
+
+  int qrPx    = qrSize  * modSize;
+  int margin  = 4       * modSize;
+  int totalPx = qrPx    + margin * 2;
+
+  bg();
+  tft.fillRect(0, 0, W/2, 5, CLR_PINK);
+  tft.fillRect(W/2, 0, W - W/2, 5, CLR_PURPLE);
+  centreText(F("LYRA"), 14, CLR_PINK, 3);
+  centreText(F("Scan to Pay"), 47, CLR_GRAY, 1);
+
+  // QR panel with border
+  int panelX = (W - totalPx) / 2;
+  int panelY = 64;
+  tft.fillRoundRect(panelX - 4, panelY - 4, totalPx + 8, totalPx + 8, 6, CLR_GRAY);
+  tft.fillRect(panelX, panelY, totalPx, totalPx, CLR_WHITE);
+
+  int qx = panelX + margin;
+  int qy = panelY + margin;
+  // Batch consecutive dark modules per row → far fewer fillRect calls
+  for (uint8_t row = 0; row < qrSize; row++) {
+    int spanStart = -1;
+    for (uint8_t col = 0; col <= qrSize; col++) {
+      bool dark = (col < qrSize) && qrcode_getModule(&g_qr, col, row);
+      if (dark && spanStart < 0) {
+        spanStart = col;
+      } else if (!dark && spanStart >= 0) {
+        tft.fillRect(qx + spanStart * modSize, qy + row * modSize,
+                     (col - spanStart) * modSize, modSize, CLR_BLACK);
+        spanStart = -1;
+      }
+    }
+  }
+
+  int belowY = panelY + totalPx + 12;
+  centreText(F("lyra-app.co.in"), belowY, CLR_GRAY, 1);
+
+  tft.fillRect(0, H - 28, W, 28, CLR_PURPLE);
+  centreText(F("Insert coin or scan above"), H - 19, CLR_WHITE, 1, CLR_PURPLE);
+}
+
+// ── Command dispatcher ─────────────────────────────────────────────────────
+void processCommand(char c) {
+  if (c == g_curScreen) return;  // already on this screen — skip full redraw
+  g_curScreen = c;
+  Serial.print(F("CMD: ")); Serial.println(c);
+  switch (c) {
+    case '0': showBoot();          break;
+    case '1': showThankYou();      break;
+    case '2': showQRReady();       break;
+    case '3': showDispensing();    break;
+    case '4': showCoinInserted();  break;
+    case '5': showCollect();       break;
+    case '6': showNetworkError();  break;
+    case '8': showStockReset();    break;
+    case '9': showOutOfStock();    break;
+  }
+}
+
+// ── Setup & Loop ───────────────────────────────────────────────────────────
+void setup() {
+  Serial.begin(9600);
+  espSerial.begin(9600);
+
+  uint16_t ID = tft.readID();
+  if (ID == 0xD3D3) ID = 0x9486;
+  tft.begin(ID);
+  tft.setRotation(0);
+  W = tft.width();
+  H = tft.height();
+
+  // Generate QR once — Reed-Solomon math runs here, not on every screen switch
+  qrcode_initText(&g_qr, g_qrBuf, 3, ECC_LOW, QR_URL);
+
+  tft.fillScreen(CLR_BLACK);
+  showBoot();
+  delay(1500);
+  g_curScreen = '2';
+  showQRReady();
+  Serial.println(F("UNO ready — waiting for ESP32 commands"));
+}
+
+void loop() {
+  // Buffer-based line reader — handles \r\n from ESP32 cleanly
+  static char espBuf[8];
+  static uint8_t espLen = 0;
+
+  while (espSerial.available()) {
+    char c = espSerial.read();
+    if (c == '\n' || c == '\r') {
+      if (espLen > 0) {
+        processCommand(espBuf[0]);
+        espLen = 0;
+      }
+    } else if (espLen < (uint8_t)(sizeof(espBuf) - 1)) {
+      espBuf[espLen++] = c;
+    }
+  }
+
+  // USB Serial manual test — same logic
+  static char usbBuf[8];
+  static uint8_t usbLen = 0;
+
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (usbLen > 0) {
+        processCommand(usbBuf[0]);
+        usbLen = 0;
+      }
+    } else if (usbLen < (uint8_t)(sizeof(usbBuf) - 1)) {
+      usbBuf[usbLen++] = c;
+    }
+  }
+}

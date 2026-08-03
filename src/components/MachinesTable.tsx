@@ -24,6 +24,8 @@ interface Machine {
   asset_online: boolean;
   stock_level: number | null;
   created_at: string;
+  body_type?: string;
+  max_capacity?: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────
@@ -369,7 +371,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                         className="font-semibold text-sm"
                         style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#FBBF24' : 'white' }}
                       >
-                        {m.stock_level}
+                        {m.stock_level}{m.max_capacity ? <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
                         {m.stock_level === 0 && (
                           <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.18)', color: '#FCA5A5' }}>Empty</span>
                         )}

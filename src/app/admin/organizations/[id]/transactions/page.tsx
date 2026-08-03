@@ -94,6 +94,29 @@ export default async function OrgTransactionsPage({ params }: { params: Promise<
       });
     }
 
+    // RFID payments
+    const { data: rfidTxs } = await serviceSupabase
+      .from('rfid_payments')
+      .select('id, machine_id, product_id, amount_in_paisa, created_at, products(name)')
+      .in('machine_id', machineIds)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    for (const tx of rfidTxs ?? []) {
+      const product = Array.isArray(tx.products)
+        ? tx.products[0]?.name ?? 'Unknown'
+        : (tx.products as any)?.name ?? 'Unknown';
+      rows.push({
+        id: tx.id,
+        type: 'rfid',
+        machine_name: machineMap[tx.machine_id] ?? tx.machine_id,
+        product,
+        amount: tx.amount_in_paisa / 100,
+        status: 'dispensed',
+        created_at: tx.created_at,
+      });
+    }
+
     // Sort combined list newest first
     rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }

@@ -44,6 +44,9 @@ interface Machine {
   connection_type?: string;
   last_error?: string;
   last_error_time?: string;
+  rfid_enabled?: boolean;
+  stock_level?: number;
+  max_capacity?: number;
 }
 
 interface MachineProduct {
@@ -615,6 +618,137 @@ function HomeContent() {
             <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.18)' }}>
               Secure · Contactless · Instant
             </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (machine?.rfid_enabled) {
+      return (
+        <div className="min-h-screen relative flex items-center justify-center px-5" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 50%, #150828 100%)' }}>
+          <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.28) 0%, transparent 65%)' }} />
+            <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.18) 0%, transparent 65%)', animationDelay: '4s' }} />
+          </div>
+          <div className="w-full max-w-md text-center" style={{ position: 'relative', zIndex: 1 }}>
+            <div
+              className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.30)' }}
+            >
+              <svg className="w-10 h-10" style={{ color: '#C4B5FD' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v2M9 16v2a2 2 0 002 2h6a2 2 0 002-2v-6a2 2 0 00-2-2h-1M9 16h6" />
+              </svg>
+            </div>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#C4B5FD' }}>
+              {machine?.customer_name}
+            </p>
+            <h1 className="text-2xl font-black text-white mb-3">{machine?.name || machineId}</h1>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+              <div
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold"
+                style={
+                  machine?.asset_online
+                    ? { background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.35)', color: '#6EE7B7' }
+                    : { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.50)' }
+                }
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'animate-pulse' : ''}`}
+                  style={{ background: machine?.asset_online ? '#34D399' : 'rgba(255,255,255,0.30)' }}
+                />
+                {machine?.asset_online ? 'Live & Online' : 'Offline'}
+              </div>
+              {machine?.firmware_version && (
+                <span
+                  className="text-xs font-medium px-3 py-1 rounded-full"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
+                >
+                  {machine.firmware_version}
+                </span>
+              )}
+            </div>
+            {machine?.last_ping && (
+              <p className="text-xs mb-6" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                Last seen {new Date(machine.last_ping).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+
+            {machine?.asset_online && (
+              <div className="grid grid-cols-2 gap-2 mb-6">
+                {machine?.stock_level != null && (
+                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Stock</p>
+                    <p className="text-sm font-bold" style={{ color: machine.stock_level < 5 ? '#FBBF24' : 'white' }}>
+                      {machine.stock_level}{machine.max_capacity ? `/${machine.max_capacity}` : ''} unit{machine.stock_level !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+                {machine?.wifi_rssi != null && (() => {
+                  const rssi = machine.wifi_rssi!;
+                  const quality = rssi >= -60 ? 'Excellent' : rssi >= -70 ? 'Good' : rssi >= -80 ? 'Fair' : 'Weak';
+                  const bars = rssi >= -60 ? 4 : rssi >= -70 ? 3 : rssi >= -80 ? 2 : 1;
+                  return (
+                    <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className="flex items-end gap-0.5 h-3">
+                          {[1, 2, 3, 4].map(i => (
+                            <span
+                              key={i}
+                              className="w-[3px] rounded-sm"
+                              style={{
+                                height: `${i * 25}%`,
+                                background: i <= bars ? '#6EE7B7' : 'rgba(255,255,255,0.15)',
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.40)' }}>WiFi</span>
+                      </div>
+                      <p className="text-sm font-bold text-white">{quality}</p>
+                      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{rssi} dBm</p>
+                    </div>
+                  );
+                })()}
+                {machine?.temperature != null && (
+                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Temperature</p>
+                    <p className="text-sm font-bold text-white">{machine.temperature.toFixed(1)}°C</p>
+                  </div>
+                )}
+                {machine?.network_speed != null && (
+                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Network Speed</p>
+                    <p className="text-sm font-bold text-white">{machine.network_speed.toFixed(1)} KB/s</p>
+                  </div>
+                )}
+                {machine?.uptime != null && (
+                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Uptime</p>
+                    <p className="text-sm font-bold text-white">
+                      {(() => {
+                        const totalSec = Math.floor(machine.uptime! / 1000);
+                        const h = Math.floor(totalSec / 3600);
+                        const m = Math.floor((totalSec % 3600) / 60);
+                        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                      })()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="text-base font-semibold text-white mb-2">This machine doesn&apos;t accept online payment</p>
+            <p className="text-sm mb-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Tap your RFID card on the reader to dispense your product. No app or payment needed here.
+            </p>
+            <button
+              onClick={() => { window.location.href = '/'; }}
+              className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }}
+            >
+              Go to Home
+            </button>
           </div>
         </div>
       );

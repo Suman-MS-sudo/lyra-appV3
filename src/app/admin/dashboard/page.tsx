@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import {
   Building2, Users, TrendingUp, Receipt,
-  MapPin, Clock, Activity, Coins, CreditCard, ArrowUpRight,
+  MapPin, Clock, Activity, Coins, CreditCard, ArrowUpRight, Nfc,
 } from 'lucide-react';
 
 export const revalidate = 0;
@@ -72,10 +72,12 @@ export default async function AdminDashboard() {
     { count: totalUsers },
     { count: totalTransactions },
     { count: totalCoinPayments },
+    { count: totalRfidPayments },
     { data: recentMachines },
     { data: recentTransactions },
     { data: paidTx },
     { data: coinPayments },
+    { data: rfidPayments },
   ] = await Promise.all([
     machinesSelect,
     serviceSupabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
@@ -85,6 +87,9 @@ export default async function AdminDashboard() {
     isSuperCustomer && machineIds.length > 0
       ? serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }).in('machine_id', machineIds)
       : serviceSupabase.from('coin_payments').select('*', { count: 'exact', head: true }),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('rfid_payments').select('*', { count: 'exact', head: true }).in('machine_id', machineIds)
+      : serviceSupabase.from('rfid_payments').select('*', { count: 'exact', head: true }),
     isSuperCustomer
       ? serviceSupabase.from('vending_machines').select('name, location, asset_online, last_ping').eq('customer_id', user.id).order('created_at', { ascending: false }).limit(5)
       : serviceSupabase.from('vending_machines').select('name, location, asset_online, last_ping').order('created_at', { ascending: false }).limit(5),
@@ -97,6 +102,9 @@ export default async function AdminDashboard() {
     isSuperCustomer && machineIds.length > 0
       ? serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed').in('machine_id', machineIds)
       : serviceSupabase.from('coin_payments').select('amount_in_paisa, dispensed'),
+    isSuperCustomer && machineIds.length > 0
+      ? serviceSupabase.from('rfid_payments').select('amount_in_paisa, dispensed').in('machine_id', machineIds)
+      : serviceSupabase.from('rfid_payments').select('amount_in_paisa, dispensed'),
   ]);
 
   const machinesWithStatus = recentMachines?.map(machine => {
@@ -111,9 +119,11 @@ export default async function AdminDashboard() {
 
   const onlineRevenue = paidTx?.reduce((s: number, tx: any) => s + parseFloat(tx.total_amount || 0), 0) || 0;
   const coinRevenue   = (coinPayments?.reduce((s: number, tx: any) => s + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const totalRevenue  = onlineRevenue + coinRevenue;
+  const rfidRevenue   = (rfidPayments?.reduce((s: number, tx: any) => s + (tx.amount_in_paisa || 0), 0) || 0) / 100;
+  const totalRevenue  = onlineRevenue + coinRevenue + rfidRevenue;
   const onlineCount   = totalTransactions || 0;
   const coinCount     = totalCoinPayments || 0;
+  const rfidCount     = totalRfidPayments || 0;
 
   const formatAmount = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -138,20 +148,18 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Building2}  label="Total Machines" value={String(totalMachines || 0)}  accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"  />
         <StatCard icon={Users}      label="Active Users"   value={String(totalUsers || 0)}     accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)" />
-        <StatCard icon={TrendingUp} label="Total Revenue"  value={formatAmount(totalRevenue)}  accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"  sub={`${onlineCount + coinCount} transactions`} />
-        <StatCard icon={Receipt}    label="Transactions"   value={String(onlineCount + coinCount)} accentColor="#F472B6" iconBg="rgba(244,63,94,0.18)" />
+        <StatCard icon={TrendingUp} label="Total Revenue"  value={formatAmount(totalRevenue)}  accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"  sub={`${onlineCount + coinCount + rfidCount} transactions`} />
+        <StatCard icon={Receipt}    label="Transactions"   value={String(onlineCount + coinCount + rfidCount)} accentColor="#F472B6" iconBg="rgba(244,63,94,0.18)" />
       </div>
 
       {/* Payment method breakdown */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={Coins}      label="Coin Payments"   value={String(coinCount)}   accentColor="#FBBF24" iconBg="rgba(251,191,36,0.18)" sub={formatAmount(coinRevenue)} />
         <StatCard icon={CreditCard} label="Online Payments" value={String(onlineCount)} accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"  sub={formatAmount(onlineRevenue)} />
-        <StatCard icon={Activity}   label="Coin Revenue %"
-          value={totalRevenue > 0 ? `${((coinRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'}
-          accentColor="#FBBF24" iconBg="rgba(251,191,36,0.18)" sub="of total revenue" />
-        <StatCard icon={TrendingUp} label="Online Revenue %"
-          value={totalRevenue > 0 ? `${((onlineRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'}
-          accentColor="#F472B6" iconBg="rgba(244,63,94,0.18)" sub="of total revenue" />
+        <StatCard icon={Nfc}       label="RFID Payments"   value={String(rfidCount)}   accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)" sub={formatAmount(rfidRevenue)} />
+        <StatCard icon={Activity}   label="RFID Revenue %"
+          value={totalRevenue > 0 ? `${((rfidRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'}
+          accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)" sub="of total revenue" />
       </div>
 
       {/* Recent data */}

@@ -20,7 +20,9 @@ export async function PUT(request: NextRequest) {
       status,
       machine_type,
       product_type,
-      customer_id
+      customer_id,
+      rfid_enabled,
+      body_type
     } = body;
 
     if (!machineId) {
@@ -80,6 +82,15 @@ export async function PUT(request: NextRequest) {
     // Only update customer_id if provided (empty string means unassign)
     if (customer_id !== undefined) {
       updateData.customer_id = customer_id || null;
+    }
+
+    if (rfid_enabled !== undefined) {
+      updateData.rfid_enabled = !!rfid_enabled;
+    }
+
+    if (body_type !== undefined) {
+      updateData.body_type = body_type;
+      updateData.max_capacity = body_type === 'quad_motor' ? 100 : 35;
     }
 
     const { error: updateError } = await supabase

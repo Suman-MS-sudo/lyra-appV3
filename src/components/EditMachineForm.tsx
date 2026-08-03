@@ -22,6 +22,8 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
     machine_type: machine.machine_type || '',
     product_type: machine.product_type || '',
     customer_id: machine.customer_id || '',
+    rfid_enabled: !!machine.rfid_enabled,
+    body_type: machine.body_type || 'single_motor',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,6 +194,34 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Payment Modes */}
+        <div className="pt-2 border-t border-gray-200">
+          <label className="flex items-center gap-3 pt-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.rfid_enabled}
+              onChange={(e) => setFormData({ ...formData, rfid_enabled: e.target.checked })}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Enable RFID card payments on this machine</span>
+          </label>
+          <p className="mt-1 ml-7 text-xs text-gray-500">Machine firmware must also be flashed with RFID-enabled firmware.</p>
+        </div>
+
+        {/* Body Type */}
+        <div className="pt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Dispenser Body Type</label>
+          <select
+            value={formData.body_type}
+            onChange={(e) => setFormData({ ...formData, body_type: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+          >
+            <option value="single_motor">Single Motor — 35 napkin capacity</option>
+            <option value="quad_motor">Quad Motor — 100 napkin capacity (4x25)</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">Must match the firmware flashed on this machine (ESP32_RFID_Firmware_SingleMotor.ino or _QuadMotor.ino).</p>
         </div>
 
         <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Building2, CreditCard, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Nfc } from 'lucide-react';
 
 interface CustomerNavProps {
   userEmail: string;
@@ -10,10 +10,11 @@ interface CustomerNavProps {
 }
 
 const navItems = [
-  { href: '/customer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/customer/machines',  label: 'Machines',  icon: Building2,  superOnly: true },
-  { href: '/customer/billing',   label: 'Billing',   icon: CreditCard  },
-  { href: '/customer/users',     label: 'Users',     icon: Users,      superOnly: true },
+  { href: '/customer/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+  { href: '/customer/machines',   label: 'Machines',   icon: Building2,  superOnly: true },
+  { href: '/customer/rfid-cards', label: 'RFID Cards', icon: Nfc         },
+  { href: '/customer/billing',    label: 'Billing',    icon: CreditCard  },
+  { href: '/customer/users',      label: 'Users',      icon: Users,      superOnly: true },
 ];
 
 export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavProps) {

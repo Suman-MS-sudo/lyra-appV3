@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { FileText, Coins, ArrowUpRight } from 'lucide-react';
+import { FileText, Coins, ArrowUpRight, Nfc } from 'lucide-react';
 import Link from 'next/link';
 
 export const revalidate = 0;
@@ -56,7 +56,17 @@ export default async function CustomerBillingPage() {
     .order('created_at', { ascending: false })
     .limit(100);
 
+  const { data: rfidPayments } = await serviceSupabase
+    .from('rfid_payments')
+    .select('*, vending_machines(name, location)')
+    .in('machine_id', machineIds)
+    .gte('created_at', startOfMonth.toISOString())
+    .eq('dispensed', true)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
   const totalCoinRevenue = coinPayments?.reduce((sum, payment) => sum + (payment.amount_in_paisa || 0), 0) || 0;
+  const totalRfidRevenue = rfidPayments?.reduce((sum, payment) => sum + (payment.amount_in_paisa || 0), 0) || 0;
   const pendingAmount = invoices
     ?.filter(inv => inv.status !== 'paid')
     .reduce((sum, inv) => sum + inv.total_amount_paisa, 0) || 0;
@@ -70,7 +80,7 @@ export default async function CustomerBillingPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Pending Amount */}
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
           <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(244,63,94,0.18)', opacity: 0.15 }} />
@@ -89,6 +99,16 @@ export default async function CustomerBillingPage() {
           </div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Coin Revenue (Month)</p>
           <p className="text-2xl font-bold text-white">₹{(totalCoinRevenue / 100).toFixed(2)}</p>
+        </div>
+
+        {/* RFID Revenue */}
+        <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(167,139,250,0.18)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(167,139,250,0.18)' }}>
+            <Nfc className="w-5 h-5" style={{ color: '#A78BFA' }} />
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>RFID Revenue (Month)</p>
+          <p className="text-2xl font-bold text-white">₹{(totalRfidRevenue / 100).toFixed(2)}</p>
         </div>
 
         {/* Total Invoices */}
@@ -237,6 +257,57 @@ export default async function CustomerBillingPage() {
               )) : (
                 <tr>
                   <td colSpan={4} className="py-16 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No coin payments found this month</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* RFID Payments */}
+      <div className="rounded-2xl overflow-hidden" style={CARD}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <h2 className="font-semibold text-white flex items-center gap-2">
+            <Nfc className="w-4 h-4" style={{ color: '#A78BFA' }} />
+            Recent RFID Payments
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>This month&apos;s dispensed RFID card taps</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Date</th>
+                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Machine</th>
+                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: 'rgba(255,255,255,0.35)' }}>Location</th>
+                <th className="py-2.5 px-5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rfidPayments && rfidPayments.length > 0 ? rfidPayments.map((payment) => (
+                <tr
+                  key={payment.id}
+                  className="row-hover"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <td className="py-3.5 px-5 whitespace-nowrap">
+                    <span className="text-white">
+                      {new Date(payment.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
+                    {' '}
+                    <span style={{ color: 'rgba(255,255,255,0.38)' }}>
+                      {new Date(payment.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-5 font-medium text-white">{payment.vending_machines?.name || 'N/A'}</td>
+                  <td className="py-3.5 px-5 hidden sm:table-cell" style={{ color: 'rgba(255,255,255,0.45)' }}>{payment.vending_machines?.location || 'N/A'}</td>
+                  <td className="py-3.5 px-5 text-right font-semibold text-white">
+                    ₹{((payment.amount_in_paisa || 0) / 100).toFixed(2)}
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={4} className="py-16 text-center text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No RFID payments found this month</td>
                 </tr>
               )}
             </tbody>

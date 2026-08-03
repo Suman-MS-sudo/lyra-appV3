@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, Coins } from 'lucide-react';
+import { CreditCard, Coins, Nfc } from 'lucide-react';
 
-type TxType = 'all' | 'online' | 'coin';
+type TxType = 'all' | 'online' | 'coin' | 'rfid';
 
 interface OnlineTx {
   id: string;
@@ -26,7 +26,18 @@ interface CoinTx {
   created_at: string;
 }
 
-type Transaction = OnlineTx | CoinTx;
+interface RfidTx {
+  id: string;
+  type: 'rfid';
+  amount: number;
+  status: string;
+  machine: string;
+  product: string;
+  items: number;
+  created_at: string;
+}
+
+type Transaction = OnlineTx | CoinTx | RfidTx;
 
 function formatTimeAgo(dateString: string) {
   const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
@@ -50,11 +61,13 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
   const filtered = filter === 'all' ? transactions : transactions.filter(tx => tx.type === filter);
   const onlineCount = transactions.filter(t => t.type === 'online').length;
   const coinCount   = transactions.filter(t => t.type === 'coin').length;
+  const rfidCount   = transactions.filter(t => t.type === 'rfid').length;
 
   const tabs: { key: TxType; label: string; count: number; activeStyle: React.CSSProperties }[] = [
-    { key: 'all',    label: 'All',    count: onlineCount + coinCount, activeStyle: { background: 'rgba(255,255,255,0.12)', color: 'white' } },
+    { key: 'all',    label: 'All',    count: onlineCount + coinCount + rfidCount, activeStyle: { background: 'rgba(255,255,255,0.12)', color: 'white' } },
     { key: 'online', label: 'Online', count: onlineCount,             activeStyle: { background: 'rgba(244,63,94,0.22)',  color: '#FDA4AF', border: '1px solid rgba(244,63,94,0.35)' } },
     { key: 'coin',   label: 'Coin',   count: coinCount,               activeStyle: { background: 'rgba(251,191,36,0.18)', color: '#FDE68A', border: '1px solid rgba(251,191,36,0.30)' } },
+    { key: 'rfid',   label: 'RFID',   count: rfidCount,               activeStyle: { background: 'rgba(167,139,250,0.18)', color: '#C4B5FD', border: '1px solid rgba(167,139,250,0.30)' } },
   ];
 
   return (
@@ -63,7 +76,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="font-semibold text-white">Recent Transactions</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Last 10 coin &amp; last 10 online payments</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Last 10 each of coin, online &amp; RFID payments</p>
         </div>
 
         {/* Filter tabs */}
@@ -77,6 +90,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
             >
               {key === 'online' && <CreditCard className="w-3 h-3" />}
               {key === 'coin'   && <Coins className="w-3 h-3" />}
+              {key === 'rfid'   && <Nfc className="w-3 h-3" />}
               {label} ({count})
             </button>
           ))}
@@ -122,11 +136,13 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
                     className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold"
                     style={tx.type === 'online'
                       ? { background: 'rgba(244,63,94,0.15)', color: '#FDA4AF' }
+                      : tx.type === 'rfid'
+                      ? { background: 'rgba(167,139,250,0.15)', color: '#C4B5FD' }
                       : { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }
                     }
                   >
-                    {tx.type === 'online' ? <CreditCard className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
-                    {tx.type === 'online' ? 'Online' : 'Coin'}
+                    {tx.type === 'online' ? <CreditCard className="w-3 h-3" /> : tx.type === 'rfid' ? <Nfc className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
+                    {tx.type === 'online' ? 'Online' : tx.type === 'rfid' ? 'RFID' : 'Coin'}
                   </span>
                 </td>
 
@@ -135,8 +151,8 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
 
                 {/* Product / Items */}
                 <td className="py-3 px-3 hidden sm:table-cell" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                  {tx.type === 'coin' && 'product' in tx
-                    ? (tx as CoinTx).product
+                  {(tx.type === 'coin' || tx.type === 'rfid') && 'product' in tx
+                    ? (tx as CoinTx | RfidTx).product
                     : `${tx.items} item${tx.items !== 1 ? 's' : ''}`}
                 </td>
 

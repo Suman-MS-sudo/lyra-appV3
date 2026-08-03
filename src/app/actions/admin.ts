@@ -25,7 +25,10 @@ export async function createVendingMachine(formData: FormData) {
     product_type: formData.get('product_type') as string || null,
     ip_address: formData.get('ip_address') as string || null,
     firmware_version: formData.get('firmware_version') as string || null,
-    
+    rfid_enabled: formData.get('rfid_enabled') === 'true',
+    body_type: (formData.get('body_type') as string) || 'single_motor',
+    max_capacity: formData.get('body_type') === 'quad_motor' ? 100 : 35,
+
     // Organization fields (customer_id stores the organization UUID)
     customer_id: formData.get('organization_id') as string || null,
     customer_name: formData.get('customer_name') as string || null,
@@ -166,7 +169,8 @@ export async function deleteMachine(machineId: string) {
 export async function deleteOrgTransactions(
   onlineIds: string[],
   coinIds: string[],
-  orgId: string
+  orgId: string,
+  rfidIds: string[] = []
 ) {
   if (onlineIds.length > 0) {
     const { error } = await serviceSupabase
@@ -181,6 +185,14 @@ export async function deleteOrgTransactions(
       .from('coin_payments')
       .delete()
       .in('id', coinIds);
+    if (error) throw new Error(error.message);
+  }
+
+  if (rfidIds.length > 0) {
+    const { error } = await serviceSupabase
+      .from('rfid_payments')
+      .delete()
+      .in('id', rfidIds);
     if (error) throw new Error(error.message);
   }
 

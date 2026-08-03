@@ -16,6 +16,7 @@ interface Machine {
   totalTransactions: number;
   onlineTransactions: number;
   coinTransactions: number;
+  rfidTransactions: number;
   totalRevenue: number;
 }
 
@@ -171,6 +172,8 @@ export function CustomerMachinesTable({
                         <span style={{ color: '#A78BFA' }}>{machine.onlineTransactions}</span>
                         <span style={{ color: 'rgba(255,255,255,0.35)' }}> / </span>
                         <span style={{ color: '#FBBF24' }}>{machine.coinTransactions}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.35)' }}> / </span>
+                        <span style={{ color: '#C4B5FD' }}>{machine.rfidTransactions}</span>
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-right font-semibold text-white">
