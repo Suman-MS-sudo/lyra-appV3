@@ -7,7 +7,7 @@ import {
   CheckCircle, Clock, Edit2, Trash2, ChevronUp, ChevronDown,
   ChevronsUpDown, Building2,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Machine {
   id: string;
@@ -26,6 +26,7 @@ interface Machine {
   created_at: string;
   body_type?: string;
   max_capacity?: number;
+  motor_stock?: number[] | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────
@@ -70,7 +71,11 @@ const SELECT_STYLE: React.CSSProperties = {
 // ── Component ──────────────────────────────────────────────
 export default function MachinesTable({ machines }: { machines: Machine[] }) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery]     = useState('');
+  const searchParams = useSearchParams();
+  // Seeded from the URL (?q=...) so the search term survives navigating away
+  // (e.g. clicking Edit) and back — this component remounts fresh on every
+  // visit to /admin/machines, so local-only state would otherwise reset.
+  const [searchQuery, setSearchQuery]     = useState(searchParams.get('q') || '');
   const [statusFilter, setStatusFilter]   = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');
   const [onlineFilter, setOnlineFilter]   = useState('all');
@@ -147,10 +152,11 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
   }
 
   function exportToCSV() {
-    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Stock', 'Last Ping'];
+    const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Motor Type', 'Stock', 'Last Ping'];
     const rows = filtered.map(m => [
       m.name, m.machine_id, m.mac_id, m.location, m.status,
-      m.customer_name, m.machine_type, m.stock_level?.toString() ?? '0',
+      m.customer_name, m.machine_type, m.body_type === 'quad_motor' ? 'Quad Motor' : 'Single Motor',
+      m.stock_level?.toString() ?? '0',
       m.last_ping ? new Date(m.last_ping).toLocaleString() : 'Never',
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -282,6 +288,9 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                 <th className={`${thClass} hidden md:table-cell`} style={thStyle} onClick={() => handleSort('machine_id')}>
                   Machine ID <SortIcon active={sortBy === 'machine_id'} dir={sortDir} />
                 </th>
+                <th className={`${thClass} hidden md:table-cell`} style={thStyle} onClick={() => handleSort('body_type')}>
+                  Motor Type <SortIcon active={sortBy === 'body_type'} dir={sortDir} />
+                </th>
                 <th className={`${thClass} hidden lg:table-cell`} style={thStyle} onClick={() => handleSort('location')}>
                   Location <SortIcon active={sortBy === 'location'} dir={sortDir} />
                 </th>
@@ -305,7 +314,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             <tbody>
               {page.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center">
+                  <td colSpan={9} className="py-16 text-center">
                     <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
                     <p className="font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>No machines match your filters</p>
                   </td>
@@ -322,6 +331,19 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                   <td className="py-3.5 px-4 hidden md:table-cell">
                     <p className="font-mono text-xs text-white">{m.machine_id}</p>
                     <p className="font-mono text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.38)' }}>{m.mac_id}</p>
+                  </td>
+
+                  {/* Motor Type */}
+                  <td className="py-3.5 px-4 hidden md:table-cell">
+                    <span
+                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={m.body_type === 'quad_motor'
+                        ? { background: 'rgba(244,114,182,0.15)', color: '#F9A8D4' }
+                        : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)' }
+                      }
+                    >
+                      {m.body_type === 'quad_motor' ? 'Quad Motor' : 'Single Motor'}
+                    </span>
                   </td>
 
                   {/* Location */}
@@ -367,18 +389,35 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                   {/* Stock */}
                   <td className="py-3.5 px-4 text-right hidden sm:table-cell">
                     {m.stock_level !== null ? (
-                      <span
-                        className="font-semibold text-sm"
-                        style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#FBBF24' : 'white' }}
-                      >
-                        {m.stock_level}{m.max_capacity ? <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
-                        {m.stock_level === 0 && (
-                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.18)', color: '#FCA5A5' }}>Empty</span>
-                        )}
-                        {m.stock_level > 0 && m.stock_level < 5 && (
-                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
-                        )}
-                      </span>
+                      <div className={`relative inline-block ${m.motor_stock?.length ? 'group cursor-help' : ''}`}>
+                        <span
+                          className="font-semibold text-sm"
+                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#FBBF24' : 'white' }}
+                        >
+                          {m.stock_level}{m.max_capacity ? <span style={{ color: 'rgba(255,255,255,0.35)', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
+                          {m.stock_level === 0 && (
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.18)', color: '#FCA5A5' }}>Empty</span>
+                          )}
+                          {m.stock_level > 0 && m.stock_level < 5 && (
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
+                          )}
+                        </span>
+
+                        {/* Per-motor breakdown tooltip — only present for quad-motor machines */}
+                        {m.motor_stock?.length ? (
+                          <div
+                            className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden flex-col gap-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs shadow-lg group-hover:flex"
+                            style={{ background: '#1A1030', border: '1px solid rgba(255,255,255,0.12)' }}
+                          >
+                            {m.motor_stock.map((s, i) => (
+                              <div key={i} className="flex items-center justify-between gap-4">
+                                <span style={{ color: 'rgba(255,255,255,0.45)' }}>M{i + 1}</span>
+                                <span className="font-semibold text-white">{s}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : (
                       <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>
                     )}
@@ -388,7 +427,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                   <td className="py-3.5 px-4">
                     <div className="flex items-center justify-end gap-1.5">
                       <Link
-                        href={`/admin/machines/${m.id}/edit`}
+                        href={`/admin/machines/${m.id}/edit${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ''}`}
                         className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                         style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.20)' }}
                         title="Edit machine"

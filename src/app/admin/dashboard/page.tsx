@@ -5,6 +5,7 @@ import {
   Building2, Users, TrendingUp, Receipt,
   MapPin, Clock, Activity, Coins, CreditCard, ArrowUpRight, Nfc,
 } from 'lucide-react';
+import ReportDownload from '@/components/ReportDownload';
 
 export const revalidate = 0;
 
@@ -135,12 +136,15 @@ export default async function AdminDashboard() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Welcome back — here&apos;s what&apos;s happening today.</p>
         </div>
-        <div
-          className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
-          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Live data
+        <div className="flex items-center gap-3">
+          <div
+            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
+            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live data
+          </div>
+          <ReportDownload />
         </div>
       </div>
 

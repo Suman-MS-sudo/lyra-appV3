@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface EditMachineFormProps {
   machine: any;
@@ -10,6 +10,13 @@ interface EditMachineFormProps {
 
 export default function EditMachineForm({ machine, organizations }: EditMachineFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // The machines list link carries its current search term forward as ?q=
+  // so we can return to it here — using router.back() would land back on
+  // the list with the search box reset, since the list re-mounts fresh on
+  // every visit and only knows its search term from this same query param.
+  const q = searchParams.get('q');
+  const machinesListHref = `/admin/machines${q ? `?q=${encodeURIComponent(q)}` : ''}`;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,7 +54,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
       }
 
       alert('Machine updated successfully!');
-      router.push('/admin/machines');
+      router.push(machinesListHref);
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -227,7 +234,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
         <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push(machinesListHref)}
             className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel

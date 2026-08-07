@@ -8,6 +8,7 @@ import { PaymentDonutChart, MachineRevenueBar, RevenueAreaChart, MachineStatusBa
 import TransactionsTable from '@/components/TransactionsTable';
 import DashboardTabs from '@/components/DashboardTabs';
 import RfidCardsUsagePanel from '@/components/RfidCardsUsagePanel';
+import ReportDownload from '@/components/ReportDownload';
 
 // Force dynamic rendering - never cache this page to ensure real-time status
 export const revalidate = 0;
@@ -483,12 +484,15 @@ export default async function CustomerDashboard() {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Real-time overview of your vending machine network</p>
         </div>
-        <div
-          className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
-          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Live
+        <div className="flex items-center gap-3">
+          <div
+            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
+            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live
+          </div>
+          <ReportDownload />
         </div>
       </div>
 

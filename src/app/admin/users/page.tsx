@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { UserPlus, Users, Shield, User, Building2, Pencil } from 'lucide-react';
+import DeleteUserButton from '@/components/DeleteUserButton';
 
 export const revalidate = 0;
 
@@ -188,14 +189,19 @@ export default async function UsersPage() {
                       {new Date(u.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </td>
                     <td className="py-3.5 px-5 text-right">
-                      <Link
-                        href={`/admin/users/${u.id}/edit`}
-                        className="p-2 rounded-lg inline-flex transition-colors hover:bg-white/10"
-                        title="Edit user"
-                        style={{ color: '#F472B6' }}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Link>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/admin/users/${u.id}/edit`}
+                          className="p-2 rounded-lg inline-flex transition-colors hover:bg-white/10"
+                          title="Edit user"
+                          style={{ color: '#F472B6' }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Link>
+                        {u.id !== user.id && (
+                          <DeleteUserButton userId={u.id} userEmail={u.email} />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

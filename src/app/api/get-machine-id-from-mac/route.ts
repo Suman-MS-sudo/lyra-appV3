@@ -28,15 +28,19 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Look up machine by MAC address
-    // order by updated_at DESC so the most recently active machine wins when duplicate MACs exist
-    const { data: machine, error } = await supabase
+    // Look up machine by MAC address. Admins type the MAC into a free-text form field with
+    // either ':' or '-' separators and inconsistent case, so compare on a normalized form
+    // (hex digits only, uppercased) instead of an exact string match.
+    const normalizedMac = mac.toUpperCase().replace(/[^0-9A-F]/g, '');
+
+    const { data: machines, error } = await supabase
       .from('vending_machines')
-      .select('id, machine_id, name')
-      .eq('mac_id', mac.toUpperCase())
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .select('id, machine_id, name, mac_id, updated_at')
+      .order('updated_at', { ascending: false });
+
+    const machine = machines?.find(
+      (m) => m.mac_id && m.mac_id.toUpperCase().replace(/[^0-9A-F]/g, '') === normalizedMac
+    );
 
     console.log('📊 Database query result:', { machine, error });
 

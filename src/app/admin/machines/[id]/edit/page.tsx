@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import EditMachineForm from '@/components/EditMachineForm';
@@ -46,7 +47,9 @@ export default async function EditMachinePage({ params }: { params: Promise<{ id
         <h1 className="text-2xl font-bold text-white">Edit Machine</h1>
         <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update machine details and configuration</p>
       </div>
-      <EditMachineForm machine={machine} organizations={organizations || []} />
+      <Suspense fallback={null}>
+        <EditMachineForm machine={machine} organizations={organizations || []} />
+      </Suspense>
     </main>
   );
 }

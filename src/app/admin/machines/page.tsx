@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { Plus, Building2 } from 'lucide-react';
@@ -59,7 +60,9 @@ export default async function MachinesPage() {
       </div>
 
       {machinesWithUpdatedStatus.length > 0 ? (
-        <MachinesTable machines={machinesWithUpdatedStatus} />
+        <Suspense fallback={null}>
+          <MachinesTable machines={machinesWithUpdatedStatus} />
+        </Suspense>
       ) : (
         <div
           className="rounded-2xl p-16 text-center"

@@ -27,8 +27,12 @@
 //     String concatenation, which is the main cause of heap fragmentation
 //     on long-running ESP32 sketches).
 //
-// Ethernet support was dropped for this variant to keep the firmware focused;
-// if a machine needs Ethernet + RFID, port the Ethernet block from IOT_Wifi_LAN.
+// Ethernet (LAN) support: ported from IOT_Wifi_LAN's coin/Ethernet firmware.
+// Tried first at boot; if no ENC28J60 module/cable is detected it falls back
+// to WiFi automatically. UIPEthernet can't do TLS, so while on Ethernet all
+// API calls go through the plain-HTTP proxy (ETHERNET_SERVER_BASE, port 8080
+// in dev / lyra-app.co.in:8080 in prod) instead of the HTTPS SERVER_BASE.
+// See the ETHERNET_CS comment near the pin definitions for the CS pin caveat.
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -43,6 +47,16 @@
 #include <esp_task_wdt.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+
+// Ethernet support (optional) — module: HANRUN HR911105A (ENC28J60-based),
+// shares the RFID/LCD SPI bus (SCK18/MISO19/MOSI23) via its own CS line.
+// Comment out USE_ETHERNET to build WiFi-only. When enabled, Ethernet is
+// tried first at boot; if no hardware/cable is detected it falls back to
+// WiFi automatically, so this is safe to leave on for WiFi-only machines too.
+#define USE_ETHERNET
+#ifdef USE_ETHERNET
+#include <UIPEthernet.h>
+#endif
 
 // ==================== FIRMWARE VERSION ====================
 #define CURRENT_FIRMWARE_VERSION "RFID-SINGLE-V1.0.0"
@@ -71,6 +85,16 @@
 #define LCD_SCL      22
 #define LCD_I2C_ADDR 0x27   // try 0x3F if blank
 
+// Ethernet module CS line. NOTE: unlike the coin-machine PCB (CS hardwired
+// to GPIO22), this RFID board has never carried an Ethernet module before —
+// GPIO22 is already taken by the LCD's I2C SCL here, so it can't be reused.
+// GPIO17 is free on this variant; verify it matches your actual wiring
+// before flashing a board that has the Ethernet module attached (use the
+// "scan-eth" serial command to find the right pin if unsure).
+#ifdef USE_ETHERNET
+#define ETHERNET_CS 17
+#endif
+
 // ==================== CAPACITY ====================
 #define MAX_STOCK 35   // single-motor body: 35-napkin hopper
 
@@ -88,11 +112,22 @@ unsigned long lastPingTime = 0;
 unsigned long lastWiFiCheck = 0;
 unsigned long wifiReconnectAttempts = 0;
 
+bool useEthernet = false;
+bool ethernetConnected = false;
+#ifdef USE_ETHERNET
+byte ethernetMAC[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+EthernetClient ethClient;
+#endif
+
 #define TESTING_LOCAL
 #ifdef TESTING_LOCAL
-String SERVER_BASE = "https://192.168.1.2";
+String SERVER_BASE = "https://192.168.29.33";
+// UIPEthernet can't do TLS, so Ethernet requests go through the plain-HTTP
+// proxy instead (npm run dev starts this alongside the HTTPS server on :8080).
+String ETHERNET_SERVER_BASE = "http://192.168.29.33:8080";
 #else
 String SERVER_BASE = "https://lyra-app.co.in";
+String ETHERNET_SERVER_BASE = "http://lyra-app.co.in:8080";
 #endif
 
 // ==================== FORWARD DECLARATIONS ====================
@@ -113,6 +148,15 @@ void maintainWiFiConnection();
 void ensureWiFiStability();
 int makeHTTPRequest(const String& url, const String& method = "GET", const String& payload = "", String* responseBody = nullptr);
 void handleRfidTap(const String& uid);
+String apiUrl(const String& path);
+#ifdef USE_ETHERNET
+int makeEthernetHTTPRequest(const String& url, const String& method = "GET", const String& payload = "", String* outBody = nullptr);
+bool initializeEthernet();
+void checkEthernetLinkStatus();
+void printEthernetDiagnostics();
+void scanEthernetPins();
+void resetEthernetModule();
+#endif
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -142,6 +186,15 @@ String extractJsonFromString(const String &s) {
     int arrEnd = s.lastIndexOf(']');
     if (arrStart >= 0 && arrEnd > arrStart) return s.substring(arrStart, arrEnd + 1);
     return String("");
+}
+
+// Builds a request URL for whichever transport is currently active.
+// UIPEthernet can't do TLS, so while on Ethernet requests are routed
+// through the plain-HTTP proxy (ETHERNET_SERVER_BASE) instead of the
+// HTTPS SERVER_BASE used over WiFi.
+String apiUrl(const String& path) {
+    if (useEthernet && ethernetConnected) return ETHERNET_SERVER_BASE + path;
+    return SERVER_BASE + path;
 }
 
 // ==================== EEPROM FUNCTIONS ====================
@@ -184,7 +237,7 @@ void saveMotorStockToEEPROM(int count, String productId = "") {
         payload.reserve(160);
         payload = "{\"machine_id\":\"" + machineId + "\",\"product_id\":\"" + productId +
                   "\",\"quantity\":" + String(count) + ",\"mode\":\"set\"}";
-        makeHTTPRequest(SERVER_BASE + "/api/update-product-stock", "POST", payload);
+        makeHTTPRequest(apiUrl("/api/update-product-stock"), "POST", payload);
     }
 }
 
@@ -288,13 +341,26 @@ void sendStockAwareErrorStatus() {
 // ==================== NETWORK FUNCTIONS ====================
 
 bool isHTTPS(const String& url) { return url.startsWith("https://"); }
-bool isNetworkConnected() { return WiFi.status() == WL_CONNECTED; }
+
+bool isNetworkConnected() {
+#ifdef USE_ETHERNET
+    if (useEthernet) {
+        IPAddress ip = Ethernet.localIP();
+        return ethernetConnected && (ip != IPAddress(0,0,0,0));
+    }
+#endif
+    return WiFi.status() == WL_CONNECTED;
+}
 
 HTTPClient* getHTTPClient(const String& url) {
     static HTTPClient http;
     static WiFiClientSecure* secureClient = nullptr;
 
     if (secureClient) { delete secureClient; secureClient = nullptr; }
+
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) return nullptr; // caller routes through makeEthernetHTTPRequest instead
+#endif
 
     if (isHTTPS(url)) {
         secureClient = new WiFiClientSecure;
@@ -319,6 +385,18 @@ HTTPClient* getHTTPClient(const String& url) {
 }
 
 int makeHTTPRequest(const String& url, const String& method, const String& payload, String* responseBody) {
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        int result = makeEthernetHTTPRequest(url, method, payload, responseBody);
+        if (result < 0 && !useEthernet) {
+            Serial.println("Ethernet request failed, retrying over WiFi...");
+            // fall through to the WiFi path below
+        } else {
+            return result;
+        }
+    }
+#endif
+
     HTTPClient* http = getHTTPClient(url);
     if (http == nullptr) return -1;
 
@@ -336,6 +414,301 @@ int makeHTTPRequest(const String& url, const String& method, const String& paylo
     return code;
 }
 
+#ifdef USE_ETHERNET
+int makeEthernetHTTPRequest(const String& url, const String& method, const String& payload, String* outBody) {
+    String u = url;
+    if (u.startsWith("http://")) {
+        u = u.substring(7);
+    } else if (u.startsWith("https://")) {
+        Serial.println("HTTPS not supported over Ethernet");
+        return -1;
+    }
+
+    int slashIdx = u.indexOf('/');
+    String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
+    String path = (slashIdx >= 0) ? u.substring(slashIdx) : "/";
+
+    int colonIdx = host.indexOf(':');
+    int port = 80;
+    if (colonIdx >= 0) {
+        port = host.substring(colonIdx + 1).toInt();
+        host = host.substring(0, colonIdx);
+    }
+
+    IPAddress ip = Ethernet.localIP();
+    if (ip == IPAddress(0,0,0,0) || ip[0] == 0) {
+        Serial.println("Ethernet has no valid IP!");
+        ethernetConnected = false;
+        useEthernet = false;
+        sendStockAwareErrorStatus();
+        return -1;
+    }
+
+    Serial.printf("Connecting to %s:%d... ", host.c_str(), port);
+    bool connected = false;
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (ethClient.connect(host.c_str(), port)) {
+            connected = true;
+            Serial.println("OK");
+            break;
+        }
+        if (attempt < 2) {
+            ethClient.stop();
+            delay(500);
+        }
+    }
+
+    if (!connected) {
+        Serial.println("Failed!");
+        ethernetConnected = false;
+        useEthernet = false;
+        Serial.println("Switching to WiFi...");
+        sendStockAwareErrorStatus();
+        return -1;
+    }
+
+    String req = String(method) + " " + path + " HTTP/1.1\r\n";
+    req += "Host: " + host + "\r\n";
+    req += "Connection: close\r\n";
+    req += "X-Machine-ID: " + machineId + "\r\n";
+    req += "X-Firmware-Version: " + String(CURRENT_FIRMWARE_VERSION) + "\r\n";
+
+    if (method == "POST") {
+        req += "Content-Type: application/json\r\n";
+        req += "Content-Length: " + String(payload.length()) + "\r\n\r\n";
+        req += payload;
+    } else {
+        req += "\r\n";
+    }
+
+    ethClient.print(req);
+
+    unsigned long timeout = millis() + 5000;
+    while (ethClient.available() == 0) {
+        if (millis() > timeout) {
+            ethClient.stop();
+            return -1;
+        }
+    }
+
+    String statusLine = ethClient.readStringUntil('\n');
+    statusLine.trim();
+    int code = -1;
+    int firstSpace = statusLine.indexOf(' ');
+    if (firstSpace > 0) {
+        int secondSpace = statusLine.indexOf(' ', firstSpace + 1);
+        String codeStr = (secondSpace > firstSpace) ?
+                        statusLine.substring(firstSpace + 1, secondSpace) :
+                        statusLine.substring(firstSpace + 1);
+        code = codeStr.toInt();
+    }
+
+    bool headersEnded = false;
+    String body;
+    while (ethClient.available()) {
+        String line = ethClient.readStringUntil('\n');
+        if (!headersEnded) {
+            if (line == "\r" || line.length() == 0) headersEnded = true;
+        } else {
+            body += line;
+        }
+    }
+
+    if (outBody != nullptr) {
+        String jsonOnly = extractJsonFromString(body);
+        *outBody = (jsonOnly.length() > 0) ? jsonOnly : body;
+    }
+
+    ethClient.stop();
+    return code;
+}
+
+// ==================== ETHERNET MANAGEMENT FUNCTIONS ====================
+
+bool initializeEthernet() {
+    unsigned long startTime = millis();
+    Serial.println("Initializing Ethernet...");
+    Serial.printf("Ethernet Pins - CS:%d, MOSI:%d, MISO:%d, SCK:%d\n",
+                 ETHERNET_CS, SPI_MOSI, SPI_MISO, SPI_SCK);
+
+    pinMode(ETHERNET_CS, OUTPUT);
+    digitalWrite(ETHERNET_CS, LOW);
+    delay(10);
+    digitalWrite(ETHERNET_CS, HIGH);
+    delay(500);
+
+    SPI.end();
+    delay(100);
+    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+    SPI.setFrequency(4000000);
+    delay(200);
+
+    Ethernet.init(ETHERNET_CS);
+    delay(200);
+
+    Serial.print("Detecting Ethernet hardware... ");
+    uint8_t hwStatus = Ethernet.hardwareStatus();
+    if (hwStatus == EthernetNoHardware) {
+        Serial.println("No hardware detected");
+        return false;
+    }
+    Serial.println("Detected (status " + String(hwStatus) + ")");
+
+    digitalWrite(ETHERNET_CS, LOW);
+    delay(50);
+    digitalWrite(ETHERNET_CS, HIGH);
+    delay(200);
+    Ethernet.init(ETHERNET_CS);
+    delay(200);
+
+    Serial.println("Checking for Ethernet cable...");
+    if (Ethernet.linkStatus() == LinkOFF) {
+        Serial.println("No Ethernet cable detected - falling back to WiFi");
+        return false;
+    }
+    Serial.println("Ethernet cable connected");
+
+    Serial.println("Requesting DHCP...");
+    for (int attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+            Serial.printf("Retry attempt %d/2...\n", attempt + 1);
+            SPI.end();
+            delay(100);
+            SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
+            SPI.setBitOrder(MSBFIRST);
+            SPI.setDataMode(SPI_MODE0);
+            SPI.setFrequency(4000000);
+            delay(100);
+            Ethernet.init(ETHERNET_CS);
+            delay(200);
+        }
+
+        Ethernet.begin(ethernetMAC);
+
+        unsigned long dhcpStart = millis();
+        IPAddress checkIP;
+        bool gotIP = false;
+        while (millis() - dhcpStart < 5000) {
+            feedWatchdog();
+            checkIP = Ethernet.localIP();
+            if (checkIP != IPAddress(0,0,0,0) && checkIP[0] != 0) {
+                gotIP = true;
+                break;
+            }
+            delay(100);
+        }
+
+        if (gotIP) {
+            delay(500);
+            IPAddress ip = Ethernet.localIP();
+            Serial.println("DHCP OK - IP: " + ip.toString());
+
+            bool validIP = (ip[0] == 10) ||
+                          (ip[0] == 172 && ip[1] >= 16 && ip[1] <= 31) ||
+                          (ip[0] == 192 && ip[1] == 168);
+
+            if (validIP && ip != IPAddress(0,0,0,0)) {
+                Serial.println("Ethernet ready! Subnet: " + Ethernet.subnetMask().toString());
+                ethernetConnected = true;
+                useEthernet = true;
+                digitalWrite(BLUE_LED_PIN, HIGH);
+                Serial.printf("Total time: %lu ms\n", millis() - startTime);
+                return true;
+            }
+            Serial.println("Invalid IP received, retrying");
+        }
+
+        delay(1000);
+    }
+
+    Serial.println("DHCP failed - falling back to WiFi");
+    return false;
+}
+
+void checkEthernetLinkStatus() {
+    if (!useEthernet) return;
+
+    static unsigned long lastCheck = 0;
+    if (millis() - lastCheck > 5000) {
+        Ethernet.maintain();
+        IPAddress ip = Ethernet.localIP();
+        if (ip == IPAddress(0,0,0,0) || ip[0] == 0) {
+            Serial.println("Ethernet lost IP address! Switching to WiFi...");
+            ethernetConnected = false;
+            useEthernet = false;
+            sendStockAwareErrorStatus();
+        }
+        lastCheck = millis();
+    }
+}
+
+void printEthernetDiagnostics() {
+    Serial.println("\n=== ETHERNET DIAGNOSTICS ===");
+    Serial.printf("Hardware status: %d\n", Ethernet.hardwareStatus());
+    Serial.printf("Link status: %d\n", Ethernet.linkStatus());
+    if (Ethernet.localIP() != IPAddress(0,0,0,0)) {
+        Serial.println("IP: " + Ethernet.localIP().toString());
+        Serial.println("Subnet: " + Ethernet.subnetMask().toString());
+        Serial.println("Gateway: " + Ethernet.gatewayIP().toString());
+        Serial.println("DNS: " + Ethernet.dnsServerIP().toString());
+    } else {
+        Serial.println("IP: Not assigned");
+    }
+    Serial.printf("Connected: %s\n", ethernetConnected ? "Yes" : "No");
+    Serial.printf("Using Ethernet: %s\n", useEthernet ? "Yes" : "No");
+    Serial.println("============================\n");
+}
+
+void scanEthernetPins() {
+    Serial.println("\n=== ETHERNET CS PIN SCANNER ===");
+    int testPins[] = {17, 16, 25, 14};
+    int numPins = sizeof(testPins) / sizeof(testPins[0]);
+
+    for (int i = 0; i < numPins; i++) {
+        int csPin = testPins[i];
+        Serial.printf("Testing CS pin %d... ", csPin);
+        pinMode(csPin, OUTPUT);
+        digitalWrite(csPin, HIGH);
+        delay(50);
+
+        SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, csPin);
+        SPI.setBitOrder(MSBFIRST);
+        SPI.setDataMode(SPI_MODE0);
+        SPI.setFrequency(8000000);
+        delay(50);
+
+        Ethernet.init(csPin);
+        delay(50);
+
+        uint8_t hwStatus = Ethernet.hardwareStatus();
+        if (hwStatus != EthernetNoHardware) {
+            Serial.printf("FOUND! (status %d) -> set ETHERNET_CS to %d\n", hwStatus, csPin);
+        } else {
+            Serial.println("no hardware");
+        }
+
+        SPI.end();
+        delay(100);
+    }
+    Serial.printf("\nCurrent configuration: CS=%d, SCK=%d, MISO=%d, MOSI=%d\n",
+                 ETHERNET_CS, SPI_SCK, SPI_MISO, SPI_MOSI);
+    Serial.println("================================\n");
+}
+
+void resetEthernetModule() {
+    Serial.println("Resetting Ethernet module...");
+    digitalWrite(ETHERNET_CS, LOW);
+    delay(1);
+    digitalWrite(ETHERNET_CS, HIGH);
+    delay(100);
+    Ethernet.init(ETHERNET_CS);
+    delay(500);
+    Serial.println("Ethernet module reset complete");
+}
+#endif
+
 // ==================== MACHINE FUNCTIONS ====================
 
 void getMACAddress() {
@@ -348,8 +721,8 @@ void getMACAddress() {
 }
 
 String fetchMachineInfoFromBackend(const String& mac) {
-    String url = SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(mac) +
-                 "&firmware=" + urlEncode(CURRENT_FIRMWARE_VERSION);
+    String url = apiUrl("/api/get-machine-id-from-mac?mac=" + urlEncode(mac) +
+                 "&firmware=" + urlEncode(CURRENT_FIRMWARE_VERSION));
 
     String responseBody;
     int code = makeHTTPRequest(url, "GET", "", &responseBody);
@@ -378,7 +751,7 @@ void fetchMachineProducts() {
         return;
     }
 
-    String url = SERVER_BASE + "/api/machine-products?machine_id=" + urlEncode(machineId);
+    String url = apiUrl("/api/machine-products?machine_id=" + urlEncode(machineId));
     String responseBody;
     int code = makeHTTPRequest(url, "GET", "", &responseBody);
 
@@ -412,7 +785,7 @@ void sendMachineStatusPing() {
     payload += "\"stock_count\":" + String(currentStock);
     payload += "}";
 
-    int code = makeHTTPRequest(SERVER_BASE + "/api/machine-ping", "POST", payload);
+    int code = makeHTTPRequest(apiUrl("/api/machine-ping"), "POST", payload);
 
     if (code == 200) Serial.printf("Machine ping successful (Stock: %d)\n", currentStock);
     else Serial.printf("Machine ping failed: %d\n", code);
@@ -430,8 +803,14 @@ void dispenseProductByMotor(String productId) {
 
     Serial.printf("Activating motor... (Stock before: %d)\n", stock);
     digitalWrite(TRANSISTOR_BASE, HIGH);
-    delay(2830);
+    delay(2110);
     digitalWrite(TRANSISTOR_BASE, LOW);
+
+    // Let the supply rail settle after the motor's turn-off transient before
+    // keying up WiFi TX for the stock-update POST below — back-to-back with
+    // no gap, the motor's inrush/back-EMF and the WiFi radio's current spike
+    // can stack and sag the rail enough to corrupt in-flight UART bytes.
+    delay(150);
 
     saveMotorStockToEEPROM(stock - 1, productId);
     Serial.printf("Motor stopped! New stock: %d\n", stock - 1);
@@ -446,9 +825,9 @@ void dispenseSequence(String productId) {
 
     dispenseProductByMotor(productId);
 
-    lcdMsg("Thank You!", "");
+    lcdMsg("Please Collect", "Your Napkin");
     delay(3000);
-    lcdMsg("Please Take", "Your Item");
+    lcdMsg("Thank You!", "");
     delay(3000);
 
     sendStockAwareStatus();
@@ -495,7 +874,7 @@ void handleRfidTap(const String& uid) {
     }
 
     String responseBody;
-    int code = makeHTTPRequest(SERVER_BASE + "/api/rfid-payment", "POST", payload, &responseBody);
+    int code = makeHTTPRequest(apiUrl("/api/rfid-payment"), "POST", payload, &responseBody);
     Serial.printf("RFID payment response code: %d\n", code);
 
     if (code == 200) {
@@ -615,7 +994,7 @@ void setup() {
     pinMode(RESET_PIN, INPUT_PULLUP);
 
     Wire.begin(LCD_SDA, LCD_SCL);
-    lcd.begin();
+    lcd.begin(16, 2);
     lcd.backlight();
     lcdMsg("Lyra Vending", String(CURRENT_FIRMWARE_VERSION));
     delay(1000);
@@ -628,6 +1007,23 @@ void setup() {
                   (rfidVersion == 0x00 || rfidVersion == 0xFF) ? "(NOT DETECTED - check wiring)" : "(OK)");
 
     getMACAddress();
+
+#ifdef USE_ETHERNET
+    Serial.println("Attempting Ethernet connection...");
+    feedWatchdog();
+    if (initializeEthernet()) {
+        Serial.println("Using Ethernet");
+        fetchMachineInfoFromBackend(deviceMacAddress);
+        fetchMachineProducts();
+        feedWatchdog();
+        sendMachineStatusPing();
+        lastPingTime = millis();
+        sendStockAwareStatus();
+        return;
+    }
+    Serial.println("Ethernet not available, falling back to WiFi");
+    feedWatchdog();
+#endif
 
     String ssid = eepromReadStringSafe(0, 32);
     String password = eepromReadStringSafe(32, 64);
@@ -673,7 +1069,11 @@ void loop() {
     ArduinoOTA.handle();
     server.handleClient();
 
-    if (!provisioningMode && millis() - lastWiFiCheck > 30000) {
+#ifdef USE_ETHERNET
+    checkEthernetLinkStatus();
+#endif
+
+    if (!provisioningMode && !useEthernet && millis() - lastWiFiCheck > 30000) {
         maintainWiFiConnection();
         lastWiFiCheck = millis();
     }
@@ -697,9 +1097,20 @@ void loop() {
         } else if (command == "status") {
             Serial.println("Firmware: " + String(CURRENT_FIRMWARE_VERSION));
             Serial.println("Machine ID: " + machineId);
+            Serial.println("Network: " + String(useEthernet ? "Ethernet" : "WiFi"));
             Serial.println("Stock: " + String(readMotorStockFromEEPROM()));
         } else if (command == "dispense") {
             dispenseProductByMotor(defaultProductId);
+#ifdef USE_ETHERNET
+        } else if (command == "diag") {
+            printEthernetDiagnostics();
+        } else if (command == "scan-eth") {
+            scanEthernetPins();
+        } else if (command == "reset-eth") {
+            resetEthernetModule();
+            if (initializeEthernet()) Serial.println("Ethernet reinitialized");
+            else Serial.println("Ethernet reinit failed");
+#endif
         }
     }
 
