@@ -53,6 +53,31 @@
 // WiFi automatically, so this is safe to leave on for WiFi-only machines too.
 #define USE_ETHERNET
 #ifdef USE_ETHERNET
+// REQUIRES library-side fixes (none of these can be done from the sketch
+// with a #define — each lives in a separately-compiled library .cpp/.h, so
+// a sketch-level macro never reaches the #ifndef guards below). Reapply all
+// three if the UIPEthernet library is ever reinstalled/updated, or this
+// firmware WILL go back to hanging at boot on flaky/absent Ethernet:
+//   1. utility/Enc28J60Network.cpp, Enc28J60Network::sendPacket(): the
+//      `while (((eir = readReg(EIR)) & (EIR_TXIF | EIR_TXERIF)) == 0);`
+//      TX-complete wait (and the DMA-complete wait a bit further down) had
+//      NO timeout at all — if the chip ever failed to raise either bit
+//      (cable pulled mid-send, flaky PHY), the MCU hung forever on the very
+//      first packet send (e.g. the first DHCP DISCOVER), freezing the LCD
+//      on the boot splash and leaving RFID taps unanswered since loop()
+//      never starts. Both now bail out after 1000ms.
+//   2. Dhcp.h: DHCP_TIMEOUT defaulted to 60000ms — Ethernet.begin(mac)
+//      blocks for up to that long, per attempt, whenever no DHCP server
+//      responds. Combined with this sketch's own 2-attempt x 5-outer-retry
+//      loop, a dead network could look hung for ~10 minutes. Lowered to
+//      5000ms to match the timeout this sketch's own post-begin() IP-check
+//      loop already assumes.
+//   3. utility/uipethernet-conf.h: UIP_CONNECT_TIMEOUT defaulted to -1,
+//      which compiles out UIPClient::connect()'s own bounded wait and lets
+//      EthernetClient::connect() spin until uIP's internal TCP retransmit
+//      timers close the connection — seen hanging indefinitely on
+//      "Connecting to <host>..." with no OK/Failed ever printed. Set to 5
+//      (seconds).
 #include <UIPEthernet.h>
 #endif
 
@@ -100,6 +125,11 @@ const uint8_t MOTOR_PINS[MOTOR_COUNT] = { 5, 32, 33, 26 };
 // EEPROM: one byte per motor at addresses 64..67
 #define MOTOR_STOCK_BASE_ADDR 64
 
+// Which motor to try first on the next tap (round-robin cursor), persisted
+// so a power cut mid-cycle doesn't reset the machine back to always firing
+// M1 first — see readNextMotorIndex()/writeNextMotorIndex() below.
+#define NEXT_MOTOR_ADDR 68
+
 MFRC522 rfid(RFID_SS, RFID_RST);
 LiquidCrystal_I2C lcd(LCD_I2C_ADDR, 16, 2);
 
@@ -113,7 +143,7 @@ String defaultProductId = "";
 unsigned long lastPingTime = 0;
 unsigned long lastWiFiCheck = 0;
 unsigned long wifiReconnectAttempts = 0;
-uint8_t nextMotorIndex = 0;  // round-robin cursor across taps
+uint8_t nextMotorIndex = 0;  // round-robin cursor across taps; overwritten from EEPROM in setup()
 
 // Idle-display rotation: while ready and untouched, the LCD alternates
 // between the "Tap Card" prompt and a per-motor stock breakdown so an
@@ -130,6 +160,17 @@ bool ethernetConnected = false;
 #ifdef USE_ETHERNET
 byte ethernetMAC[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 EthernetClient ethClient;
+unsigned long lastEthernetRecoveryCheck = 0;
+// LAN is preferred over WiFi whenever both are viable, so while running on
+// WiFi (LAN previously lost, or never came up at boot) this periodically
+// re-probes for it via the same initializeEthernet() used at boot, and
+// switches back automatically the moment it succeeds. Interval is a
+// tradeoff: initializeEthernet() blocks for several seconds (hardware
+// detect + a real DHCP attempt, the only reliable way to test a LAN since
+// the ENC28J60's linkStatus() is known-unreliable — see the comment in
+// initializeEthernet()), so checking too often would repeatedly stall RFID
+// tap polling for no benefit.
+#define ETHERNET_RECOVERY_CHECK_INTERVAL 60000
 #endif
 
 #define TESTING_LOCAL
@@ -148,6 +189,7 @@ String fetchMachineInfoFromBackend(const String& mac);
 void fetchMachineProducts();
 bool dispenseFromNextAvailableMotor(String productId = "", String paymentId = "");
 void reportDispenseMotor(const String& paymentId, uint8_t motorIndex);
+void voidRfidPayment(const String& paymentId);
 void sendMachineStatusPing();
 bool isHTTPS(const String& url);
 HTTPClient* getHTTPClient(const String& url);
@@ -168,6 +210,7 @@ String apiUrl(const String& path);
 int makeEthernetHTTPRequest(const String& url, const String& method = "GET", const String& payload = "", String* outBody = nullptr);
 bool initializeEthernet();
 void checkEthernetLinkStatus();
+void checkForEthernetRecovery();
 void printEthernetDiagnostics();
 void scanEthernetPins();
 void resetEthernetModule();
@@ -263,6 +306,24 @@ int readTotalStockFromEEPROM() {
 
 void refillAllMotors() {
     for (uint8_t i = 0; i < MOTOR_COUNT; i++) EEPROM.write(MOTOR_STOCK_BASE_ADDR + i, MAX_STOCK_PER_MOTOR);
+    EEPROM.write(NEXT_MOTOR_ADDR, 0);
+    EEPROM.commit();
+    nextMotorIndex = 0;
+}
+
+// ---- Round-robin cursor persistence ----
+// Survives power loss: without this, a reboot right after (say) M1 fires
+// would forget that M2 is next and start the cycle over at M1 again, even
+// though M1's own stock count (which IS persisted) correctly shows one used.
+
+uint8_t readNextMotorIndex() {
+    int idx = EEPROM.read(NEXT_MOTOR_ADDR);
+    if (idx < 0 || idx >= MOTOR_COUNT) idx = 0;
+    return (uint8_t)idx;
+}
+
+void writeNextMotorIndex(uint8_t idx) {
+    EEPROM.write(NEXT_MOTOR_ADDR, idx);
     EEPROM.commit();
 }
 
@@ -347,7 +408,19 @@ void maintainWiFiConnection() {
 
 // ==================== LCD DISPLAY FUNCTIONS ====================
 
+// REQUIRES a library-side addition: LiquidCrystal_I2C::resync4bit() (added
+// to the installed library — reapply if it's ever reinstalled/updated).
+// The library never checks Wire.endTransmission()'s return value anywhere,
+// so a single dropped/NACKed I2C transaction — plausible on this board
+// given the motor rail noise already called out in dispenseFromNextAvailableMotor()
+// — permanently desyncs the HD44780's 4-bit nibble counter with no error
+// surfaced: the display just silently stops updating forever after that
+// point (seen freezing on the boot splash while Serial/network/RFID kept
+// working normally). resync4bit() re-sends just the cheap "enter 4-bit
+// mode" handshake (~10ms) before every write as a self-healing guard,
+// without the slow ~1050ms full reset that lcd.init()/begin() do.
 void lcdMsg(const String& line0, const String& line1) {
+    lcd.resync4bit();
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(line0.substring(0, 16));
@@ -598,30 +671,52 @@ bool initializeEthernet() {
     Serial.printf("Ethernet Pins - CS:%d, MOSI:%d, MISO:%d, SCK:%d\n",
                  ETHERNET_CS, SPI_MOSI, SPI_MISO, SPI_SCK);
 
-    pinMode(ETHERNET_CS, OUTPUT);
-    digitalWrite(ETHERNET_CS, LOW);
-    delay(10);
-    digitalWrite(ETHERNET_CS, HIGH);
-    delay(500);
+    // Hardware detection gets its own retry loop, separate from the DHCP
+    // retry below. The ENC28J60 occasionally reads back EthernetNoHardware
+    // on the very first SPI probe right after power-up — oscillator not
+    // fully settled yet, or a brief SPI bus hiccup — even though the module
+    // is physically fine and would detect correctly a moment later. Without
+    // this, one transient misread was enough to make the machine give up on
+    // Ethernet entirely for the rest of the boot (and, on machines with no
+    // WiFi credentials saved, drop straight into AP provisioning — fully
+    // offline until manually power-cycled).
+    uint8_t hwStatus = EthernetNoHardware;
+    for (int hwAttempt = 0; hwAttempt < 3; hwAttempt++) {
+        if (hwAttempt > 0) {
+            Serial.printf("Hardware detection retry %d/3...\n", hwAttempt + 1);
+            feedWatchdog();
+            delay(300);
+        }
 
-    SPI.end();
-    delay(100);
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setDataMode(SPI_MODE0);
-    SPI.setFrequency(4000000);
-    delay(200);
+        pinMode(ETHERNET_CS, OUTPUT);
+        digitalWrite(ETHERNET_CS, LOW);
+        delay(10);
+        digitalWrite(ETHERNET_CS, HIGH);
+        delay(500);
 
-    Ethernet.init(ETHERNET_CS);
-    delay(200);
+        SPI.end();
+        delay(100);
+        SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
+        SPI.setBitOrder(MSBFIRST);
+        SPI.setDataMode(SPI_MODE0);
+        SPI.setFrequency(4000000);
+        delay(200);
 
-    Serial.print("Detecting Ethernet hardware... ");
-    uint8_t hwStatus = Ethernet.hardwareStatus();
-    if (hwStatus == EthernetNoHardware) {
+        Ethernet.init(ETHERNET_CS);
+        delay(200);
+
+        Serial.print("Detecting Ethernet hardware... ");
+        hwStatus = Ethernet.hardwareStatus();
+        if (hwStatus != EthernetNoHardware) {
+            Serial.println("Detected (status " + String(hwStatus) + ")");
+            break;
+        }
         Serial.println("No hardware detected");
+    }
+
+    if (hwStatus == EthernetNoHardware) {
         return false;
     }
-    Serial.println("Detected (status " + String(hwStatus) + ")");
 
     digitalWrite(ETHERNET_CS, LOW);
     delay(50);
@@ -632,10 +727,12 @@ bool initializeEthernet() {
 
     Serial.println("Checking for Ethernet cable...");
     if (Ethernet.linkStatus() == LinkOFF) {
-        Serial.println("No Ethernet cable detected - falling back to WiFi");
-        return false;
+        // ENC28J60 linkStatus() is unreliable and often reports LinkOFF even
+        // with a working cable. Don't bail here — let DHCP be the real test.
+        Serial.println("linkStatus reports OFF (unreliable on ENC28J60) - trying DHCP anyway");
+    } else {
+        Serial.println("Ethernet cable connected");
     }
-    Serial.println("Ethernet cable connected");
 
     Serial.println("Requesting DHCP...");
     for (int attempt = 0; attempt < 2; attempt++) {
@@ -706,8 +803,44 @@ void checkEthernetLinkStatus() {
             ethernetConnected = false;
             useEthernet = false;
             sendStockAwareErrorStatus();
+            lastWiFiCheck = 0; // force an immediate WiFi reconnect attempt on the next loop() iteration instead of waiting up to 30s
         }
         lastCheck = millis();
+    }
+}
+
+// LAN-recovery counterpart to checkEthernetLinkStatus() above: LAN is this
+// machine's actual preferred transport (WiFi/provisioning are only ever a
+// fallback for when LAN isn't up), so this periodically re-attempts the
+// same boot-time Ethernet bring-up regardless of what it's currently
+// running on — WiFi, or even still sitting in setup-AP provisioning mode
+// with no network at all — and switches back the moment it succeeds,
+// without needing a manual "reset-eth" or a reboot.
+void checkForEthernetRecovery() {
+    if (useEthernet) return;
+    if (millis() - lastEthernetRecoveryCheck < ETHERNET_RECOVERY_CHECK_INTERVAL) return;
+    lastEthernetRecoveryCheck = millis();
+
+    Serial.println("Probing for LAN recovery...");
+    if (initializeEthernet()) {
+        Serial.println("LAN recovered - switching to Ethernet");
+
+        if (provisioningMode) {
+            // Was sitting in WiFi setup mode (its own AP, waiting to be
+            // configured) because LAN wasn't up at boot and no WiFi
+            // credentials were saved either. LAN coming up makes that
+            // moot — tear down the setup AP/web server and resume as a
+            // normal Ethernet-connected machine instead of waiting
+            // indefinitely for someone to finish WiFi setup by hand.
+            Serial.println("Exiting WiFi provisioning mode - LAN took over");
+            server.stop();
+            WiFi.softAPdisconnect(true);
+            provisioningMode = false;
+        }
+
+        fetchMachineInfoFromBackend(deviceMacAddress);
+        fetchMachineProducts();
+        sendStockAwareStatus();
     }
 }
 
@@ -873,6 +1006,21 @@ void reportDispenseMotor(const String& paymentId, uint8_t motorIndex) {
     if (code != 200) Serial.printf("Failed to report dispense motor: %d\n", code);
 }
 
+// /api/rfid-payment charges/deducts the card BEFORE this machine has
+// physically attempted to dispense anything (see dispenseSequence()). If
+// every motor turns out to be empty, the customer would otherwise be
+// charged for nothing with no record anything went wrong. Called right
+// after that happens, to refund the card and mark the payment undelivered.
+void voidRfidPayment(const String& paymentId) {
+    if (paymentId.length() == 0) return;
+    String payload;
+    payload.reserve(64);
+    payload = "{\"payment_id\":\"" + paymentId + "\"}";
+    int code = makeHTTPRequest(apiUrl("/api/rfid-payment/void"), "POST", payload);
+    if (code != 200) Serial.printf("Failed to void RFID payment: %d\n", code);
+    else Serial.println("RFID payment voided/refunded (dispense failed)");
+}
+
 // Round-robin across the 4 motors, skipping any that are already empty.
 // Returns true if a motor fired, false if every hopper is empty.
 bool dispenseFromNextAvailableMotor(String productId, String paymentId) {
@@ -893,6 +1041,7 @@ bool dispenseFromNextAvailableMotor(String productId, String paymentId) {
 
             writeMotorStock(idx, stock - 1);
             nextMotorIndex = (idx + 1) % MOTOR_COUNT;
+            writeNextMotorIndex(nextMotorIndex);
 
             syncTotalStockToServer(productId);
             reportDispenseMotor(paymentId, idx);
@@ -913,12 +1062,24 @@ void dispenseSequence(String productId, String paymentId) {
     digitalWrite(BLUE_LED_PIN, HIGH);
     delay(2900);
 
-    dispenseFromNextAvailableMotor(productId, paymentId);
+    bool dispensed = dispenseFromNextAvailableMotor(productId, paymentId);
 
-    lcdMsg("Please Collect", "Your Napkin");
-    delay(3000);
-    lcdMsg("Thank You!", "");
-    delay(3000);
+    if (dispensed) {
+        lcdMsg("Please Collect", "Your Napkin");
+        delay(3000);
+        lcdMsg("Thank You!", "");
+        delay(3000);
+    } else {
+        // The backend already charged/deducted this tap before we got here
+        // (dispenseFromNextAvailableMotor() only returns false when this
+        // machine's own EEPROM stock is exhausted — a real, detectable
+        // failure, distinct from a jam/mechanical fault which no sensor
+        // here can catch) — refund it rather than silently keeping the
+        // customer's money for a napkin they never got.
+        voidRfidPayment(paymentId);
+        lcdMsg("Dispense Failed", "Refunded");
+        delay(3000);
+    }
 
     sendStockAwareStatus();
 }
@@ -1079,6 +1240,7 @@ void setup() {
 
     initializeWatchdog();
     EEPROM.begin(EEPROM_SIZE);  // opened once — all helpers assume this is already done
+    nextMotorIndex = readNextMotorIndex();  // resume round-robin where it left off before any power loss/reboot
 
     pinMode(WIFI_RESET_BUTTON_PIN, INPUT_PULLUP);
     for (uint8_t i = 0; i < MOTOR_COUNT; i++) {
@@ -1101,12 +1263,28 @@ void setup() {
     Serial.printf("RFID reader version: 0x%02X %s\n", rfidVersion,
                   (rfidVersion == 0x00 || rfidVersion == 0xFF) ? "(NOT DETECTED - check wiring)" : "(OK)");
 
-    getMACAddress();
+    getMACAddress();   // still needed — backend identifies the machine by MAC
 
-#ifdef USE_ETHERNET
+    // ---- ETHERNET-ONLY: keep trying until the cable/network is up. ----
+    // Ethernet gets 5 attempts, showing progress on the LCD. If it still
+    // isn't up after that, fall back to WiFi (saved credentials, or
+    // provisioning mode if none are saved) instead of giving up entirely.
     Serial.println("Attempting Ethernet connection...");
-    feedWatchdog();
-    if (initializeEthernet()) {
+    lcdMsg("Connecting...", "Please wait");
+    bool ethernetUp = false;
+    for (int ethAttempt = 1; ethAttempt <= 5; ethAttempt++) {
+        if (initializeEthernet()) {
+            ethernetUp = true;
+            break;
+        }
+        Serial.printf("Ethernet not ready (attempt %d/5) - retrying...\n", ethAttempt);
+        lcdMsg("Connecting...", "Check LAN cable");
+        feedWatchdog();
+        delay(3000);
+        feedWatchdog();
+    }
+
+    if (ethernetUp) {
         Serial.println("Using Ethernet");
         fetchMachineInfoFromBackend(deviceMacAddress);
         fetchMachineProducts();
@@ -1116,9 +1294,9 @@ void setup() {
         sendStockAwareStatus();
         return;
     }
-    Serial.println("Ethernet not available, falling back to WiFi");
+
+    Serial.println("Ethernet not available after 5 attempts, falling back to WiFi");
     feedWatchdog();
-#endif
 
     String ssid = eepromReadStringSafe(0, 32);
     String password = eepromReadStringSafe(32, 64);
@@ -1166,6 +1344,7 @@ void loop() {
 
 #ifdef USE_ETHERNET
     checkEthernetLinkStatus();
+    checkForEthernetRecovery();
 #endif
 
     if (!provisioningMode && !useEthernet && millis() - lastWiFiCheck > 30000) {
