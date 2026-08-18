@@ -56,7 +56,7 @@ export const createVendingMachineSchema = z.object({
   mac_id: z.string().max(20).optional(),
   machine_type: z.string().max(50).optional(),
   product_type: z.string().max(100).optional(),
-  ip_address: z.string().max(45).optional(),
+  ip_address: z.string().trim().min(7, 'IP address is required').max(45),
   
   // Customer fields
   customer_id: z.string().max(50).optional(),

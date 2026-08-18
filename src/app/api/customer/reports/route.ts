@@ -201,22 +201,48 @@ function fitText(text: string, f: PDFFont, size: number, maxWidth: number): stri
   return t + '…';
 }
 
+// Ascent/descent of a font at a given size, derived from pdf-lib's real
+// glyph metrics rather than guessed — used to optically center text instead
+// of relying on hand-picked baseline offsets that drift apart whenever a
+// font size changes.
+function fontVerticalMetrics(f: PDFFont, size: number): { ascent: number; descent: number } {
+  const full = f.heightAtSize(size, { descender: true });
+  const ascent = f.heightAtSize(size, { descender: false });
+  return { ascent, descent: full - ascent };
+}
+
 function drawBrandHeader(page: PDFPage, boldFont: PDFFont, font: PDFFont, logoImage: PDFImage | null, sectionTitle: string) {
-  page.drawRectangle({ x: 0, y: PAGE_HEIGHT - HEADER_BAND_HEIGHT, width: PAGE_WIDTH, height: HEADER_BAND_HEIGHT, color: BRAND_PURPLE });
-  page.drawRectangle({ x: 0, y: PAGE_HEIGHT - HEADER_BAND_HEIGHT - 3, width: PAGE_WIDTH, height: 3, color: BRAND_ROSE });
+  const bandBottom = PAGE_HEIGHT - HEADER_BAND_HEIGHT;
+  const bandCenter = bandBottom + HEADER_BAND_HEIGHT / 2;
+
+  page.drawRectangle({ x: 0, y: bandBottom, width: PAGE_WIDTH, height: HEADER_BAND_HEIGHT, color: BRAND_PURPLE });
+  page.drawRectangle({ x: 0, y: bandBottom - 3, width: PAGE_WIDTH, height: 3, color: BRAND_ROSE });
 
   let textX = MARGIN;
   if (logoImage) {
     const logoSize = 32;
-    page.drawImage(logoImage, { x: MARGIN, y: PAGE_HEIGHT - HEADER_BAND_HEIGHT / 2 - logoSize / 2, width: logoSize, height: logoSize });
+    page.drawImage(logoImage, { x: MARGIN, y: bandCenter - logoSize / 2, width: logoSize, height: logoSize });
     textX = MARGIN + logoSize + 12;
   }
-  page.drawText('LYRA', { x: textX, y: PAGE_HEIGHT - 27, size: 16, font: boldFont, color: rgb(1, 1, 1) });
-  page.drawText('Vending Machine Network', { x: textX, y: PAGE_HEIGHT - 41, size: 8, font, color: rgb(0.90, 0.86, 0.98) });
+
+  // Two-line "LYRA / Vending Machine Network" lockup, centered as a block
+  // on the band's vertical center (same reference line the title below
+  // uses), with a fixed gap between the two baselines.
+  const nameSize = 16;
+  const subSize = 8;
+  const lineGap = 14;
+  const nameMetrics = fontVerticalMetrics(boldFont, nameSize);
+  const subMetrics = fontVerticalMetrics(font, subSize);
+  const nameY = bandCenter + (nameMetrics.ascent - lineGap - subMetrics.descent) / 2;
+  const subY = nameY - lineGap;
+  page.drawText('LYRA', { x: textX, y: nameY, size: nameSize, font: boldFont, color: rgb(1, 1, 1) });
+  page.drawText('Vending Machine Network', { x: textX, y: subY, size: subSize, font, color: rgb(0.90, 0.86, 0.98) });
 
   const titleSize = 13;
+  const titleMetrics = fontVerticalMetrics(boldFont, titleSize);
+  const titleY = bandCenter - (titleMetrics.ascent - titleMetrics.descent) / 2;
   const titleWidth = boldFont.widthOfTextAtSize(sectionTitle, titleSize);
-  page.drawText(sectionTitle, { x: PAGE_WIDTH - MARGIN - titleWidth, y: PAGE_HEIGHT - 36, size: titleSize, font: boldFont, color: rgb(1, 1, 1) });
+  page.drawText(sectionTitle, { x: PAGE_WIDTH - MARGIN - titleWidth, y: titleY, size: titleSize, font: boldFont, color: rgb(1, 1, 1) });
 }
 
 function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, totalPages: number, generatedAt: string) {

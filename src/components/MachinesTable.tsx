@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Search, Filter, Download, MapPin, AlertCircle,
@@ -85,6 +86,13 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
   const [deletingId, setDeletingId]       = useState<string | null>(null);
   const [sortBy, setSortBy]               = useState<keyof Machine>('name');
   const [sortDir, setSortDir]             = useState<'asc' | 'desc'>('asc');
+  // Per-motor stock breakdown tooltip, rendered via portal at fixed viewport
+  // coordinates — the table sits inside overflow-x-auto/overflow-hidden
+  // wrappers (needed for horizontal scroll + rounded corners), which also
+  // clip vertical overflow, so an absolutely-positioned tooltip anchored
+  // inside the row got its top edge cut off for rows near the top of the
+  // table. A portal escapes that clipping entirely.
+  const [motorTooltip, setMotorTooltip] = useState<{ top: number; right: number; above: boolean; stock: number[] } | null>(null);
 
   const customers = useMemo(() => {
     return Array.from(new Set(machines.map(m => m.customer_name).filter(Boolean))).sort();
@@ -389,7 +397,20 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                   {/* Stock */}
                   <td className="py-3.5 px-4 text-right hidden sm:table-cell">
                     {m.stock_level !== null ? (
-                      <div className={`relative inline-block ${m.motor_stock?.length ? 'group cursor-help' : ''}`}>
+                      <div
+                        className={`relative inline-block ${m.motor_stock?.length ? 'cursor-help' : ''}`}
+                        onMouseEnter={m.motor_stock?.length ? (e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const above = rect.top > 160; // enough room for the breakdown box above
+                          setMotorTooltip({
+                            top: above ? rect.top - 8 : rect.bottom + 8,
+                            right: window.innerWidth - rect.right,
+                            above,
+                            stock: m.motor_stock!,
+                          });
+                        } : undefined}
+                        onMouseLeave={m.motor_stock?.length ? () => setMotorTooltip(null) : undefined}
+                      >
                         <span
                           className="font-semibold text-sm"
                           style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#FBBF24' : 'white' }}
@@ -402,21 +423,6 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                             <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
                           )}
                         </span>
-
-                        {/* Per-motor breakdown tooltip — only present for quad-motor machines */}
-                        {m.motor_stock?.length ? (
-                          <div
-                            className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden flex-col gap-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs shadow-lg group-hover:flex"
-                            style={{ background: '#1A1030', border: '1px solid rgba(255,255,255,0.12)' }}
-                          >
-                            {m.motor_stock.map((s, i) => (
-                              <div key={i} className="flex items-center justify-between gap-4">
-                                <span style={{ color: 'rgba(255,255,255,0.45)' }}>M{i + 1}</span>
-                                <span className="font-semibold text-white">{s}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
                       </div>
                     ) : (
                       <span style={{ color: 'rgba(255,255,255,0.25)' }}>—</span>
@@ -503,6 +509,27 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             Next
           </button>
         </div>
+      )}
+
+      {motorTooltip && typeof document !== 'undefined' && createPortal(
+        <div
+          className="pointer-events-none fixed z-50 flex flex-col gap-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs shadow-lg"
+          style={{
+            top: motorTooltip.top,
+            right: motorTooltip.right,
+            transform: motorTooltip.above ? 'translateY(-100%)' : undefined,
+            background: '#1A1030',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          {motorTooltip.stock.map((s, i) => (
+            <div key={i} className="flex items-center justify-between gap-4">
+              <span style={{ color: 'rgba(255,255,255,0.45)' }}>M{i + 1}</span>
+              <span className="font-semibold text-white">{s}</span>
+            </div>
+          ))}
+        </div>,
+        document.body
       )}
     </div>
   );

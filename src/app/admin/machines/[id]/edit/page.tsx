@@ -41,14 +41,33 @@ export default async function EditMachinePage({ params }: { params: Promise<{ id
     .select('id, name')
     .order('name');
 
+  // Compute a live `asset_online` flag for UI (don't persist here)
+  const machineWithOnline = { ...machine } as any;
+  if (machineWithOnline?.last_ping) {
+    const lastPingTime = new Date(machineWithOnline.last_ping).getTime();
+    // Consider machine online if last ping within 10 minutes
+    machineWithOnline.asset_online = (Date.now() - lastPingTime) < 10 * 60 * 1000;
+  } else {
+    machineWithOnline.asset_online = false;
+  }
+
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Edit Machine</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update machine details and configuration</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Edit Machine</h1>
+            <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update machine details and configuration</p>
+          </div>
+          <div className="text-sm">
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${machineWithOnline.asset_online ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+              {machineWithOnline.asset_online ? 'Live & Online' : 'Offline'}
+            </span>
+          </div>
+        </div>
       </div>
       <Suspense fallback={null}>
-        <EditMachineForm machine={machine} organizations={organizations || []} />
+        <EditMachineForm machine={machineWithOnline} organizations={organizations || []} />
       </Suspense>
     </main>
   );

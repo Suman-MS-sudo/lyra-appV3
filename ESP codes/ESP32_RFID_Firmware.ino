@@ -659,7 +659,7 @@ void setup() {
     delay(1000);
 
     // RFID reader init (shares SPI bus, own CS/RST)
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, -1);
+    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, RFID_SS);
     rfid.PCD_Init();
     delay(50);
     byte rfidVersion = rfid.PCD_ReadRegister(MFRC522::VersionReg);

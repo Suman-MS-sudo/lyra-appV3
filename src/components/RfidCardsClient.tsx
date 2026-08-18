@@ -108,6 +108,7 @@ export default function RfidCardsClient({
   const [editMachineId, setEditMachineId] = useState('');
   const [editProductId, setEditProductId] = useState('');
   const [editName, setEditName] = useState('');
+  const [editUid, setEditUid] = useState('');
 
   const [topUpCredits, setTopUpCredits] = useState('');
   const [saving, setSaving] = useState(false);
@@ -160,6 +161,7 @@ export default function RfidCardsClient({
 
   function openEdit(card: RfidCard) {
     setEditCard(card);
+    setEditUid(card.uid);
     setEditName(card.holder_name || '');
     setEditOrgId(card.organization_id || '');
     setEditMachineId(card.machine_id || '');
@@ -169,12 +171,14 @@ export default function RfidCardsClient({
   async function submitEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editCard) return;
+    if (!editUid.trim()) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/rfid-cards/${editCard.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          uid: editUid.trim(),
           holder_name: editName.trim() || null,
           organization_id: editOrgId || null,
           machine_id: editMachineId || null,
@@ -488,6 +492,12 @@ export default function RfidCardsClient({
               <button onClick={() => setEditCard(null)}><X className="w-5 h-5" style={muted} /></button>
             </div>
             <form onSubmit={submitEdit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={muted}>Card UID (hex)</label>
+                <input value={editUid} onChange={e => setEditUid(e.target.value)} required
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white outline-none font-mono" style={inputStyle} />
+                <p className="text-xs mt-1" style={muted}>Only change this if the card was registered with the wrong UID — it must match what the reader scans.</p>
+              </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={muted}>Holder Name</label>
                 <input value={editName} onChange={e => setEditName(e.target.value)}

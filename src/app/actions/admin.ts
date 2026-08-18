@@ -13,6 +13,11 @@ export async function createVendingMachine(formData: FormData) {
   // Get selected product IDs
   const productIds = formData.getAll('product_ids').filter(id => id);
 
+  const ipAddress = (formData.get('ip_address') as string | null)?.trim();
+  if (!ipAddress) {
+    throw new Error('IP address is required when creating a machine');
+  }
+
   const machineData = {
     name: formData.get('name') as string,
     location: formData.get('location') as string,
@@ -23,7 +28,7 @@ export async function createVendingMachine(formData: FormData) {
     mac_id: formData.get('mac_id') as string || null,
     machine_type: formData.get('machine_type') as string || null,
     product_type: formData.get('product_type') as string || null,
-    ip_address: formData.get('ip_address') as string || null,
+    ip_address: ipAddress,
     firmware_version: formData.get('firmware_version') as string || null,
     rfid_enabled: formData.get('rfid_enabled') === 'true',
     body_type: (formData.get('body_type') as string) || 'single_motor',

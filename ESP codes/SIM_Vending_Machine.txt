@@ -1,0 +1,169 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <EEPROM.h>
+#include <SoftwareSerial.h>
+
+// LCD setup
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// SIM800L pins
+#define RX_PIN 7   // SIM800L TX → Arduino RX
+#define TX_PIN 8   // SIM800L RX → Arduino TX 
+SoftwareSerial sim800L(RX_PIN, TX_PIN);
+
+// Relay and inputs
+#define RELAY_PIN 6
+#define COIN_PIN 2
+#define RESET_PIN 4
+
+// EEPROM
+#define EEPROM_ADDR 0
+#define MAX_STOCK 25
+
+// Globals
+String smsBuffer;
+float receivedAmount = 0;
+unsigned long startTime = 0;
+bool waitingForBalance = false;
+int stock = 0;
+
+void setup() {
+    pinMode(RELAY_PIN, OUTPUT);
+    pinMode(COIN_PIN, INPUT);
+    pinMode(RESET_PIN, INPUT_PULLUP);
+    digitalWrite(RELAY_PIN, LOW);
+
+    lcd.init();
+    lcd.backlight();
+
+    // Load stock from EEPROM
+    stock = EEPROM.read(EEPROM_ADDR);
+    if (stock > MAX_STOCK) stock = MAX_STOCK;
+
+    showIdleMessage();
+
+    // Serial debug
+    Serial.begin(9600);
+
+    // SIM800L init
+    sim800L.begin(9600);
+    Serial.println("Initializing SIM800L...");
+    sim800L.println("AT");
+    waitForResponse();
+    sim800L.println("AT+CMGF=1"); // SMS text mode
+    waitForResponse();
+    sim800L.println("AT+CNMI=1,2,0,0,0"); // New SMS notify
+    waitForResponse();
+}
+
+void loop() {
+    // Reset stock
+    if (digitalRead(RESET_PIN) == LOW) {
+        stock = MAX_STOCK;
+        EEPROM.write(EEPROM_ADDR, stock);
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Stock Refilled");
+        delay(2000);
+        showIdleMessage();
+    }
+
+    // Coin input
+    if (digitalRead(COIN_PIN) == HIGH) {
+        processPayment(5.0); // Coin always Rs.5
+        delay(500); // debounce
+    }
+
+    // SMS input
+    while (sim800L.available()) {
+        smsBuffer = sim800L.readString();
+        Serial.println("Raw SMS Data:");
+        Serial.println(smsBuffer);
+
+        float amount = extractAmount(smsBuffer);
+        if (amount > 0) {
+            processPayment(amount);
+        }
+    }
+
+    // Timeout for partial payments
+    if (waitingForBalance && (millis() - startTime > 120000)) {
+        Serial.println("Balance timeout. Resetting.");
+        receivedAmount = 0;
+        waitingForBalance = false;
+    }
+}
+
+void processPayment(float amount) {
+    receivedAmount += amount;
+    Serial.print("Total received: Rs. ");
+    Serial.println(receivedAmount);
+
+    if (receivedAmount >= 5) {
+        dispenseItem();
+        receivedAmount = 0;
+        waitingForBalance = false;
+    } else if (!waitingForBalance) {
+        waitingForBalance = true;
+        startTime = millis();
+        Serial.println("Waiting for remaining balance...");
+    }
+}
+
+float extractAmount(String message) {
+    if (message.indexOf("Rs.5") != -1 || message.indexOf("INR 5") != -1) return 5.0;
+    if (message.indexOf("Rs.4") != -1 || message.indexOf("INR 4") != -1) return 4.0;
+    if (message.indexOf("Rs.3") != -1 || message.indexOf("INR 3") != -1) return 3.0;
+    if (message.indexOf("Rs.2") != -1 || message.indexOf("INR 2") != -1) return 2.0;
+    if (message.indexOf("Rs.1") != -1 || message.indexOf("INR 1") != -1) return 1.0;
+    return 0;
+}
+
+void dispenseItem() {
+    if (stock <= 0) {
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("Out of Stock!");
+        Serial.println("Cannot vend: stock empty.");
+        delay(3000);
+        showIdleMessage();
+        return;
+    }
+
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Payment Received");
+    Serial.println("Dispensing...");
+
+    digitalWrite(RELAY_PIN, HIGH);
+    delay(3000);
+    digitalWrite(RELAY_PIN, LOW);
+
+    stock--;
+    EEPROM.write(EEPROM_ADDR, stock);
+
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Please Collect");
+    lcd.setCursor(0,1);
+    lcd.print("The Napkin");
+    delay(3000);
+
+    showIdleMessage();
+}
+
+void showIdleMessage() {
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Lyra Enterprises");
+    lcd.setCursor(0,1);
+    lcd.print("Stock: ");
+    lcd.print(stock);
+}
+
+void waitForResponse() {
+    delay(500);
+    while (sim800L.available()) {
+        Serial.println(sim800L.readString());
+    }
+}

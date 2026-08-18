@@ -177,12 +177,13 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
 
           <div>
             <label htmlFor="ip_address" className="block text-sm font-medium text-gray-700 mb-2">
-              IP Address
+              IP Address <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               id="ip_address"
               name="ip_address"
+              required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., 192.168.1.100"
             />

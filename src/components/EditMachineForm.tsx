@@ -24,6 +24,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
     name: machine.name || '',
     machine_id: machine.machine_id || '',
     mac_id: machine.mac_id || '',
+    ip_address: machine.ip_address || '',
     location: machine.location || '',
     status: machine.status || 'offline',
     machine_type: machine.machine_type || '',
@@ -49,15 +50,29 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update machine');
+        const data = await response.json().catch(() => ({}));
+        let message = 'Failed to update machine';
+        if (data) {
+          if (typeof data.error === 'string') message = data.error;
+          else if (data.error && typeof data.error.message === 'string') message = data.error.message;
+          else if (typeof data.message === 'string') message = data.message;
+          else {
+            try {
+              message = JSON.stringify(data);
+            } catch (e) {
+              message = String(data);
+            }
+          }
+        }
+        throw new Error(message);
       }
 
       alert('Machine updated successfully!');
       router.push(machinesListHref);
       router.refresh();
     } catch (err: any) {
-      setError(err.message);
+      const message = (err && err.message) ? err.message : String(err);
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -119,6 +134,21 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               placeholder="e.g., C0:CD:D6:84:85:DC"
             />
             <p className="mt-1 text-xs text-gray-500">Format: XX:XX:XX:XX:XX:XX</p>
+          </div>
+
+          {/* IP Address */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              IP Address
+            </label>
+            <input
+              type="text"
+              value={formData.ip_address}
+              onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+              placeholder="e.g., 192.168.1.100"
+            />
+            <p className="mt-1 text-xs text-gray-500">Optional while editing; IP is required when creating a new machine.</p>
           </div>
 
           {/* Location */}

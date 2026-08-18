@@ -53,7 +53,7 @@
 // Comment out USE_ETHERNET to build WiFi-only. When enabled, Ethernet is
 // tried first at boot; if no hardware/cable is detected it falls back to
 // WiFi automatically, so this is safe to leave on for WiFi-only machines too.
-#define USE_ETHERNET
+// #define USE_ETHERNET  // DISABLED: Using WiFi only for now
 #ifdef USE_ETHERNET
 // REQUIRES library-side fixes (none of these can be done from the sketch
 // with a #define — each lives in a separately-compiled library .cpp/.h, so
@@ -135,7 +135,20 @@ String machineName = "UNKNOWN";
 String defaultProductId = "";
 unsigned long lastPingTime = 0;
 unsigned long lastWiFiCheck = 0;
+unsigned long lastMachineResolve = 0;
 unsigned long wifiReconnectAttempts = 0;
+
+// The MFRC522 has been observed to silently stop responding to
+// PICC_RequestA (i.e. rfid.PICC_IsNewCardPresent() never returns true
+// again for any card) after a long idle period, with no error anywhere —
+// SPI communication, networking, and everything else in loop() keeps
+// working fine the whole time. PCD_Init() is a cheap soft reset (a handful
+// of register writes, no meaningful blocking delay when the reader isn't
+// already held in hardware power-down), so re-running it periodically as a
+// background "keep-alive" is a safe, standard fix for this MFRC522
+// behavior rather than requiring a manual reboot to recover.
+unsigned long lastRfidReinit = 0;
+#define RFID_REINIT_INTERVAL 300000  // 5 minutes
 
 bool useEthernet = false;
 bool ethernetConnected = false;
@@ -155,7 +168,9 @@ unsigned long lastEthernetRecoveryCheck = 0;
 #define ETHERNET_RECOVERY_CHECK_INTERVAL 60000
 #endif
 
-#define TESTING_LOCAL
+// Production is the default. Only enable LOCAL_DEV_SERVER when the board is
+// intended to talk to a local Next.js instance on your LAN.
+// #define TESTING_LOCAL
 #ifdef TESTING_LOCAL
 String SERVER_BASE = "https://192.168.29.33";
 // UIPEthernet can't do TLS, so Ethernet requests go through the plain-HTTP
@@ -233,6 +248,27 @@ String extractJsonFromString(const String &s) {
 String apiUrl(const String& path) {
     if (useEthernet && ethernetConnected) return ETHERNET_SERVER_BASE + path;
     return SERVER_BASE + path;
+}
+
+void reinitializeRfidReader() {
+    pinMode(RFID_SS, OUTPUT);
+    digitalWrite(RFID_SS, HIGH);
+    pinMode(RFID_RST, OUTPUT);
+    digitalWrite(RFID_RST, HIGH);
+
+#ifdef USE_ETHERNET
+    pinMode(ETHERNET_CS, OUTPUT);
+    digitalWrite(ETHERNET_CS, HIGH);
+#endif
+
+    SPI.end();
+    delay(20);
+    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, RFID_SS);
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+    SPI.setFrequency(500000);
+    rfid.PCD_Init();
+    delay(50);
 }
 
 // ==================== EEPROM FUNCTIONS ====================
@@ -369,7 +405,10 @@ void lcdMsg(const String& line0, const String& line1) {
 
 void sendStockAwareStatus() {
     int stock = readMotorStockFromEEPROM();
-    if (stock <= 0) {
+    if (machineId == "UNKNOWN" || machineId.length() == 0) {
+        lcdMsg("Machine Unregistered", "Contact Admin");
+        Serial.println("Status: Machine unregistered");
+    } else if (stock <= 0) {
         lcdMsg("Out of Stock", "Please wait...");
         Serial.println("Status: Out of stock");
     } else if (isNetworkConnected()) {
@@ -733,6 +772,7 @@ void checkForEthernetRecovery() {
     Serial.println("Probing for LAN recovery...");
     if (initializeEthernet()) {
         Serial.println("LAN recovered - switching to Ethernet");
+        reinitializeRfidReader();
 
         if (provisioningMode) {
             // Was sitting in WiFi setup mode (its own AP, waiting to be
@@ -881,6 +921,11 @@ void fetchMachineProducts() {
 }
 
 void sendMachineStatusPing() {
+    if (machineId == "UNKNOWN" || machineId.length() == 0) {
+        Serial.println("Skipping machine ping: machine ID not resolved yet");
+        return;
+    }
+
     int currentStock = readMotorStockFromEEPROM();
 
     String payload;
@@ -983,6 +1028,19 @@ String readRfidUid() {
 void handleRfidTap(const String& uid) {
     Serial.println("\nRFID tap detected: " + uid);
 
+    // Ensure we have a resolved machine ID before attempting a payment
+    if (machineId == "UNKNOWN" || machineId.length() == 0) {
+        Serial.println("Machine ID unknown; resolving via MAC...");
+        fetchMachineInfoFromBackend(deviceMacAddress);
+        if (machineId == "UNKNOWN" || machineId.length() == 0) {
+            Serial.println("Failed to resolve machine ID; aborting RFID payment");
+            lcdMsg("Machine Unregistered", "Contact Admin");
+            delay(2000);
+            sendStockAwareStatus();
+            return;
+        }
+    }
+
     if (!isNetworkConnected()) {
         lcdMsg("Network Error", "Try again");
         delay(2000);
@@ -1010,6 +1068,7 @@ void handleRfidTap(const String& uid) {
     String responseBody;
     int code = makeHTTPRequest(apiUrl("/api/rfid-payment"), "POST", payload, &responseBody);
     Serial.printf("RFID payment response code: %d\n", code);
+    Serial.println("RFID payment response body: " + responseBody);
 
     if (code == 200) {
         DynamicJsonDocument doc(768);
@@ -1135,12 +1194,75 @@ void setup() {
     lcdMsg("Lyra Vending", String(CURRENT_FIRMWARE_VERSION));
     delay(1000);
 
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, -1);
-    rfid.PCD_Init();
-    delay(50);
-    byte rfidVersion = rfid.PCD_ReadRegister(MFRC522::VersionReg);
-    Serial.printf("RFID reader version: 0x%02X %s\n", rfidVersion,
-                  (rfidVersion == 0x00 || rfidVersion == 0xFF) ? "(NOT DETECTED - check wiring)" : "(OK)");
+    // CRITICAL: Power-on stabilization for MFRC522
+    // The chip's crystal oscillator needs extended settle time after power-on.
+    // Even with stable 3.3V, the internal clock may not be ready for SPI immediately.
+    Serial.println("Waiting for MFRC522 power-on stabilization...");
+    delay(1000);  // 1 full second — let oscillator fully stabilize
+
+    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, RFID_SS);
+    SPI.setFrequency(500000);  // 500kHz — required for stable MFRC522 communication
+    delay(500);
+
+    // Aggressive RFID initialization with retries
+    Serial.println("Initializing RFID reader with extended timing...");
+    byte rfidVersion = 0x00;
+    bool rfidInitSuccess = false;
+
+    for (int rfidAttempt = 0; rfidAttempt < 10; rfidAttempt++) {
+        Serial.printf("RFID init attempt %d/10...\n", rfidAttempt + 1);
+        
+        // Hard reset: extended timing for complete chip restart
+        pinMode(RFID_RST, OUTPUT);
+        digitalWrite(RFID_RST, LOW);
+        Serial.println("  RST LOW...");
+        delay(500);  // Hold RST low for 500ms
+        digitalWrite(RFID_RST, HIGH);
+        Serial.println("  RST HIGH...");
+        delay(500);  // Wait 500ms after releasing RST — let chip stabilize
+        
+        // Soft init
+        Serial.println("  PCD_Init()...");
+        rfid.PCD_Init();
+        delay(200);
+        rfid.PCD_AntennaOn();
+        delay(200);
+        
+        // Try reading version register multiple times with delays
+        Serial.println("  Reading version register...");
+        for (int verAttempt = 0; verAttempt < 3; verAttempt++) {
+            delay(100);
+            rfidVersion = rfid.PCD_ReadRegister(MFRC522::VersionReg);
+            Serial.printf("    Attempt %d: 0x%02X\n", verAttempt + 1, rfidVersion);
+            
+            if (rfidVersion != 0x00 && rfidVersion != 0xFF) {
+                Serial.println("RFID reader detected!");
+                rfidInitSuccess = true;
+                break;
+            }
+        }
+        
+        if (rfidInitSuccess) break;
+        
+        delay(1000);  // Wait 1 second between retry attempts
+    }
+
+    if (!rfidInitSuccess) {
+        Serial.println("RFID reader FAILED to initialize after 5 attempts.");
+        Serial.println("Diagnostics:");
+        Serial.printf("  Final version register: 0x%02X\n", rfidVersion);
+        Serial.println("  Check: 3.3V power, GND continuity, SPI wiring (GPIO18/19/23/15/27)");
+        Serial.println("  Try: reflash firmware, swap MFRC522 module, check for cold solder joints");
+        lcdMsg("RFID Error", "See serial");
+    } else {
+        Serial.println("RFID reader initialized successfully");
+
+        // Configure antenna gain for reliable card detection.
+        // This library version uses a raw 0x07 value for maximum gain,
+        // which is the safe MFRC522-compatible form across versions.
+        rfid.PCD_SetAntennaGain(0x07);
+        Serial.println("Antenna gain set to maximum (0x07)");
+    }
 
     getMACAddress();
 
@@ -1170,6 +1292,7 @@ void setup() {
 
     if (ethernetReady) {
         Serial.println("Using Ethernet");
+        reinitializeRfidReader();
         fetchMachineInfoFromBackend(deviceMacAddress);
         fetchMachineProducts();
         feedWatchdog();
@@ -1178,6 +1301,7 @@ void setup() {
         sendStockAwareStatus();
         return;
     }
+    reinitializeRfidReader();
     Serial.println("Ethernet not available after 3 attempts, falling back to WiFi");
     feedWatchdog();
 #endif
@@ -1259,6 +1383,84 @@ void loop() {
             Serial.println("Stock: " + String(readMotorStockFromEEPROM()));
         } else if (command == "dispense") {
             dispenseProductByMotor(defaultProductId);
+        } else if (command == "rfid-test") {
+            Serial.println("\n=== RFID DIAGNOSTIC TEST ===");
+
+            byte ver = rfid.PCD_ReadRegister(MFRC522::VersionReg);
+            Serial.printf("Version Register: 0x%02X", ver);
+            if (ver == 0x15 || ver == 0x11 || ver == 0x16) Serial.println(" (Valid)");
+            else if (ver == 0x00 || ver == 0xFF) Serial.println(" (DEAD - check power/wiring)");
+            else Serial.println(" (Unknown)");
+
+            if (ver == 0x00 || ver == 0xFF) {
+                Serial.println("\nFAILURE: RFID module not responding");
+                Serial.println("Troubleshooting:");
+                Serial.println("  1. Verify 3.3V power supply (use multimeter on MFRC522 VCC/GND pins)");
+                Serial.println("  2. Check SPI wiring: SCK=18, MISO=19, MOSI=23, SS=15, RST=27");
+                Serial.println("  3. Inspect for cold solder joints on MFRC522 module");
+                Serial.println("  4. Try swapping MFRC522 module");
+            } else {
+                Serial.println("\nRFID module responsive - testing card detection...");
+
+                rfid.PCD_AntennaOn();
+                rfid.PCD_SetAntennaGain(0x07);
+                Serial.println("Antenna gain set to maximum (0x07)");
+
+                Serial.println("Waiting for card (30 seconds, tap card near reader)...");
+                unsigned long testStart = millis();
+                bool cardFound = false;
+                int loopCount = 0;
+
+                while (millis() - testStart < 30000) {
+                    SPI.setFrequency(500000);
+                    loopCount++;
+
+                    if (rfid.PICC_IsNewCardPresent()) {
+                        Serial.println("\n>> CARD FIELD DETECTED (attempt " + String(loopCount) + ") <<");
+                        if (rfid.PICC_ReadCardSerial()) {
+                            String uid = readRfidUid();
+                            Serial.println("UID: " + uid);
+                            byte sak = rfid.uid.sak;
+                            Serial.printf("Card type (SAK): 0x%02X\n", sak);
+                            rfid.PICC_HaltA();
+                            rfid.PCD_StopCrypto1();
+                            cardFound = true;
+                            break;
+                        }
+                    }
+
+                    delay(200);
+                    unsigned long elapsed = millis() - testStart;
+                    if (elapsed % 3000 < 200) Serial.print(".");
+                }
+
+                if (!cardFound) {
+                    Serial.println("\nNo card detected after 30 seconds.");
+                    Serial.println("Troubleshooting:");
+                    Serial.println("  1. Tap card firmly against antenna coil (near the IC pins)");
+                    Serial.println("  2. Reader should beep/click when card is near (if piezo attached)");
+                    Serial.println("  3. Check antenna coil solder joints and continuity (ohm meter)");
+                    Serial.println("  4. Verify card is MIFARE Classic (13.56 MHz NFC) — not Desfire/other type");
+                    Serial.println("  5. Try a different card to rule out card failure");
+                    Serial.println("  6. Verify antenna gain applied correctly (0x07 above)");
+                } else {
+                    Serial.println("\nCard detection test PASSED!");
+                }
+            }
+            Serial.println("============================\n");
+        } else if (command == "rfid-reset") {
+
+        } else if (command == "rfid-reset") {
+            Serial.println("Force resetting RFID reader...");
+            pinMode(RFID_RST, OUTPUT);
+            digitalWrite(RFID_RST, LOW);
+            delay(200);
+            digitalWrite(RFID_RST, HIGH);
+            delay(200);
+            rfid.PCD_Init();
+            rfid.PCD_AntennaOn();
+            byte ver = rfid.PCD_ReadRegister(MFRC522::VersionReg);
+            Serial.printf("After reset - Version: 0x%02X\n", ver);
 #ifdef USE_ETHERNET
         } else if (command == "diag") {
             printEthernetDiagnostics();
@@ -1295,14 +1497,76 @@ void loop() {
         lastPingTime = millis();
     }
 
+    if (millis() - lastMachineResolve > 30000 && isNetworkConnected()) {
+        if (machineId == "UNKNOWN" || machineId.length() == 0) {
+            Serial.println("Retrying machine registration lookup...");
+            fetchMachineInfoFromBackend(deviceMacAddress);
+            if (machineId != "UNKNOWN" && machineId.length() > 0) {
+                fetchMachineProducts();
+            }
+        }
+        lastMachineResolve = millis();
+    }
+
+    if (millis() - lastRfidReinit > 30000) {
+        lastRfidReinit = millis();
+        byte rfidVersion = rfid.PCD_ReadRegister(MFRC522::VersionReg);
+        if (rfidVersion == 0x00 || rfidVersion == 0xFF) {
+            Serial.println("RFID reader unhealthy (0x00/0xFF); forcing hard reinit...");
+            reinitializeRfidReader();
+        } else {
+            rfid.PCD_Init();
+            rfid.PCD_AntennaOn();
+        }
+    }
+
     static unsigned long lastTapMs = 0;
     if (millis() - lastTapMs > 1500) {
-        if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-            String uid = readRfidUid();
-            rfid.PICC_HaltA();
-            rfid.PCD_StopCrypto1();
-            lastTapMs = millis();
-            handleRfidTap(uid);
+        // Enforce stable 500kHz SPI frequency before every card detection attempt
+        // The MFRC522 is sensitive to SPI speed changes during operation
+        SPI.setFrequency(500000);
+        
+        // Check reader health before attempting to read
+        static byte lastHealthCheck = 0xFF;
+        byte currentHealth = rfid.PCD_ReadRegister(MFRC522::VersionReg);
+        if (currentHealth == 0x00 || currentHealth == 0xFF) {
+            if (lastHealthCheck != currentHealth) {
+                Serial.printf("RFID reader dead (0x%02X) - will retry after next scheduled reinit\n", currentHealth);
+                lastHealthCheck = currentHealth;
+            }
+        } else if (lastHealthCheck != currentHealth) {
+            Serial.printf("RFID reader recovered (0x%02X)\n", currentHealth);
+            lastHealthCheck = currentHealth;
+        }
+
+        // Ensure antenna is on before attempting card detection
+        static unsigned long lastAntennaCheck = 0;
+        if (millis() - lastAntennaCheck > 10000) {
+            rfid.PCD_AntennaOn();
+            rfid.PCD_SetAntennaGain(0x07);
+            lastAntennaCheck = millis();
+        }
+
+        if (rfid.PICC_IsNewCardPresent()) {
+            if (rfid.PICC_ReadCardSerial()) {
+                String uid = readRfidUid();
+                if (uid.length() > 0) {
+                    Serial.println(">> CARD TAP DETECTED - UID: " + uid);
+                    rfid.PICC_HaltA();
+                    rfid.PCD_StopCrypto1();
+                    lastTapMs = millis();
+                    handleRfidTap(uid);
+                } else {
+                    Serial.println(">> Card field detected but UID was empty; resetting reader");
+                    rfid.PICC_HaltA();
+                    rfid.PCD_StopCrypto1();
+                    rfid.PCD_Init();
+                    rfid.PCD_AntennaOn();
+                    rfid.PCD_SetAntennaGain(0x07);
+                }
+            } else {
+                Serial.println(">> Card field present but ReadCardSerial() failed");
+            }
         }
     }
 }

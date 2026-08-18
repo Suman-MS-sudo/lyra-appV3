@@ -29,7 +29,7 @@ async function requireAdmin() {
 // reassign customer/machine/product, or settle a postpaid card's accrued tab.
 // Body may include any of: top_up_credits (prepaid: adds to credits_remaining),
 // settle_tab (postpaid: zeroes vend_count/total_spent_paisa once billed),
-// holder_name, is_active, organization_id, machine_id, product_id
+// uid, holder_name, is_active, organization_id, machine_id, product_id
 // (pass null/'' on the assignment fields to clear them)
 export async function PATCH(
   request: NextRequest,
@@ -40,9 +40,15 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { top_up_credits, settle_tab, holder_name, is_active, organization_id, machine_id, product_id } = body;
+  const { uid, top_up_credits, settle_tab, holder_name, is_active, organization_id, machine_id, product_id } = body;
 
   const updates: Record<string, unknown> = {};
+  if (uid !== undefined) {
+    if (!String(uid).trim()) {
+      return NextResponse.json({ error: 'uid cannot be empty' }, { status: 400 });
+    }
+    updates.uid = String(uid).trim().toUpperCase();
+  }
   if (holder_name !== undefined) updates.holder_name = holder_name;
   if (is_active !== undefined) updates.is_active = is_active;
   if (organization_id !== undefined) updates.organization_id = organization_id || null;
@@ -79,7 +85,12 @@ export async function PATCH(
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json({ error: 'A card with this UID already exists' }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ card });
 }
 
