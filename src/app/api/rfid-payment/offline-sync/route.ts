@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
 
 const MAX_BATCH_SIZE = 100;
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function syncOne(supabase: ReturnType<typeof createClient>, machineId: string, tx: OfflineTransaction): Promise<SyncResult> {
+async function syncOne(supabase: SupabaseClient<any, any, any, any, any>, machineId: string, tx: OfflineTransaction): Promise<SyncResult> {
   if (!tx.client_tx_id || !tx.card_uid || !tx.product_id) {
     return { client_tx_id: tx.client_tx_id || 'unknown', status: 'error', error_code: 'MISSING_FIELDS' };
   }
