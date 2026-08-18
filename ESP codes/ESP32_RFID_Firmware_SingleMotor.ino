@@ -575,6 +575,31 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
     while (ethClient.available() == 0) {
         if (millis() > timeout) {
             ethClient.stop();
+            // Stopping a connection exactly at a response timeout can leave
+            // the ENC28J60/uIP stack still mid-teardown of this PCB. A
+            // connect() fired immediately after (e.g. the very next call in
+            // setup()/loop(), with no other delay in between) can then walk
+            // a stale/half-freed connection slot and crash with
+            // Guru Meditation Error: StoreProhibited (EXCVADDR 0x10) —
+            // observed in the field right after a timed-out offline-sync
+            // POST was immediately followed by the status ping's connect().
+            delay(250);
+
+            // A connect() that succeeds but then never gets a response
+            // within 5s means something downstream of the link is actually
+            // broken (proxy down, routing black hole, etc.) even though
+            // DHCP/link-state still look fine — Ethernet.linkStatus() and
+            // checkEthernetLinkStatus()'s IP check can't see this kind of
+            // failure at all. Treat it the same as a connect() failure
+            // below: drop ethernetConnected/useEthernet so isNetworkConnected()
+            // correctly reports offline (routing the next RFID tap straight
+            // to handleOfflineRfidTap() instead of stalling another 5s on a
+            // doomed online attempt) and so checkForEthernetRecovery() picks
+            // up the reconnect job instead of the machine silently retrying
+            // "online" requests that keep timing out forever.
+            ethernetConnected = false;
+            useEthernet = false;
+            sendStockAwareErrorStatus();
             return -1;
         }
     }
@@ -608,6 +633,18 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
     }
 
     ethClient.stop();
+    // Same settle-time reasoning as the timeout branch above: callers here
+    // routinely chain several requests back-to-back with zero gap (e.g.
+    // setup()'s fetchMachineInfoFromBackend -> fetchMachineProducts ->
+    // syncCardsFromServer -> syncQueueToServer). Each success here still
+    // just called stop() on THIS connection microseconds before the caller
+    // fires the NEXT connect() — observed in the field as the 3rd or 4th
+    // request in such a chain (typically the largest payload) failing to
+    // even establish a TCP connection ("Failed!") right after several
+    // rapid successful req/response/stop cycles on the same ENC28J60/uIP
+    // stack, which apparently needs a moment to fully release each
+    // connection's resources before it can reliably open the next one.
+    delay(100);
     return code;
 }
 
@@ -789,6 +826,16 @@ void checkForEthernetRecovery() {
 
         fetchMachineInfoFromBackend(deviceMacAddress);
         fetchMachineProducts();
+        // sendMachineStatusPing() is the ONLY call that updates
+        // asset_online/last_ping in the DB — the dashboards read that, not
+        // ethernetConnected. Without pinging here, the server keeps
+        // showing this machine offline until the next scheduled periodic
+        // ping in loop() happens to fire, even though the machine is
+        // genuinely back online and dispensing again right now. Mirrors
+        // the same immediate ping setup() does after its initial connect.
+        feedWatchdog();
+        sendMachineStatusPing();
+        lastPingTime = millis();
         sendStockAwareStatus();
     }
 }
