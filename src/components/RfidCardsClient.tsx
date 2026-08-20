@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Nfc, Plus, RefreshCw, Wallet, Ban, CheckCircle2, Trash2, X, Receipt, Pencil } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Nfc, Plus, RefreshCw, Wallet, Ban, CheckCircle2, Trash2, X, Receipt, Pencil, Upload, Download } from 'lucide-react';
+import { parseCsv, toCsvBlob } from '@/lib/csv';
 
 type CardType = 'prepaid' | 'postpaid';
 
@@ -26,6 +27,11 @@ type RfidCard = {
 type Organization = { id: string; name: string };
 type Machine = { id: string; name: string; location: string; customer_id: string | null };
 type Product = { id: string; name: string; price: string };
+
+type ImportRowResult = { row: number; uid: string; status: 'created' | 'error'; error?: string };
+
+const CSV_TEMPLATE_HEADERS = ['uid', 'holder_name', 'card_type', 'initial_credits', 'organization', 'machine', 'product'];
+const CSV_TEMPLATE_EXAMPLE = ['A1B2C3D4', 'Jane Doe', 'prepaid', '50', '', '', ''];
 
 const card_style = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' };
 const muted = { color: 'rgba(255,255,255,0.45)' };
@@ -113,6 +119,14 @@ export default function RfidCardsClient({
   const [topUpCredits, setTopUpCredits] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const [showImport, setShowImport] = useState(false);
+  const [importFileName, setImportFileName] = useState('');
+  const [importRows, setImportRows] = useState<Record<string, string>[]>([]);
+  const [importParseError, setImportParseError] = useState('');
+  const [importResults, setImportResults] = useState<ImportRowResult[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   async function loadCards() {
     setLoading(true);
     setError('');
@@ -157,6 +171,77 @@ export default function RfidCardsClient({
     } finally {
       setSaving(false);
     }
+  }
+
+  function downloadCsvTemplate() {
+    const blob = toCsvBlob(CSV_TEMPLATE_HEADERS, [CSV_TEMPLATE_EXAMPLE]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'rfid-cards-import-template.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportResults(null);
+    setImportParseError('');
+    setImportFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { headers, rows } = parseCsv(String(reader.result || ''));
+        if (!headers.includes('uid')) {
+          setImportParseError('CSV must have a "uid" column header.');
+          setImportRows([]);
+          return;
+        }
+        if (rows.length === 0) {
+          setImportParseError('No data rows found in this file.');
+          setImportRows([]);
+          return;
+        }
+        setImportRows(rows);
+      } catch {
+        setImportParseError('Could not parse this file as CSV.');
+        setImportRows([]);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function submitImport() {
+    if (importRows.length === 0) return;
+    setImporting(true);
+    setImportParseError('');
+    try {
+      const res = await fetch('/api/rfid-cards/bulk-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: importRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
+      setImportResults(data.results);
+      loadCards();
+    } catch (e: any) {
+      setImportParseError(e.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function closeImportModal() {
+    setShowImport(false);
+    setImportFileName('');
+    setImportRows([]);
+    setImportParseError('');
+    setImportResults(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function openEdit(card: RfidCard) {
@@ -269,6 +354,13 @@ export default function RfidCardsClient({
             style={card_style}
           >
             <RefreshCw className="w-4 h-4" /> Refresh
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-white"
+            style={card_style}
+          >
+            <Upload className="w-4 h-4" /> Import CSV
           </button>
           <button
             onClick={() => setShowAdd(true)}
@@ -552,6 +644,129 @@ export default function RfidCardsClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Import CSV Modal */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
+          <div className="w-full max-w-lg rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid rgba(255,255,255,0.10)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Import RFID Cards from CSV</h3>
+              <button onClick={closeImportModal}><X className="w-5 h-5" style={muted} /></button>
+            </div>
+
+            {!importResults ? (
+              <div className="space-y-3">
+                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  Upload a CSV to register many cards at once — one row per employee. Only <span className="font-mono">uid</span> is required;
+                  everything else is optional and defaults the same way as adding a card by hand.
+                </p>
+                <button
+                  type="button"
+                  onClick={downloadCsvTemplate}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white"
+                  style={inputStyle}
+                >
+                  <Download className="w-4 h-4" /> Download CSV template
+                </button>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={muted}>CSV file</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={handleImportFile}
+                    className="w-full text-sm text-white file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:text-white"
+                    style={{ ...inputStyle, padding: '0.5rem' }}
+                  />
+                  <p className="text-xs mt-1" style={muted}>
+                    Columns: uid (required), holder_name, card_type (prepaid/postpaid), initial_credits, organization, machine, product.
+                    Organization/machine/product are matched by exact name — leave blank to leave a card unassigned.
+                  </p>
+                  <p className="text-xs mt-1" style={muted}>
+                    An existing employee-roster sheet works too — &quot;name&quot; and &quot;tag no&quot; are accepted in place of holder_name/uid,
+                    and the tag can be formatted like <span className="font-mono">aa:bb:CC;DD</span> (separators are stripped automatically).
+                    Any other columns (employee code, department, date of joining, etc.) are ignored, not an error.
+                  </p>
+                </div>
+
+                {importParseError && (
+                  <div className="px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.22)', color: '#FCA5A5' }}>
+                    {importParseError}
+                  </div>
+                )}
+
+                {importFileName && importRows.length > 0 && !importParseError && (
+                  <div className="px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(67,233,123,0.10)', border: '1px solid rgba(67,233,123,0.22)', color: '#43e97b' }}>
+                    {importFileName}: {importRows.length} row{importRows.length === 1 ? '' : 's'} ready to import.
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    disabled={importRows.length === 0 || importing}
+                    onClick={submitImport}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}
+                  >
+                    {importing ? 'Importing...' : `Import ${importRows.length || ''} Card${importRows.length === 1 ? '' : 's'}`}
+                  </button>
+                  <button type="button" onClick={closeImportModal}
+                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-white" style={inputStyle}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="flex-1 px-3 py-2 rounded-lg text-center" style={{ background: 'rgba(67,233,123,0.10)', border: '1px solid rgba(67,233,123,0.22)' }}>
+                    <p className="text-xl font-bold" style={{ color: '#43e97b' }}>
+                      {importResults.filter(r => r.status === 'created').length}
+                    </p>
+                    <p className="text-xs" style={muted}>Created</p>
+                  </div>
+                  <div className="flex-1 px-3 py-2 rounded-lg text-center" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)' }}>
+                    <p className="text-xl font-bold" style={{ color: '#FCA5A5' }}>
+                      {importResults.filter(r => r.status === 'error').length}
+                    </p>
+                    <p className="text-xs" style={muted}>Failed</p>
+                  </div>
+                </div>
+
+                {importResults.some(r => r.status === 'error') && (
+                  <div className="max-h-64 overflow-y-auto rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.10)' }}>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          <th className="text-left px-3 py-2 font-medium" style={muted}>Row</th>
+                          <th className="text-left px-3 py-2 font-medium" style={muted}>UID</th>
+                          <th className="text-left px-3 py-2 font-medium" style={muted}>Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importResults.filter(r => r.status === 'error').map(r => (
+                          <tr key={r.row} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <td className="px-3 py-2" style={muted}>{r.row}</td>
+                            <td className="px-3 py-2 font-mono text-white">{r.uid || '—'}</td>
+                            <td className="px-3 py-2" style={{ color: '#FCA5A5' }}>{r.error}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <button type="button" onClick={closeImportModal}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white"
+                  style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}>
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
+import { effectiveMonthlyCount, vendMonthOf } from '@/lib/rfid-monthly-cap';
 
 const MAX_BATCH_SIZE = 100;
 
@@ -25,6 +26,8 @@ type CardRow = {
   card_type: string;
   vend_count: number;
   total_spent_paisa: number;
+  monthly_vend_count: number;
+  monthly_vend_month: string | null;
 };
 
 /**
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
 
     const validTxs = batch.filter(tx => {
       if (tx.client_tx_id && tx.card_uid && tx.product_id) return true;
+      console.warn(`RFID offline sync: MISSING_FIELDS for tx ${tx.client_tx_id || 'unknown'} (card_uid="${tx.card_uid}", product_id="${tx.product_id}")`);
       results.push({ client_tx_id: tx.client_tx_id || 'unknown', status: 'error', error_code: 'MISSING_FIELDS' });
       return false;
     });
@@ -99,7 +103,7 @@ export async function POST(request: NextRequest) {
     const [{ data: cards }, { data: machineProducts }] = await Promise.all([
       supabase
         .from('rfid_cards')
-        .select('id, uid, credits_remaining, card_type, vend_count, total_spent_paisa')
+        .select('id, uid, credits_remaining, card_type, vend_count, total_spent_paisa, monthly_vend_count, monthly_vend_month')
         .in('uid', uids),
       supabase
         .from('machine_products')
@@ -131,12 +135,14 @@ export async function POST(request: NextRequest) {
       const uid = tx.card_uid.toUpperCase();
       const card = cardByUid.get(uid);
       if (!card) {
+        console.warn(`RFID offline sync: CARD_NOT_FOUND for tx ${tx.client_tx_id} (card_uid=${uid})`);
         results.push({ client_tx_id: tx.client_tx_id, status: 'error', error_code: 'CARD_NOT_FOUND' });
         continue;
       }
 
       const machineProduct = productByPid.get(tx.product_id);
       if (!machineProduct) {
+        console.warn(`RFID offline sync: PRODUCT_NOT_FOUND for tx ${tx.client_tx_id} (machine_id=${machine_id}, product_id="${tx.product_id}")`);
         results.push({ client_tx_id: tx.client_tx_id, status: 'error', error_code: 'PRODUCT_NOT_FOUND' });
         continue;
       }
@@ -162,6 +168,17 @@ export async function POST(request: NextRequest) {
       const dispensedAt = typeof tx.offline_ms_ago === 'number'
         ? new Date(Date.now() - tx.offline_ms_ago).toISOString()
         : new Date().toISOString();
+
+      // The tap was already allowed/refused by the machine's own local
+      // monthly counter at dispense time (see the firmware's
+      // handleOfflineRfidTap()) — this is pure bookkeeping to keep the
+      // server's count in sync, not a re-check, keyed off when the tap
+      // actually happened rather than "now" (a batch can span a month
+      // boundary if the machine was offline for a while).
+      const dispensedAtDate = new Date(dispensedAt);
+      const effectiveMonthly = effectiveMonthlyCount(card.monthly_vend_month, card.monthly_vend_count, dispensedAtDate);
+      card.monthly_vend_count = effectiveMonthly + 1;
+      card.monthly_vend_month = vendMonthOf(dispensedAtDate);
 
       pending.push({
         client_tx_id: tx.client_tx_id,
@@ -216,6 +233,10 @@ export async function POST(request: NextRequest) {
             } else {
               card.credits_remaining += 1;
             }
+            // Mirrors vend_count's simple -1 reversal above — precise as
+            // long as a retried batch doesn't itself straddle a month
+            // rollover, which the 5/month cap makes vanishingly unlikely.
+            card.monthly_vend_count = Math.max(0, card.monthly_vend_count - 1);
           }
         }
 
@@ -225,11 +246,13 @@ export async function POST(request: NextRequest) {
             const isPostpaid = card.card_type === 'postpaid';
             return supabase
               .from('rfid_cards')
-              .update(
-                isPostpaid
+              .update({
+                ...(isPostpaid
                   ? { vend_count: card.vend_count, total_spent_paisa: card.total_spent_paisa }
-                  : { credits_remaining: card.credits_remaining }
-              )
+                  : { credits_remaining: card.credits_remaining }),
+                monthly_vend_count: card.monthly_vend_count,
+                monthly_vend_month: card.monthly_vend_month,
+              })
               .eq('id', card.id);
           })
         );

@@ -3,11 +3,39 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
 
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+async function sendSetPasswordEmail(email: string) {
+  const { data, error } = await serviceSupabase.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`,
+    },
+  });
+
+  const resetLink = data?.properties?.action_link;
+  if (error || !resetLink) {
+    console.error('Failed to generate reset link:', error);
+    return;
+  }
+
+  const result = await sendEmail({
+    to: email,
+    subject: 'Set Your Lyra Enterprises Password',
+    html: generatePasswordResetEmailHTML(resetLink),
+    text: `Set your password by visiting this link: ${resetLink}\n\nThis link expires in 1 hour.`,
+  });
+
+  if (!result.success) {
+    console.error('Failed to send reset email:', result.error);
+  }
+}
 
 export async function createSuperCustomer(formData: FormData) {
   const email = formData.get('email') as string;
@@ -82,9 +110,7 @@ export async function createSuperCustomer(formData: FormData) {
     }
 
     // Send password reset email
-    await serviceSupabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`
-    });
+    await sendSetPasswordEmail(email);
 
     revalidatePath('/admin/super-customers');
     redirect('/admin/super-customers');
@@ -173,13 +199,7 @@ export async function createSuperCustomer(formData: FormData) {
   }
 
   // Send password reset email
-  const { error: resetError } = await serviceSupabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`
-  });
-
-  if (resetError) {
-    console.error('Password reset email error:', resetError);
-  }
+  await sendSetPasswordEmail(email);
 
   revalidatePath('/admin/super-customers');
   redirect('/admin/super-customers');
@@ -264,13 +284,7 @@ export async function createCustomerUser(formData: FormData) {
   }
 
   // Send password reset email
-  const { error: resetError } = await serviceSupabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`
-  });
-
-  if (resetError) {
-    console.error('Password reset email error:', resetError);
-  }
+  await sendSetPasswordEmail(email);
 
   revalidatePath('/super-customer/users');
   redirect('/super-customer/users');

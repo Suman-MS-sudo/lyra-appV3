@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
+import { MONTHLY_VEND_LIMIT, effectiveMonthlyCount } from '@/lib/rfid-monthly-cap';
 
 /**
  * GET /api/machine-cards-sync?machine_id=<uuid>
@@ -43,15 +44,17 @@ export async function GET(request: NextRequest) {
       return errorResponse('Machine not found', 'MACHINE_NOT_FOUND', 404);
     }
 
+    const CARD_FIELDS = 'uid, credits_remaining, is_active, card_type, product_id, monthly_vend_count, monthly_vend_month';
+
     let cardsQuery = supabase
       .from('rfid_cards')
-      .select('uid, credits_remaining, is_active, card_type, product_id')
+      .select(CARD_FIELDS)
       .eq('machine_id', machineId);
 
     if (machine.customer_id) {
       cardsQuery = supabase
         .from('rfid_cards')
-        .select('uid, credits_remaining, is_active, card_type, product_id')
+        .select(CARD_FIELDS)
         .or(`machine_id.eq.${machineId},and(machine_id.is.null,organization_id.eq.${machine.customer_id})`);
     }
 
@@ -61,7 +64,16 @@ export async function GET(request: NextRequest) {
       return errorResponse(cardsError.message, 'INTERNAL_ERROR', 500);
     }
 
-    return successResponse({ cards: cards || [] });
+    // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
+    // card_type — the machine enforces this itself while offline, so it
+    // needs the current remaining count, not the raw counter columns.
+    const now = new Date();
+    const cardsWithMonthly = (cards || []).map(({ monthly_vend_count, monthly_vend_month, ...rest }) => ({
+      ...rest,
+      monthly_remaining: Math.max(0, MONTHLY_VEND_LIMIT - effectiveMonthlyCount(monthly_vend_month, monthly_vend_count, now)),
+    }));
+
+    return successResponse({ cards: cardsWithMonthly });
   } catch (error) {
     console.error('❌ Error syncing machine cards:', error);
     return errorResponse('Internal server error', 'INTERNAL_ERROR', 500);

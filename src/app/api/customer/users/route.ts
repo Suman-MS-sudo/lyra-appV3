@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,16 +89,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send password reset email to user with proper redirect
+    // Send password reset email via our own SMTP (Supabase's built-in mailer is unreliable/unconfigured)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://localhost:443';
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/auth/callback?next=/reset-password`
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: { redirectTo: `${appUrl}/auth/callback?next=/reset-password` }
     });
 
-    if (resetError) {
-      console.error('Password reset email error:', resetError);
-      // Don't fail the request, just log the error
-      // User can still request password reset manually
+    const resetLink = linkData?.properties?.action_link;
+    if (linkError || !resetLink) {
+      console.error('Failed to generate reset link:', linkError);
+    } else {
+      const emailResult = await sendEmail({
+        to: email,
+        subject: 'Set Your Lyra Enterprises Password',
+        html: generatePasswordResetEmailHTML(resetLink),
+        text: `Set your password by visiting this link: ${resetLink}\n\nThis link expires in 1 hour.`,
+      });
+      if (!emailResult.success) {
+        console.error('Password reset email error:', emailResult.error);
+        // Don't fail the request, just log the error
+        // User can still request password reset manually
+      }
     }
 
     return NextResponse.json({

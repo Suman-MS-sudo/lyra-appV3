@@ -78,7 +78,7 @@ export async function createVendingMachine(formData: FormData) {
         machine_id: data.id,
         product_id: productId,
         stock: 0, // Default stock, can be updated later
-        price: '0.00', // Default price, can be updated later
+        price: null, // No override by default — payment routes fall back to the product's own price via `machineProduct.price ?? product.price`. An explicit 0 here would be treated as a real ₹0 price and fail rfid_payments' amount_in_paisa > 0 check.
         is_active: 1,
       }));
 

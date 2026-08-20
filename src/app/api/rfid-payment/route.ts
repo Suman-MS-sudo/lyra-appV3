@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
+import { MONTHLY_VEND_LIMIT, effectiveMonthlyCount, vendMonthOf } from '@/lib/rfid-monthly-cap';
 
 /**
  * RFID Payment API for ESP32
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Resolve the card
     const { data: card, error: cardError } = await supabase
       .from('rfid_cards')
-      .select('id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa, machine_id, product_id')
+      .select('id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa, machine_id, organization_id, product_id, monthly_vend_count, monthly_vend_month')
       .eq('uid', card_uid.toUpperCase())
       .single();
 
@@ -52,8 +53,39 @@ export async function POST(request: NextRequest) {
       return errorResponse('Card is inactive', 'CARD_INACTIVE', 403);
     }
 
-    if (card.machine_id && card.machine_id !== machine_id) {
-      return errorResponse('This card is not valid on this machine', 'WRONG_MACHINE', 403);
+    // A card locked to one machine must match it exactly. Otherwise, a card
+    // assigned to an organization is scoped to that organization's machines
+    // only (mirrors assertOwnsCard() in customer/rfid-cards/[id]/route.ts and
+    // the offline cache scoping in machine-cards-sync/route.ts). A card with
+    // neither set is a true "any machine" card.
+    if (card.machine_id) {
+      if (card.machine_id !== machine_id) {
+        return errorResponse('This card is not valid on this machine', 'WRONG_MACHINE', 403);
+      }
+    } else if (card.organization_id) {
+      const { data: machine, error: machineError } = await supabase
+        .from('vending_machines')
+        .select('customer_id')
+        .eq('id', machine_id)
+        .single();
+
+      if (machineError || !machine || machine.customer_id !== card.organization_id) {
+        return errorResponse('This card is not valid on this machine', 'WRONG_MACHINE', 403);
+      }
+    }
+
+    // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
+    // card_type — on top of, not instead of, credits/postpaid billing below.
+    const now = new Date();
+    const currentMonth = vendMonthOf(now);
+    const currentMonthlyCount = effectiveMonthlyCount(card.monthly_vend_month, card.monthly_vend_count, now);
+
+    if (currentMonthlyCount >= MONTHLY_VEND_LIMIT) {
+      return errorResponse(
+        `Monthly tap limit reached (${MONTHLY_VEND_LIMIT}/month)`,
+        'MONTHLY_LIMIT_REACHED',
+        429
+      );
     }
 
     // A product assigned to the card overrides whatever the request/machine default would resolve to
@@ -100,6 +132,8 @@ export async function POST(request: NextRequest) {
 
     let newCredits = card.credits_remaining;
 
+    const newMonthlyCount = currentMonthlyCount + 1;
+
     if (isPostpaid) {
       // No credit check — just tally usage for later billing.
       const { error: tallyError } = await supabase
@@ -107,6 +141,8 @@ export async function POST(request: NextRequest) {
         .update({
           vend_count: card.vend_count + 1,
           total_spent_paisa: card.total_spent_paisa + amountInPaisa,
+          monthly_vend_count: newMonthlyCount,
+          monthly_vend_month: currentMonth,
         })
         .eq('id', card.id);
 
@@ -127,7 +163,11 @@ export async function POST(request: NextRequest) {
 
       const { error: creditsError } = await supabase
         .from('rfid_cards')
-        .update({ credits_remaining: newCredits })
+        .update({
+          credits_remaining: newCredits,
+          monthly_vend_count: newMonthlyCount,
+          monthly_vend_month: currentMonth,
+        })
         .eq('id', card.id);
 
       if (creditsError) {
@@ -158,10 +198,22 @@ export async function POST(request: NextRequest) {
       if (isPostpaid) {
         await supabase
           .from('rfid_cards')
-          .update({ vend_count: card.vend_count, total_spent_paisa: card.total_spent_paisa })
+          .update({
+            vend_count: card.vend_count,
+            total_spent_paisa: card.total_spent_paisa,
+            monthly_vend_count: card.monthly_vend_count,
+            monthly_vend_month: card.monthly_vend_month,
+          })
           .eq('id', card.id);
       } else {
-        await supabase.from('rfid_cards').update({ credits_remaining: card.credits_remaining }).eq('id', card.id);
+        await supabase
+          .from('rfid_cards')
+          .update({
+            credits_remaining: card.credits_remaining,
+            monthly_vend_count: card.monthly_vend_count,
+            monthly_vend_month: card.monthly_vend_month,
+          })
+          .eq('id', card.id);
       }
       return errorResponse('Failed to record RFID payment', 'INSERT_FAILED', 500);
     }
@@ -176,6 +228,7 @@ export async function POST(request: NextRequest) {
       amount: amountInPaisa / 100,
       card_type: card.card_type,
       credits_remaining: isPostpaid ? null : newCredits,
+      monthly_taps_remaining: MONTHLY_VEND_LIMIT - newMonthlyCount,
       holder_name: card.holder_name,
     });
   } catch (error: any) {

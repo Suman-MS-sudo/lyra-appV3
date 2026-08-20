@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
 import { randomBytes } from 'crypto';
+import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -115,15 +116,28 @@ export async function POST(request: NextRequest) {
       return errorResponse(profileError.message, 'DATABASE_ERROR', 500);
     }
 
-    // Send password reset email to the user (for new users or existing users without profiles)
+    // Send password reset email via our own SMTP (Supabase's built-in mailer is unreliable/unconfigured)
     try {
-      const { error: resetError } = await serviceSupabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`
+      const { data: linkData, error: linkError } = await serviceSupabase.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password` }
       });
-      
-      if (resetError) {
-        console.error('Error sending password reset email:', resetError);
-        // Don't fail the user creation if email fails, just log it
+
+      const resetLink = linkData?.properties?.action_link;
+      if (linkError || !resetLink) {
+        console.error('Error generating password reset link:', linkError);
+      } else {
+        const emailResult = await sendEmail({
+          to: email,
+          subject: 'Set Your Lyra Enterprises Password',
+          html: generatePasswordResetEmailHTML(resetLink),
+          text: `Set your password by visiting this link: ${resetLink}\n\nThis link expires in 1 hour.`,
+        });
+        if (!emailResult.success) {
+          console.error('Error sending password reset email:', emailResult.error);
+          // Don't fail the user creation if email fails, just log it
+        }
       }
     } catch (emailError) {
       console.error('Failed to send password reset email:', emailError);

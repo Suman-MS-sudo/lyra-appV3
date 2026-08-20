@@ -1,7 +1,38 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient as createServiceClient, SupabaseClient } from '@supabase/supabase-js';
+import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
+
+async function sendCustomerSetPasswordEmail(
+  serviceSupabase: SupabaseClient<any, any, any>,
+  email: string
+) {
+  const { data, error } = await serviceSupabase.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`,
+    },
+  });
+
+  const resetLink = data?.properties?.action_link;
+  if (error || !resetLink) {
+    console.error('[createCustomer] Failed to generate reset link:', error);
+    return;
+  }
+
+  const result = await sendEmail({
+    to: email,
+    subject: 'Set Your Lyra Enterprises Password',
+    html: generatePasswordResetEmailHTML(resetLink),
+    text: `Set your password by visiting this link: ${resetLink}\n\nThis link expires in 1 hour.`,
+  });
+
+  if (!result.success) {
+    console.error('[createCustomer] Failed to send reset email:', result.error);
+  }
+}
 
 export const revalidate = 0;
 
@@ -71,9 +102,7 @@ async function createCustomer(formData: FormData) {
         .eq('id', existingUser.id);
     }
 
-    await serviceSupabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`
-    });
+    await sendCustomerSetPasswordEmail(serviceSupabase, email);
     redirect('/admin/customers');
     return;
   }
@@ -130,9 +159,7 @@ async function createCustomer(formData: FormData) {
     if (profileError) throw new Error(profileError.message);
   }
 
-  await serviceSupabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`
-  });
+  await sendCustomerSetPasswordEmail(serviceSupabase, email);
 
   redirect('/admin/customers');
 }

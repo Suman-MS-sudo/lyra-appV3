@@ -9,6 +9,8 @@ interface ReportRow {
   machine: string;
   location: string;
   amount: number;
+  holderName?: string;
+  cardUid?: string;
 }
 
 interface MachineSummaryRow {
@@ -132,7 +134,7 @@ function buildRevenueTrend(rows: ReportRow[], start: Date, end: Date): TrendBuck
   }
 
   return buckets.map((b) => ({
-    label: new Date(b.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    label: new Date(b.start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }),
     value: Math.round(b.value * 100) / 100,
   }));
 }
@@ -150,6 +152,7 @@ function toCsv(
   totalTransactions: number,
   userSummary: UserSummaryRow[],
   machineSummary: MachineSummaryRow[],
+  rows: ReportRow[],
   startLabel: string,
   endLabel: string
 ): string {
@@ -157,14 +160,14 @@ function toCsv(
 
   lines.push('Lyra Vending - Customer Usage Report');
   lines.push(csvLine(['Period', `${startLabel} - ${endLabel}`]));
-  lines.push(csvLine(['Total Revenue (INR)', totalRevenue.toFixed(2)]));
+  lines.push(csvLine(['Total Spend (INR)', totalRevenue.toFixed(2)]));
   lines.push(csvLine(['Total Transactions', totalTransactions]));
   lines.push(csvLine(['Unique RFID Users', userSummary.length]));
   lines.push(csvLine(['Machines Used', machineSummary.length]));
   lines.push('');
 
   lines.push('MACHINE USAGE SUMMARY (most consumed first)');
-  lines.push(csvLine(['Machine', 'Location', 'Transactions', 'Revenue (INR)', '% of Total Revenue']));
+  lines.push(csvLine(['Machine', 'Location', 'Transactions', 'Spend (INR)', '% of Total Spend']));
   for (const m of [...machineSummary].sort((a, b) => b.count - a.count)) {
     lines.push(csvLine([
       m.name,
@@ -185,7 +188,21 @@ function toCsv(
       u.taps,
       u.amount.toFixed(2),
       Array.from(u.machines).join('; '),
-      new Date(u.lastTap).toLocaleString('en-IN'),
+      new Date(u.lastTap).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    ]));
+  }
+  lines.push('');
+
+  lines.push('ALL TRANSACTIONS (most recent first)');
+  lines.push(csvLine(['Date & Time', 'Type', 'Machine', 'Location', 'Card / Holder', 'Amount (INR)']));
+  for (const r of [...rows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())) {
+    lines.push(csvLine([
+      new Date(r.date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      r.type,
+      r.machine,
+      r.location,
+      r.type === 'RFID' ? `${r.holderName} (${r.cardUid})` : '',
+      r.amount.toFixed(2),
     ]));
   }
 
@@ -450,6 +467,7 @@ async function toPdf(
   totalTransactions: number,
   userSummary: UserSummaryRow[],
   machineSummary: MachineSummaryRow[],
+  rows: ReportRow[],
   paymentSplit: { online: PaymentSplitEntry; coin: PaymentSplitEntry; rfid: PaymentSplitEntry },
   revenueTrend: TrendBucket[],
   startLabel: string,
@@ -486,7 +504,7 @@ async function toPdf(
   const cardW = (contentWidth - 3 * 14) / 4;
   const cardH = 58;
   const cards: [string, string, RGB][] = [
-    ['Total Revenue', `Rs. ${totalRevenue.toFixed(2)}`, ACCENT_GREEN],
+    ['Total Spend', `Rs. ${totalRevenue.toFixed(2)}`, ACCENT_GREEN],
     ['Total Transactions', String(totalTransactions), ACCENT_BLUE],
     ['Unique RFID Users', String(userSummary.length), BRAND_PINK],
     ['Machines Active', String(machineSummary.length), ACCENT_AMBER],
@@ -505,7 +523,7 @@ async function toPdf(
   ]);
   y -= 10;
 
-  page.drawText('Revenue Trend', { x: MARGIN, y, size: 12.5, font: boldFont, color: TEXT_DARK });
+  page.drawText('Spend Trend', { x: MARGIN, y, size: 12.5, font: boldFont, color: TEXT_DARK });
   y -= 16;
   drawVerticalBarChart(page, font, MARGIN, y, contentWidth, 130, revenueTrend, BRAND_PURPLE);
 
@@ -534,7 +552,7 @@ async function toPdf(
   page = addBrandedPage('Machine Usage Summary');
   drawTable(
     font, boldFont,
-    ['Machine', 'Location', 'Transactions', 'Revenue (Rs.)', '% of Revenue'],
+    ['Machine', 'Location', 'Transactions', 'Spend (Rs.)', '% of Spend'],
     [190, 220, 100, 110, 110],
     [...machineSummary].sort((a, b) => b.count - a.count).map((m) => [
       m.name, m.location, String(m.count), m.amount.toFixed(2),
@@ -549,16 +567,33 @@ async function toPdf(
   drawTable(
     font, boldFont,
     ['Holder Name', 'Card UID', 'Taps', 'Total Spent (Rs.)', 'Machines Used', 'Last Tap'],
-    [150, 110, 55, 115, 225, 105],
+    [150, 110, 55, 115, 200, 130],
     [...userSummary].sort((a, b) => b.taps - a.taps).map((u) => [
       u.holderName, u.cardUid, String(u.taps), u.amount.toFixed(2),
-      Array.from(u.machines).join(', '), new Date(u.lastTap).toLocaleDateString('en-IN'),
+      Array.from(u.machines).join(', '),
+      new Date(u.lastTap).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }),
     ]),
     'No RFID activity in this period.',
     page, CONTENT_TOP, addBrandedPage, 'User / RFID Card Usage Summary (cont.)'
   );
 
-  const generatedAt = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  // ── Page 5: All Transactions (every payment, most recent first) ──
+  page = addBrandedPage('All Transactions');
+  drawTable(
+    font, boldFont,
+    ['Date & Time', 'Type', 'Machine', 'Location', 'Card / Holder', 'Amount (Rs.)'],
+    [110, 55, 140, 160, 195, 100],
+    [...rows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((r) => [
+      new Date(r.date).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }),
+      r.type, r.machine, r.location,
+      r.type === 'RFID' ? `${r.holderName} (${r.cardUid})` : '—',
+      r.amount.toFixed(2),
+    ]),
+    'No transactions in this period.',
+    page, CONTENT_TOP, addBrandedPage, 'All Transactions (cont.)'
+  );
+
+  const generatedAt = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' });
   const allPages = pdfDoc.getPages();
   allPages.forEach((p, i) => drawFooter(p, font, i + 1, allPages.length, generatedAt));
 
@@ -655,6 +690,8 @@ export async function GET(request: NextRequest) {
       machine: (tx.vending_machines as any)?.name || 'Unknown',
       location: (tx.vending_machines as any)?.location || '',
       amount: (tx.amount_in_paisa || 0) / 100,
+      holderName: (tx.rfid_cards as any)?.holder_name || 'Unknown',
+      cardUid: tx.card_uid || '',
     })),
   ];
 
@@ -713,12 +750,12 @@ export async function GET(request: NextRequest) {
 
   const revenueTrend = buildRevenueTrend(rows, start, end);
 
-  const startLabel = start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  const endLabel = end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const startLabel = start.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+  const endLabel = end.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
   const filenameBase = `lyra-report-${startParam}_to_${endParam}`;
 
   if (format === 'csv') {
-    const csv = toCsv(totalRevenue, totalTransactions, userSummary, machineSummary, startLabel, endLabel);
+    const csv = toCsv(totalRevenue, totalTransactions, userSummary, machineSummary, rows, startLabel, endLabel);
     return new NextResponse(csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
@@ -727,7 +764,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const pdfBytes = await toPdf(totalRevenue, totalTransactions, userSummary, machineSummary, paymentSplit, revenueTrend, startLabel, endLabel);
+  const pdfBytes = await toPdf(totalRevenue, totalTransactions, userSummary, machineSummary, rows, paymentSplit, revenueTrend, startLabel, endLabel);
   return new NextResponse(pdfBytes as unknown as BodyInit, {
     headers: {
       'Content-Type': 'application/pdf',

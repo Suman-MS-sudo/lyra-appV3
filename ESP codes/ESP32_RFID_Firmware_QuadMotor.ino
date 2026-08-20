@@ -52,7 +52,7 @@
 #include <EEPROM.h>
 #include <LittleFS.h>
 #include <esp_wifi.h>
-#include <esp_random.h>  // esp_random(), used to seed bootId each boot (see setup())
+#include <esp_random.h>  // esp_random(), used to seed bootId each boot (see queueOfflineTransaction()/syncQueueToServer())
 #include <ArduinoJson.h>
 #include <SPI.h>
 #include <MFRC522.h>
@@ -249,25 +249,55 @@ unsigned long lastEthernetRecoveryCheck = 0;
 #endif
 
 // UIPEthernet can't do TLS, so all requests go through the plain-HTTP
-// proxy instead (pm2's lyra-proxy process serves this alongside the HTTPS
-// server on :8080 — see ecosystem.config.cjs).
+// proxy instead. TESTING_LOCAL points this at the dev machine's own
+// "npm run dev" proxy (scripts/proxy-server.mjs, port 8080) so fixes can be
+// tested without needing production server access — leave it undefined
+// (as below) for a field-deployed machine, which uses the #else branch
+// (pm2's lyra-proxy process, see ecosystem.config.cjs) instead.
+// #define TESTING_LOCAL
+#ifdef TESTING_LOCAL
+String ETHERNET_SERVER_BASE = "http://192.168.29.33:8080";
+#else
 String ETHERNET_SERVER_BASE = "http://lyra-app.co.in:8080";
+#endif
 
 // ==================== OFFLINE CARD CACHE / SYNC QUEUE ====================
 // See the file-header comment for the overall design. cardsCache mirrors
 // /cards.json on LittleFS (synced down from the server whenever connected);
 // mutations made offline (credit deductions, postpaid tallies) are applied
 // to both the in-RAM doc and the file immediately, so they survive a
-// reboot mid-outage. bootId is regenerated fresh every boot and tags each
-// queued transaction so a reboot mid-outage is detectable (millis() resets
-// on reboot, making elapsed-time math for anything queued before it
-// meaningless — see syncQueueToServer()).
+// reboot mid-outage. Each queued transaction's tap time is tagged with a
+// wall-clock epoch (not a boot-relative millis() value), so it stays
+// accurate even across a reboot mid-outage — see the WALL-CLOCK TIME
+// section below and syncQueueToServer().
 #define CARDS_CACHE_DOC_SIZE 16384
 DynamicJsonDocument cardsCache(CARDS_CACHE_DOC_SIZE);
 bool cardsCacheLoaded = false;
+// Regenerated fresh every boot. tap_epoch (below) is the primary way a
+// queued tap's timestamp survives a reboot, but a tap can still happen
+// before THIS boot has ever managed to sync time even once (e.g. right at
+// boot, before Ethernet finishes connecting) — bootId lets syncQueueToServer()
+// recognize "this line was queued in the boot session I'm still in" and
+// recover an accurate timestamp via the millis() delta instead, if time
+// has since been synced later in that same session. See both functions.
 uint32_t bootId = 0;
 #define MAX_QUEUE_ENTRIES 50
 #define CARD_SYNC_DOWN_INTERVAL 600000  // 10 minutes, while connected
+
+// ==================== WALL-CLOCK TIME (survives reboots) ====================
+// ESP32 has no battery-backed RTC, and this machine can't use NTP (UIPEthernet
+// implements its own uIP stack, separate from the ESP-IDF LWIP/SNTP subsystem
+// configTime()/sntp rely on). So wall-clock time is approximated as an
+// "estimated boot epoch" — the Unix epoch that millis()==0 corresponds to for
+// THIS boot session — refreshed from GET /api/time on every successful
+// (re)connect and persisted to LittleFS so it survives a reboot. A machine
+// that reboots mid-outage (the common case — see the file-header comment)
+// still has a reasonably accurate anchor carried over from its last known
+// connection, instead of losing all sense of time the moment millis() resets.
+// currentEpoch() returns 0 until the very first successful sync (e.g. a
+// brand new, never-been-online machine) — callers must treat 0 as "unknown".
+#define TIME_ANCHOR_FILE "/time_anchor.txt"
+long estimatedBootEpoch = 0;  // Unix epoch corresponding to millis()==0 this boot; 0 = unknown
 
 // ==================== FORWARD DECLARATIONS ====================
 String fetchMachineInfoFromBackend(const String& mac);
@@ -298,6 +328,10 @@ void saveDefaultProductToFS();
 bool syncCardsFromServer();
 void queueOfflineTransaction(const String& uid, const String& productId, uint8_t motorIndex);
 void syncQueueToServer();
+void loadTimeAnchorFromFS();
+void saveTimeAnchorToFS();
+bool syncTimeFromServer();
+long currentEpoch();
 #ifdef USE_ETHERNET
 int makeEthernetHTTPRequest(const String& url, const String& method = "GET", const String& payload = "", String* outBody = nullptr);
 void checkEthernetLinkStatus();
@@ -642,6 +676,66 @@ void loadDefaultProductFromFS() {
     }
 }
 
+// ---- Time anchor persistence (see WALL-CLOCK TIME section above) ----
+
+void loadTimeAnchorFromFS() {
+    if (!LittleFS.exists(TIME_ANCHOR_FILE)) return;
+    File f = LittleFS.open(TIME_ANCHOR_FILE, "r");
+    if (!f) return;
+    String saved = f.readString();
+    f.close();
+    saved.trim();
+    if (saved.length() > 0) {
+        estimatedBootEpoch = saved.toInt();
+        Serial.println("Loaded time anchor from LittleFS (carried over from a previous boot)");
+    }
+}
+
+void saveTimeAnchorToFS() {
+    File f = LittleFS.open(TIME_ANCHOR_FILE, "w");
+    if (!f) return;
+    f.print(String(estimatedBootEpoch));
+    f.close();
+}
+
+// GET /api/time — refreshes estimatedBootEpoch from the server's clock.
+// Called on every successful (re)connect (setup() and checkForEthernetRecovery()).
+// Cheap/no-auth on the server side; see the endpoint's own comment for why
+// NTP isn't an option over UIPEthernet.
+bool syncTimeFromServer() {
+    String responseBody;
+    int code = makeHTTPRequest(apiUrl("/api/time"), "GET", "", &responseBody);
+    if (code != 200 || responseBody.length() == 0) {
+        Serial.printf("Time sync failed: HTTP %d\n", code);
+        return false;
+    }
+
+    DynamicJsonDocument doc(256);  // small response, but leave headroom for ArduinoJson's per-key overhead
+    DeserializationError err = deserializeJson(doc, responseBody);
+    if (err != DeserializationError::Ok || !doc.containsKey("data")) {
+        Serial.printf("Time sync: bad response (%s)\n", err.c_str());
+        return false;
+    }
+
+    long serverEpoch = doc["data"]["epoch"] | 0L;
+    if (serverEpoch <= 0) {
+        Serial.println("Time sync: server returned no epoch");
+        return false;
+    }
+
+    estimatedBootEpoch = serverEpoch - (long)(millis() / 1000);
+    saveTimeAnchorToFS();
+    Serial.println("Time synced from server (epoch " + String(serverEpoch) + ")");
+    return true;
+}
+
+// Current best-guess Unix epoch, or 0 if this machine has never once
+// successfully synced time (e.g. brand new, never been online).
+long currentEpoch() {
+    if (estimatedBootEpoch == 0) return 0;
+    return estimatedBootEpoch + (long)(millis() / 1000);
+}
+
 bool loadCardsCacheFromFS() {
     if (!LittleFS.exists("/cards.json")) {
         Serial.println("No local card cache yet (never synced) — offline taps can't be validated until the first successful sync");
@@ -691,6 +785,11 @@ bool syncCardsFromServer() {
         dst["is_active"] = c["is_active"] | true;
         dst["card_type"] = c["card_type"] | "prepaid";
         dst["product_id"] = c["product_id"].isNull() ? "" : c["product_id"].as<String>();
+        // Every card is capped at this many taps/month regardless of
+        // card_type — server-computed remaining count, refreshed on every
+        // sync (see /api/machine-cards-sync). Decremented locally per
+        // offline dispense in handleOfflineRfidTap().
+        dst["monthly_remaining"] = c["monthly_remaining"] | 0;
     }
 
     cardsCacheLoaded = true;
@@ -737,8 +836,17 @@ void queueOfflineTransaction(const String& uid, const String& productId, uint8_t
     }
 
     String clientTxId = generateClientTxId();
+    // tap_epoch is what makes the tap timestamp survive a reboot mid-outage
+    // — see the WALL-CLOCK TIME section above. It can still be 0 here (time
+    // never yet synced THIS boot, e.g. a tap right at boot before Ethernet
+    // finishes connecting) — tap_millis + boot_id are kept as a same-boot
+    // fallback for exactly that case: if time gets synced later in this same
+    // boot before the queue syncs, syncQueueToServer() can recover an
+    // accurate timestamp from the millis() delta even though tap_epoch was
+    // unknown at the moment of the tap.
     String line = "{\"client_tx_id\":\"" + clientTxId + "\",\"uid\":\"" + uid +
                   "\",\"product_id\":\"" + productId + "\",\"motor_index\":" + String(motorIndex) +
+                  ",\"tap_epoch\":" + String(currentEpoch()) +
                   ",\"tap_millis\":" + String(millis()) + ",\"boot_id\":" + String(bootId) + "}\n";
 
     File f = LittleFS.open("/queue.jsonl", "a");
@@ -788,20 +896,40 @@ void syncQueueToServer() {
             continue;
         }
         clientTxIds[i] = lineDoc["client_tx_id"].as<String>();
-        uint32_t lineBootId = lineDoc["boot_id"] | 0UL;
+        long tapEpoch = lineDoc["tap_epoch"] | 0L;
 
         if (i > 0) payload += ",";
         payload += "{\"client_tx_id\":\"" + clientTxIds[i] + "\",\"card_uid\":\"" +
                    lineDoc["uid"].as<String>() + "\",\"product_id\":\"" +
                    lineDoc["product_id"].as<String>() + "\",\"motor_index\":" +
                    String((int)(lineDoc["motor_index"] | 0));
-        // millis() resets on reboot, so elapsed-time math is only valid for
-        // taps queued in this same boot session — anything from before a
-        // reboot mid-outage omits offline_ms_ago and the server just
-        // stamps it at sync time instead of computing a garbage value.
-        if (lineBootId == bootId) {
-            unsigned long tapMillis = lineDoc["tap_millis"] | 0UL;
-            payload += ",\"offline_ms_ago\":" + String(millis() - tapMillis);
+
+        // tap_epoch (see WALL-CLOCK TIME section) survives reboots, unlike
+        // the old millis()-since-boot approach — so this now works for taps
+        // queued in an earlier boot session too, not just the current one.
+        long nowEpoch = currentEpoch();
+        long msAgo = -1;
+        if (tapEpoch > 0 && nowEpoch > 0) {
+            msAgo = (nowEpoch - tapEpoch) * 1000L;
+        } else {
+            // tap_epoch was 0 — time hadn't synced yet at the moment of this
+            // specific tap (e.g. it happened right at boot, before Ethernet
+            // finished connecting). If this line was queued in the boot
+            // session we're STILL in, and time has since been synced later
+            // in that same session, millis() is still valid (it only resets
+            // across reboots, not within one) — recover the real tap time
+            // from that delta instead of giving up entirely.
+            uint32_t lineBootId = lineDoc["boot_id"] | 0UL;
+            if (lineBootId == bootId && nowEpoch > 0) {
+                unsigned long tapMillis = lineDoc["tap_millis"] | 0UL;
+                msAgo = (long)(millis() - tapMillis);
+            }
+        }
+        // Still genuinely unknown (never synced time at all across the
+        // whole outage, this line's reboot included) — omit it and let the
+        // server fall back to stamping at sync time, same as before.
+        if (msAgo >= 0) {
+            payload += ",\"offline_ms_ago\":" + String(msAgo);
         }
         payload += "}";
     }
@@ -1327,6 +1455,7 @@ void checkForEthernetRecovery() {
 
     if (recovered) {
         Serial.println("LAN recovered");
+        syncTimeFromServer();  // before syncQueueToServer() below, so any queued taps' offline_ms_ago is as accurate as possible
         fetchMachineInfoFromBackend(deviceMacAddress);
         if (machineId == "UNKNOWN") {
             // The very first connection right after Ethernet comes back up
@@ -1802,6 +1931,16 @@ void handleOfflineRfidTap(const String& uid) {
         return;
     }
 
+    // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
+    // card_type — enforced here too since a machine can be offline for the
+    // whole cap, not just re-checked once it reconnects.
+    if ((int)(card["monthly_remaining"] | 0) <= 0) {
+        lcdMsg("Monthly Limit", "Reached");
+        delay(2000);
+        sendStockAwareStatus();
+        return;
+    }
+
     int stock = readTotalStockFromEEPROM();
     if (stock <= 0) {
         lcdMsg("Out of Stock", "Please wait...");
@@ -1832,6 +1971,7 @@ void handleOfflineRfidTap(const String& uid) {
         } else {
             card["vend_count"] = (int)(card["vend_count"] | 0) + 1;
         }
+        card["monthly_remaining"] = (int)(card["monthly_remaining"] | 0) - 1;
         saveCardsCacheToFS();
 
         queueOfflineTransaction(uid, productId, firedMotor);
@@ -1916,6 +2056,7 @@ void handleRfidTap(const String& uid) {
     else if (errCode == "INSUFFICIENT_CREDITS") lcdMsg("No Credits Left", "Please Top Up");
     else if (errCode == "CARD_INACTIVE") lcdMsg("Card Inactive", "Contact Admin");
     else if (errCode == "WRONG_MACHINE") lcdMsg("Card Not Valid", "On This Machine");
+    else if (errCode == "MONTHLY_LIMIT_REACHED") lcdMsg("Monthly Limit", "Reached");
     else if (errCode == "OUT_OF_STOCK") lcdMsg("Out of Stock", "Please wait...");
     else lcdMsg("Payment Failed", "Try Again");
 
@@ -1940,6 +2081,7 @@ void setup() {
     } else {
         loadCardsCacheFromFS();
         loadDefaultProductFromFS();
+        loadTimeAnchorFromFS();
     }
 
     for (uint8_t i = 0; i < MOTOR_COUNT; i++) {
@@ -1974,12 +2116,12 @@ void setup() {
     Serial.println("Attempting Ethernet connection...");
     lcdMsg("Connecting...", "Please wait");
     bool ethernetUp = false;
-    for (int ethAttempt = 1; ethAttempt <= 5; ethAttempt++) {
+    for (int ethAttempt = 1; ethAttempt <= 3; ethAttempt++) {
         if (initializeEthernet()) {
             ethernetUp = true;
             break;
         }
-        Serial.printf("Ethernet not ready (attempt %d/5) - retrying...\n", ethAttempt);
+        Serial.printf("Ethernet not ready (attempt %d/3) - retrying...\n", ethAttempt);
         lcdMsg("Connecting...", "Check LAN cable");
         feedWatchdog();
         delay(3000);
@@ -1990,6 +2132,7 @@ void setup() {
 
     if (ethernetUp) {
         Serial.println("Using Ethernet");
+        syncTimeFromServer();  // before syncQueueToServer() below, so any queued taps' offline_ms_ago is as accurate as possible
         fetchMachineInfoFromBackend(deviceMacAddress);
         if (machineId == "UNKNOWN") {
             // Same first-connection-after-bring-up issue as
@@ -2008,7 +2151,7 @@ void setup() {
         sendMachineStatusPing();
         lastPingTime = millis();
     } else {
-        Serial.println("Ethernet not available after 5 attempts — proceeding offline, will keep retrying in the background");
+        Serial.println("Ethernet not available after 3 attempts — proceeding offline, will keep retrying in the background");
     }
 
     sendStockAwareStatus();
