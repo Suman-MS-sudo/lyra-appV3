@@ -46,13 +46,13 @@ export default async function MachinesPage() {
       {/* Page title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Vending Machines</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Monitor and manage all machines</p>
+          <h1 className="text-2xl font-bold text-[#1d1d1f]">Vending Machines</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Monitor and manage all machines</p>
         </div>
         <Link
           href="/admin/machines/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           <Plus className="w-4 h-4" />
           Add Machine
@@ -66,15 +66,15 @@ export default async function MachinesPage() {
       ) : (
         <div
           className="rounded-2xl p-16 text-center"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+          style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}
         >
-          <Building2 className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
-          <p className="font-medium mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>No vending machines found</p>
-          <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.28)' }}>Add your first machine to get started</p>
+          <Building2 className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
+          <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>No vending machines found</p>
+          <p className="text-sm mb-6" style={{ color: '#a1a1a6' }}>Add your first machine to get started</p>
           <Link
             href="/admin/machines/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f' }}
           >
             <Plus className="w-4 h-4" />
             Add Your First Machine

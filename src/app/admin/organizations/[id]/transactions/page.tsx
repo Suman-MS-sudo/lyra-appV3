@@ -130,13 +130,13 @@ export default async function OrgTransactionsPage({ params }: { params: Promise<
         <Link
           href="/admin/organizations"
           className="p-2 rounded-xl transition-colors hover:bg-white/10"
-          style={{ color: 'rgba(255,255,255,0.50)' }}
+          style={{ color: '#6e6e73' }}
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-white">{org.name}</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Transaction history</p>
+          <h1 className="text-2xl font-bold text-[#1d1d1f]">{org.name}</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Transaction history</p>
         </div>
       </div>
 
@@ -147,9 +147,9 @@ export default async function OrgTransactionsPage({ params }: { params: Promise<
           { label: 'Total Revenue', value: `₹${totalRevenue.toFixed(2)}` },
           { label: 'Machines', value: machineIds.length },
         ].map(kpi => (
-          <div key={kpi.label} className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
-            <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.45)' }}>{kpi.label}</p>
-            <p className="text-2xl font-bold text-white">{kpi.value}</p>
+          <div key={kpi.label} className="rounded-2xl p-5" style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}>
+            <p className="text-xs mb-1" style={{ color: '#6e6e73' }}>{kpi.label}</p>
+            <p className="text-2xl font-bold text-[#1d1d1f]">{kpi.value}</p>
           </div>
         ))}
       </div>
@@ -157,8 +157,8 @@ export default async function OrgTransactionsPage({ params }: { params: Promise<
       {/* Table */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Receipt className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.40)' }} />
-          <h2 className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.60)' }}>
+          <Receipt className="w-4 h-4" style={{ color: '#6e6e73' }} />
+          <h2 className="text-sm font-medium" style={{ color: '#3a3a3c' }}>
             {rows.length} transaction{rows.length !== 1 ? 's' : ''}
           </h2>
         </div>

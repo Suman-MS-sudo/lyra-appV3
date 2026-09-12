@@ -139,7 +139,7 @@ export default function EditUserForm({ user, organizations }: EditUserFormProps)
                 name="full_name"
                 value={formData.full_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
                 placeholder="Enter full name"
               />
             </div>
@@ -154,7 +154,7 @@ export default function EditUserForm({ user, organizations }: EditUserFormProps)
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
                 placeholder="+91 1234567890"
               />
             </div>
@@ -168,7 +168,7 @@ export default function EditUserForm({ user, organizations }: EditUserFormProps)
                 name="account_type"
                 value={formData.account_type}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
               >
                 <option value="customer">Customer</option>
                 <option value="super_customer">Super Customer</option>
@@ -185,7 +185,7 @@ export default function EditUserForm({ user, organizations }: EditUserFormProps)
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
               >
                 <option value="customer">Customer</option>
                 <option value="super_customer">Super Customer</option>
@@ -202,7 +202,7 @@ export default function EditUserForm({ user, organizations }: EditUserFormProps)
                 name="organization_id"
                 value={formData.organization_id}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
               >
                 <option value="">No Organization</option>
                 {organizations.map(org => (
@@ -228,7 +228,7 @@ export default function EditUserForm({ user, organizations }: EditUserFormProps)
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50"
+              className="flex-1 px-6 py-2 bg-[#1d1d1f] text-white rounded-lg hover:bg-black transition-all disabled:opacity-50"
             >
               {loading ? 'Updating...' : 'Update User'}
             </button>

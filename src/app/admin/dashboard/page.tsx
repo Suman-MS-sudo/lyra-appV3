@@ -10,8 +10,8 @@ import ReportDownload from '@/components/ReportDownload';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
@@ -27,8 +27,8 @@ function StatCard({
       <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
         <Icon className="w-5 h-5" style={{ color: accentColor }} />
       </div>
-      <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{label}</p>
-      <p className="text-2xl font-bold text-white">{value}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
+      <p className="text-2xl font-bold text-[#1d1d1f]">{value}</p>
       {sub && <p className="text-xs mt-1" style={{ color: accentColor }}>{sub}</p>}
     </div>
   );
@@ -133,13 +133,13 @@ export default async function AdminDashboard() {
       {/* Page title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Welcome back — here&apos;s what&apos;s happening today.</p>
+          <h1 className="text-2xl font-bold text-[#1d1d1f]">Dashboard</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Welcome back — here&apos;s what&apos;s happening today.</p>
         </div>
         <div className="flex items-center gap-3">
           <div
             className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
-            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#6EE7B7' }}
+            style={{ background: 'rgba(29,122,60,0.12)', border: '1px solid rgba(29,122,60,0.12)', color: '#1d7a3c' }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Live data
@@ -150,32 +150,32 @@ export default async function AdminDashboard() {
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Building2}  label="Total Machines" value={String(totalMachines || 0)}  accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"  />
-        <StatCard icon={Users}      label="Active Users"   value={String(totalUsers || 0)}     accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)" />
-        <StatCard icon={TrendingUp} label="Total Revenue"  value={formatAmount(totalRevenue)}  accentColor="#34D399" iconBg="rgba(52,211,153,0.18)"  sub={`${onlineCount + coinCount + rfidCount} transactions`} />
-        <StatCard icon={Receipt}    label="Transactions"   value={String(onlineCount + coinCount + rfidCount)} accentColor="#F472B6" iconBg="rgba(244,63,94,0.18)" />
+        <StatCard icon={Building2}  label="Total Machines" value={String(totalMachines || 0)}  accentColor="#0071e3" iconBg="rgba(0,113,227,0.10)"  />
+        <StatCard icon={Users}      label="Active Users"   value={String(totalUsers || 0)}     accentColor="#6e6e73" iconBg="rgba(0,0,0,0.04)" />
+        <StatCard icon={TrendingUp} label="Total Revenue"  value={formatAmount(totalRevenue)}  accentColor="#1d7a3c" iconBg="rgba(29,122,60,0.12)"  sub={`${onlineCount + coinCount + rfidCount} transactions`} />
+        <StatCard icon={Receipt}    label="Transactions"   value={String(onlineCount + coinCount + rfidCount)} accentColor="#0071e3" iconBg="rgba(0,0,0,0.04)" />
       </div>
 
       {/* Payment method breakdown */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Coins}      label="Coin Payments"   value={String(coinCount)}   accentColor="#FBBF24" iconBg="rgba(251,191,36,0.18)" sub={formatAmount(coinRevenue)} />
-        <StatCard icon={CreditCard} label="Online Payments" value={String(onlineCount)} accentColor="#60A5FA" iconBg="rgba(96,165,250,0.18)"  sub={formatAmount(onlineRevenue)} />
-        <StatCard icon={Nfc}       label="RFID Payments"   value={String(rfidCount)}   accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)" sub={formatAmount(rfidRevenue)} />
+        <StatCard icon={Coins}      label="Coin Payments"   value={String(coinCount)}   accentColor="#9a6400" iconBg="rgba(154,100,0,0.12)" sub={formatAmount(coinRevenue)} />
+        <StatCard icon={CreditCard} label="Online Payments" value={String(onlineCount)} accentColor="#0071e3" iconBg="rgba(0,113,227,0.10)"  sub={formatAmount(onlineRevenue)} />
+        <StatCard icon={Nfc}       label="RFID Payments"   value={String(rfidCount)}   accentColor="#6e6e73" iconBg="rgba(0,0,0,0.04)" sub={formatAmount(rfidRevenue)} />
         <StatCard icon={Activity}   label="RFID Revenue %"
           value={totalRevenue > 0 ? `${((rfidRevenue / totalRevenue) * 100).toFixed(1)}%` : '0%'}
-          accentColor="#A78BFA" iconBg="rgba(167,139,250,0.18)" sub="of total revenue" />
+          accentColor="#6e6e73" iconBg="rgba(0,0,0,0.04)" sub="of total revenue" />
       </div>
 
       {/* Recent data */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent machines */}
         <div className="rounded-2xl overflow-hidden" style={CARD}>
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="font-semibold text-white flex items-center gap-2">
-              <Building2 className="w-4 h-4" style={{ color: '#60A5FA' }} />
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
+            <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
+              <Building2 className="w-4 h-4" style={{ color: '#0071e3' }} />
               Recent Machines
             </h2>
-            <a href="/admin/machines" className="text-xs font-medium flex items-center gap-1 transition-colors hover:text-white" style={{ color: '#F472B6' }}>
+            <a href="/admin/machines" className="text-xs font-medium flex items-center gap-1 transition-colors hover:text-[#1d1d1f]" style={{ color: '#0071e3' }}>
               View all <ArrowUpRight className="w-3 h-3" />
             </a>
           </div>
@@ -184,19 +184,19 @@ export default async function AdminDashboard() {
               <div
                 key={i}
                 className="row-hover flex items-center justify-between px-5 py-3.5"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                style={{ borderBottom: '1px solid #f5f5f7' }}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white text-sm truncate">{machine.name}</p>
-                  <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                  <p className="font-medium text-[#1d1d1f] text-sm truncate">{machine.name}</p>
+                  <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#86868b' }}>
                     <MapPin className="w-3 h-3" />{machine.location}
                   </p>
                 </div>
                 <span
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ml-3"
                   style={machine.asset_online
-                    ? { background: 'rgba(52,211,153,0.15)', color: '#6EE7B7' }
-                    : { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.40)' }
+                    ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
+                    : { background: '#f5f5f7', color: '#6e6e73' }
                   }
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${machine.asset_online ? 'animate-pulse bg-emerald-400' : 'bg-gray-500'}`} />
@@ -205,8 +205,8 @@ export default async function AdminDashboard() {
               </div>
             )) : (
               <div className="flex flex-col items-center justify-center py-14">
-                <Building2 className="w-10 h-10 mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No machines found</p>
+                <Building2 className="w-10 h-10 mb-3" style={{ color: '#e5e5e7' }} />
+                <p className="text-sm" style={{ color: '#a1a1a6' }}>No machines found</p>
               </div>
             )}
           </div>
@@ -214,12 +214,12 @@ export default async function AdminDashboard() {
 
         {/* Recent transactions */}
         <div className="rounded-2xl overflow-hidden" style={CARD}>
-          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 className="font-semibold text-white flex items-center gap-2">
-              <Receipt className="w-4 h-4" style={{ color: '#A78BFA' }} />
+          <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
+            <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
+              <Receipt className="w-4 h-4" style={{ color: '#6e6e73' }} />
               Recent Transactions
             </h2>
-            <a href="/admin/transactions" className="text-xs font-medium flex items-center gap-1 transition-colors hover:text-white" style={{ color: '#F472B6' }}>
+            <a href="/admin/transactions" className="text-xs font-medium flex items-center gap-1 transition-colors hover:text-[#1d1d1f]" style={{ color: '#0071e3' }}>
               View all <ArrowUpRight className="w-3 h-3" />
             </a>
           </div>
@@ -231,11 +231,11 @@ export default async function AdminDashboard() {
                 <div
                   key={i}
                   className="row-hover flex items-center justify-between px-5 py-3.5"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                  style={{ borderBottom: '1px solid #f5f5f7' }}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-white text-sm truncate">{productNames}</p>
-                    <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.38)' }}>
+                    <p className="font-medium text-[#1d1d1f] text-sm truncate">{productNames}</p>
+                    <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#86868b' }}>
                       <Clock className="w-3 h-3" />
                       {new Date(tx.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -243,7 +243,7 @@ export default async function AdminDashboard() {
                   <span
                     className="text-base font-bold ml-3"
                     style={{
-                      background: 'linear-gradient(135deg, #FDA4AF, #F43F5E)',
+                      background: '#1d1d1f',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
@@ -255,8 +255,8 @@ export default async function AdminDashboard() {
               );
             }) : (
               <div className="flex flex-col items-center justify-center py-14">
-                <Receipt className="w-10 h-10 mb-3" style={{ color: 'rgba(255,255,255,0.15)' }} />
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.28)' }}>No transactions found</p>
+                <Receipt className="w-10 h-10 mb-3" style={{ color: '#e5e5e7' }} />
+                <p className="text-sm" style={{ color: '#a1a1a6' }}>No transactions found</p>
               </div>
             )}
           </div>

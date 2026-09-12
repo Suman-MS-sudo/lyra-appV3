@@ -138,7 +138,7 @@ export default function PaymentForm({
       <button
         onClick={handlePayment}
         disabled={loading}
-        className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full px-6 py-4 bg-[#1d1d1f] text-white rounded-lg hover:bg-black font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading ? (
           <>

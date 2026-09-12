@@ -6,19 +6,19 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default async function NewCustomerPage() {
   const supabase = await createClient();
@@ -43,13 +43,13 @@ export default async function NewCustomerPage() {
       <div>
         <Link
           href="/customer/dashboard#customers"
-          className="text-sm transition-colors hover:text-white mb-2 inline-block"
-          style={{ color: 'rgba(255,255,255,0.55)' }}
+          className="text-sm transition-colors hover:text-[#1d1d1f] mb-2 inline-block"
+          style={{ color: '#6e6e73' }}
         >
           ← Back
         </Link>
-        <h1 className="text-2xl font-bold text-white">Add New User</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Create a new customer account in your organization</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Add New User</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Create a new customer account in your organization</p>
       </div>
 
       <div className="rounded-2xl p-6 space-y-6" style={CARD}>
@@ -58,7 +58,7 @@ export default async function NewCustomerPage() {
 
           <div>
             <label htmlFor="full_name" className="block text-sm font-medium mb-2" style={LABEL}>
-              Full Name <span style={{ color: '#F472B6' }}>*</span>
+              Full Name <span style={{ color: '#0071e3' }}>*</span>
             </label>
             <input
               type="text"
@@ -73,7 +73,7 @@ export default async function NewCustomerPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2" style={LABEL}>
-              Email Address <span style={{ color: '#F472B6' }}>*</span>
+              Email Address <span style={{ color: '#0071e3' }}>*</span>
             </label>
             <input
               type="email"
@@ -102,7 +102,7 @@ export default async function NewCustomerPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-2" style={LABEL}>
-              Temporary Password <span style={{ color: '#F472B6' }}>*</span>
+              Temporary Password <span style={{ color: '#0071e3' }}>*</span>
             </label>
             <input
               type="password"
@@ -114,12 +114,12 @@ export default async function NewCustomerPage() {
               style={INPUT}
               placeholder="Minimum 6 characters"
             />
-            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>User will be asked to change password on first login</p>
+            <p className="text-xs mt-1" style={{ color: '#86868b' }}>User will be asked to change password on first login</p>
           </div>
 
           {/* Permissions */}
-          <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <h3 className="text-sm font-semibold text-white mb-4">Permissions</h3>
+          <div className="pt-2" style={{ borderTop: '1px solid #f5f5f7' }}>
+            <h3 className="text-sm font-semibold text-[#1d1d1f] mb-4">Permissions</h3>
             <div className="space-y-4">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -130,7 +130,7 @@ export default async function NewCustomerPage() {
                 />
                 <span className="text-sm" style={LABEL}>
                   Can view data
-                  <span className="block text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Allow user to view transactions and devices</span>
+                  <span className="block text-xs mt-0.5" style={{ color: '#6e6e73' }}>Allow user to view transactions and devices</span>
                 </span>
               </label>
               <label className="flex items-start gap-3 cursor-pointer">
@@ -141,7 +141,7 @@ export default async function NewCustomerPage() {
                 />
                 <span className="text-sm" style={LABEL}>
                   Can edit data
-                  <span className="block text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Allow user to modify transactions and devices</span>
+                  <span className="block text-xs mt-0.5" style={{ color: '#6e6e73' }}>Allow user to modify transactions and devices</span>
                 </span>
               </label>
             </div>
@@ -151,14 +151,14 @@ export default async function NewCustomerPage() {
             <Link
               href="/customer/dashboard#customers"
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+              style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
             >
               Cancel
             </Link>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+              style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
             >
               Create User
             </button>

@@ -16,19 +16,19 @@ interface EditProductFormProps {
 }
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default function EditProductForm({ product }: EditProductFormProps) {
   const router = useRouter();
@@ -80,14 +80,14 @@ export default function EditProductForm({ product }: EditProductFormProps) {
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-6" style={CARD}>
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)', color: '#FCA5A5' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}>
           {error}
         </div>
       )}
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium mb-2" style={LABEL}>
-          Product Name <span style={{ color: '#F472B6' }}>*</span>
+          Product Name <span style={{ color: '#0071e3' }}>*</span>
         </label>
         <input
           type="text"
@@ -104,7 +104,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
 
       <div>
         <label htmlFor="sku" className="block text-sm font-medium mb-2" style={LABEL}>
-          SKU <span style={{ color: '#F472B6' }}>*</span>
+          SKU <span style={{ color: '#0071e3' }}>*</span>
         </label>
         <input
           type="text"
@@ -121,7 +121,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
 
       <div>
         <label htmlFor="price" className="block text-sm font-medium mb-2" style={LABEL}>
-          Price <span style={{ color: '#F472B6' }}>*</span>
+          Price <span style={{ color: '#0071e3' }}>*</span>
         </label>
         <input
           type="number"
@@ -142,15 +142,15 @@ export default function EditProductForm({ product }: EditProductFormProps) {
         <Link
           href="/admin/products"
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+          style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {loading ? 'Updating...' : 'Update Product'}
         </button>

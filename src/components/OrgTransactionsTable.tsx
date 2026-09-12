@@ -21,8 +21,8 @@ interface Props {
 }
 
 const MODAL: React.CSSProperties = {
-  background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#ffffff',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
@@ -78,9 +78,9 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl py-20 text-center" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
-        <p className="text-white font-semibold mb-1">No transactions found</p>
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.40)' }}>This organization has no recorded transactions yet.</p>
+      <div className="rounded-2xl py-20 text-center" style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}>
+        <p className="text-[#1d1d1f] font-semibold mb-1">No transactions found</p>
+        <p className="text-sm" style={{ color: '#6e6e73' }}>This organization has no recorded transactions yet.</p>
       </div>
     );
   }
@@ -89,14 +89,14 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
     <>
       {/* Bulk action bar */}
       {someSelected && (
-        <div className="flex items-center justify-between px-4 py-3 rounded-xl mb-3" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.25)' }}>
-          <span className="text-sm font-medium" style={{ color: '#FCA5A5' }}>
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl mb-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
+          <span className="text-sm font-medium" style={{ color: '#c8102e' }}>
             {selected.size} selected
           </span>
           <button
             onClick={() => openConfirm(Array.from(selected))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-            style={{ background: 'rgba(244,63,94,0.20)', border: '1px solid rgba(244,63,94,0.35)', color: '#FCA5A5' }}
+            style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete selected
@@ -104,10 +104,10 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
         </div>
       )}
 
-      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.10)' }}>
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #e5e5e7' }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <tr style={{ background: '#f5f5f7', borderBottom: '1px solid #f5f5f7' }}>
               <th className="px-4 py-3 text-left w-10">
                 <input
                   type="checkbox"
@@ -116,12 +116,12 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                   className="w-4 h-4 rounded accent-pink-500 cursor-pointer"
                 />
               </th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>Type</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>Machine</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>Product</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>Amount</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>Status</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>Date</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Type</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Machine</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Product</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Amount</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Status</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Date</th>
               <th className="px-4 py-3 w-10" />
             </tr>
           </thead>
@@ -130,8 +130,8 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
               <tr
                 key={row.id}
                 style={{
-                  borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.06)' : undefined,
-                  background: selected.has(row.id) ? 'rgba(244,63,94,0.06)' : undefined,
+                  borderBottom: i < rows.length - 1 ? '1px solid #f5f5f7' : undefined,
+                  background: selected.has(row.id) ? 'rgba(0,0,0,0.04)' : undefined,
                 }}
               >
                 <td className="px-4 py-3">
@@ -146,18 +146,18 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={row.type === 'online'
-                      ? { background: 'rgba(139,92,246,0.15)', color: '#C4B5FD' }
+                      ? { background: 'rgba(139,92,246,0.15)', color: '#6e6e73' }
                       : row.type === 'rfid'
-                      ? { background: 'rgba(96,165,250,0.15)', color: '#93C5FD' }
+                      ? { background: 'rgba(0,113,227,0.10)', color: '#93C5FD' }
                       : { background: 'rgba(234,179,8,0.15)', color: '#FDE047' }
                     }
                   >
                     {row.type === 'online' ? 'Online' : row.type === 'rfid' ? 'RFID' : 'Coin'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-white">{row.machine_name}</td>
-                <td className="px-4 py-3" style={{ color: 'rgba(255,255,255,0.70)' }}>{row.product}</td>
-                <td className="px-4 py-3 text-white font-medium">₹{row.amount.toFixed(2)}</td>
+                <td className="px-4 py-3 text-[#1d1d1f]">{row.machine_name}</td>
+                <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{row.product}</td>
+                <td className="px-4 py-3 text-[#1d1d1f] font-medium">₹{row.amount.toFixed(2)}</td>
                 <td className="px-4 py-3">
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -166,13 +166,13 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                         ? { background: 'rgba(34,197,94,0.15)', color: '#86EFAC' }
                         : row.status === 'pending'
                         ? { background: 'rgba(234,179,8,0.15)', color: '#FDE047' }
-                        : { background: 'rgba(244,63,94,0.15)', color: '#FCA5A5' }
+                        : { background: 'rgba(0,0,0,0.04)', color: '#c8102e' }
                     }
                   >
                     {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#6e6e73' }}>
                   {new Date(row.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                 </td>
                 <td className="px-4 py-3">
@@ -200,23 +200,23 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
         >
           <div className="w-full max-w-md p-6" style={MODAL} onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(244,63,94,0.15)' }}>
-                <AlertTriangle className="h-6 w-6" style={{ color: '#FCA5A5' }} />
+              <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }}>
+                <AlertTriangle className="h-6 w-6" style={{ color: '#c8102e' }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white mb-1">Delete Transactions?</h3>
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.60)' }}>
+                <h3 className="text-lg font-semibold text-[#1d1d1f] mb-1">Delete Transactions?</h3>
+                <p className="text-sm" style={{ color: '#3a3a3c' }}>
                   {targetIds.length === 1
                     ? 'This transaction will be permanently deleted.'
                     : `${targetIds.length} transactions will be permanently deleted.`}
                 </p>
-                <p className="text-sm mt-1 font-medium" style={{ color: '#FCA5A5' }}>This cannot be undone.</p>
+                <p className="text-sm mt-1 font-medium" style={{ color: '#c8102e' }}>This cannot be undone.</p>
               </div>
             </div>
 
             {error && (
-              <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}>
-                <p className="text-sm" style={{ color: '#FCA5A5' }}>{error}</p>
+              <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
+                <p className="text-sm" style={{ color: '#c8102e' }}>{error}</p>
               </div>
             )}
 
@@ -225,15 +225,15 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                 onClick={() => { setShowConfirm(false); setError(null); }}
                 disabled={isDeleting}
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+                style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>

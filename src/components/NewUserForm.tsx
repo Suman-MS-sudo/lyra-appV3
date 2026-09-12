@@ -14,19 +14,19 @@ interface NewUserFormProps {
 }
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default function NewUserForm({ organizations }: NewUserFormProps) {
   const router = useRouter();
@@ -77,19 +77,19 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-6" style={CARD}>
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)', color: '#FCA5A5' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}>
           {error}
         </div>
       )}
 
-      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.20)' }}>
+      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}>
         <p className="text-sm" style={{ color: '#93C5FD' }}>A password reset email will be automatically sent to the user after account creation.</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Email <span style={{ color: '#F472B6' }}>*</span>
+            Email <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <input
             type="email"
@@ -131,7 +131,7 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
 
         <div>
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Account Type <span style={{ color: '#F472B6' }}>*</span>
+            Account Type <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <select
             name="account_type"
@@ -140,15 +140,15 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
-            <option value="customer" style={{ background: '#1E0A3C' }}>Customer</option>
-            <option value="super_customer" style={{ background: '#1E0A3C' }}>Super Customer</option>
-            <option value="admin" style={{ background: '#1E0A3C' }}>Admin</option>
+            <option value="customer" style={{ background: '#ffffff' }}>Customer</option>
+            <option value="super_customer" style={{ background: '#ffffff' }}>Super Customer</option>
+            <option value="admin" style={{ background: '#ffffff' }}>Admin</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Role <span style={{ color: '#F472B6' }}>*</span>
+            Role <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <select
             name="role"
@@ -157,9 +157,9 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
-            <option value="customer" style={{ background: '#1E0A3C' }}>Customer</option>
-            <option value="super_customer" style={{ background: '#1E0A3C' }}>Super Customer</option>
-            <option value="admin" style={{ background: '#1E0A3C' }}>Admin</option>
+            <option value="customer" style={{ background: '#ffffff' }}>Customer</option>
+            <option value="super_customer" style={{ background: '#ffffff' }}>Super Customer</option>
+            <option value="admin" style={{ background: '#ffffff' }}>Admin</option>
           </select>
         </div>
 
@@ -172,14 +172,14 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
-            <option value="" style={{ background: '#1E0A3C' }}>No Organization</option>
+            <option value="" style={{ background: '#ffffff' }}>No Organization</option>
             {organizations.map(org => (
-              <option key={org.id} value={org.id} style={{ background: '#1E0A3C' }}>
+              <option key={org.id} value={org.id} style={{ background: '#ffffff' }}>
                 {org.name}
               </option>
             ))}
           </select>
-          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Only applicable for super customers</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Only applicable for super customers</p>
         </div>
       </div>
 
@@ -187,15 +187,15 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
         <Link
           href="/admin/users"
           className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+          style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-6 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          className="flex-1 px-6 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {loading ? 'Creating...' : 'Create User'}
         </button>

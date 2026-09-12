@@ -11,19 +11,19 @@ interface RecordPaymentButtonProps {
 }
 
 const MODAL: React.CSSProperties = {
-  background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#ffffff',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: RecordPaymentButtonProps) {
   const [showModal, setShowModal] = useState(false);
@@ -61,7 +61,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
       <button
         onClick={() => setShowModal(true)}
         className="p-2 rounded-lg transition-colors hover:opacity-80"
-        style={{ color: '#34D399' }}
+        style={{ color: '#1d7a3c' }}
         title="Record Payment"
       >
         <IndianRupee className="h-4 w-4" />
@@ -73,12 +73,12 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
           style={{ background: 'rgba(0,0,0,0.70)' }}
         >
           <div className="w-full max-w-md" style={MODAL}>
-            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <h3 className="text-lg font-semibold text-white">Record Payment</h3>
+            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid #f5f5f7' }}>
+              <h3 className="text-lg font-semibold text-[#1d1d1f]">Record Payment</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg transition-colors hover:opacity-70"
-                style={{ color: 'rgba(255,255,255,0.50)' }}
+                style={{ color: '#6e6e73' }}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -92,7 +92,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   value={organizationName}
                   disabled
                   className="w-full px-3 py-2 cursor-not-allowed"
-                  style={{ ...INPUT, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.40)' }}
+                  style={{ ...INPUT, background: '#f5f5f7', color: '#6e6e73' }}
                 />
               </div>
 
@@ -109,7 +109,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500"
                   style={INPUT}
                 />
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                <p className="text-xs mt-1" style={{ color: '#86868b' }}>
                   Amount due: ₹{(amountDue / 100).toFixed(2)}
                 </p>
               </div>
@@ -131,15 +131,15 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+                  style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #059669, #10B981)', boxShadow: '0 2px 12px rgba(16,185,129,0.30)' }}
+                  className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #059669, #1d7a3c)', boxShadow: '0 2px 12px rgba(29,122,60,0.12)' }}
                 >
                   {loading ? 'Recording...' : 'Record Payment'}
                 </button>

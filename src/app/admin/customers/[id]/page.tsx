@@ -7,19 +7,19 @@ import { updateCustomer } from '@/app/actions/admin';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,8 +57,8 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Edit Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update customer details and permissions</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Edit Customer</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Update customer details and permissions</p>
       </div>
 
       <form action={updateCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
@@ -75,9 +75,9 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
             disabled
             defaultValue={customer.email}
             className="w-full px-4 py-2.5 cursor-not-allowed"
-            style={{ ...INPUT, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.40)' }}
+            style={{ ...INPUT, background: '#f5f5f7', color: '#6e6e73' }}
           />
-          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Email cannot be changed</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Email cannot be changed</p>
         </div>
 
         <div>
@@ -106,9 +106,9 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
             className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
-            <option value="" style={{ background: '#1E0A3C' }}>Independent (No Organization)</option>
+            <option value="" style={{ background: '#ffffff' }}>Independent (No Organization)</option>
             {organizations?.map((org: any) => (
-              <option key={org.id} value={org.id} style={{ background: '#1E0A3C' }}>
+              <option key={org.id} value={org.id} style={{ background: '#ffffff' }}>
                 {org.name}
               </option>
             ))}
@@ -132,15 +132,15 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Update Customer
           </button>
           <Link
             href="/admin/customers"
             className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             Cancel
           </Link>

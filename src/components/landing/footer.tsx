@@ -2,28 +2,28 @@ import Link from 'next/link';
 
 export function Footer() {
   return (
-    <footer style={{ background: 'rgba(10,4,20,0.98)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+    <footer className="bg-[#1d1d1f] border-t border-black/20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 lg:px-8">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
           {/* Company */}
           <div className="col-span-2 lg:col-span-1">
-            <h3 className="text-lg font-black mb-3" style={{ color: 'rgba(255,255,255,0.92)' }}>
-              Lyra <span style={{ color: '#F472B6' }}>Enterprises</span>
+            <h3 className="text-lg font-semibold tracking-tight text-white mb-3">
+              Lyra Enterprises
             </h3>
-            <p className="text-xs mb-5" style={{ color: 'rgba(255,255,255,0.38)' }}>
+            <p className="text-xs mb-5 text-white/45">
               IoT Vending Solutions — Smart Vending Reimagined
             </p>
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse inline-block" />
+              <div className="flex items-center gap-2 text-xs text-white/45">
+                <span className="w-1.5 h-1.5 bg-white/60 rounded-full inline-block" />
                 24/7 Online
               </div>
-              <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#60A5FA' }} />
+              <div className="flex items-center gap-2 text-xs text-white/45">
+                <span className="w-1.5 h-1.5 rounded-full inline-block bg-white/60" />
                 Smart Insights
               </div>
-              <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.38)' }}>
-                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: '#F472B6' }} />
+              <div className="flex items-center gap-2 text-xs text-white/45">
+                <span className="w-1.5 h-1.5 rounded-full inline-block bg-white/60" />
                 Multi-Modal
               </div>
             </div>
@@ -40,11 +40,7 @@ export function Footer() {
                 { label: 'Admin',     href: '/login?type=admin' },
               ].map(({ label, href }) => (
                 <li key={label}>
-                  <a
-                    href={href}
-                    className="text-xs hover:text-white transition-colors"
-                    style={{ color: 'rgba(255,255,255,0.40)' }}
-                  >
+                  <a href={href} className="text-xs text-white/45 hover:text-white transition-colors">
                     {label}
                   </a>
                 </li>
@@ -63,11 +59,7 @@ export function Footer() {
                 { label: 'Refund',  href: '/refund-policy'    },
               ].map(({ label, href }) => (
                 <li key={label}>
-                  <Link
-                    href={href}
-                    className="text-xs hover:text-white transition-colors"
-                    style={{ color: 'rgba(255,255,255,0.40)' }}
-                  >
+                  <Link href={href} className="text-xs text-white/45 hover:text-white transition-colors">
                     {label}
                   </Link>
                 </li>
@@ -78,7 +70,7 @@ export function Footer() {
           {/* Contact */}
           <div className="col-span-2 lg:col-span-1">
             <h4 className="text-xs font-semibold text-white mb-4 tracking-widest uppercase">Contact Us</h4>
-            <ul className="space-y-2.5 text-xs" style={{ color: 'rgba(255,255,255,0.40)' }}>
+            <ul className="space-y-2.5 text-xs text-white/45">
               <li className="leading-snug">
                 10/21, Vasuki Street, Cholapuram,<br />Ambattur, Chennai - 600053
               </li>
@@ -95,12 +87,12 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="mt-10 pt-6 border-t border-white/10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.26)' }}>
+            <p className="text-xs text-white/30">
               © {new Date().getFullYear()} Lyra Enterprises
             </p>
-            <div className="flex items-center gap-5 text-xs" style={{ color: 'rgba(255,255,255,0.26)' }}>
+            <div className="flex items-center gap-5 text-xs text-white/30">
               <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
               <Link href="/terms-of-service" className="hover:text-white transition-colors">Terms</Link>
               <Link href="/refund-policy" className="hover:text-white transition-colors">Refund</Link>

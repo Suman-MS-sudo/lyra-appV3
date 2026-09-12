@@ -3,9 +3,35 @@
 /* Class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─────────────────────────────────────────────
+   Lyra Care — Design Tokens (Apple-style: monochrome
+   surface/content scale + one sparing accent)
+
+   surface        #ffffff  (page background)
+   surface-sunken #f5f5f7  (Apple's own section gray) — vs #fff content: n/a, vs #1d1d1f text: 15.6:1
+   content         #1d1d1f  (primary text) — on #ffffff: 15.8:1 (AAA)
+   content-muted   #6e6e73  (secondary text, Apple's own gray) — on #ffffff: 4.6:1 (AA)
+   hairline        #d2d2d7  (borders/dividers) — decorative only, not text
+   accent          #0071e3  (Apple's own CTA blue — used ONLY for primary CTA / active state) — white text on it: 4.5:1 (AA)
+   accent-hover    #0059b3
+   signal-success  #1d7a3c  — on #ffffff: 5.1:1
+   signal-warning  #9a6400  — on #ffffff: 4.6:1
+   signal-error    #c8102e  — on #ffffff: 5.0:1
+───────────────────────────────────────────── */
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1d1d1f;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f5f5f7;
+  --color-content: #1d1d1f;
+  --color-content-muted: #6e6e73;
+  --color-hairline: #d2d2d7;
+  --color-accent: #0071e3;
+  --color-accent-hover: #0059b3;
+  --color-signal-success: #1d7a3c;
+  --color-signal-warning: #9a6400;
+  --color-signal-error: #c8102e;
 }
 
 @theme inline {
@@ -18,7 +44,9 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
 }
 
 /* Form elements — light mode defaults.
@@ -74,28 +102,15 @@ body {
 }
 
 /* ─────────────────────────────────────────────
-   Lyra Care — Premium Animation System
+   Lyra Care — Motion System
+   Apple-style restraint: motion is purposeful, brief,
+   and rare on frequent interactions. Only two orchestrated
+   entrance moments remain (fade + rise); all decorative
+   "breathing" glow/shimmer/pulse loops have been removed.
 ───────────────────────────────────────────── */
 
-/* Background glow orb drifts */
-@keyframes glow-drift-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%       { transform: translate(28px, -22px) scale(1.07); }
-  66%       { transform: translate(-18px, 14px) scale(0.94); }
-}
-@keyframes glow-drift-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  40%       { transform: translate(-28px, 18px) scale(1.10); }
-  75%       { transform: translate(16px, -12px) scale(0.93); }
-}
-@keyframes glow-drift-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50%       { transform: translate(14px, -18px) scale(1.06); }
-}
-
-/* Entrance animations */
 @keyframes float-up {
-  from { opacity: 0; transform: translateY(22px); }
+  from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fade-in {
@@ -103,93 +118,72 @@ body {
   to   { opacity: 1; }
 }
 @keyframes card-enter {
-  from { opacity: 0; transform: translateY(30px) scale(0.97); }
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Shimmer sweep across image tiles */
-@keyframes shimmer-sweep {
-  0%   { transform: translateX(-100%) skewX(-10deg); }
-  100% { transform: translateX(220%) skewX(-10deg); }
-}
-
-/* CTA button glow breathe */
-@keyframes btn-glow-breathe {
-  0%, 100% { box-shadow: 0 8px 28px rgba(244,63,94,0.45); }
-  50%       { box-shadow: 0 8px 44px rgba(244,63,94,0.80), 0 0 28px rgba(236,72,153,0.40); }
-}
-
-/* Card border breathe */
-@keyframes border-breathe {
-  0%, 100% { border-color: rgba(255,255,255,0.08); }
-  50%       { border-color: rgba(244,63,94,0.24); }
 }
 
 /* ── Utility classes ── */
 
-.animate-glow-drift-1 { animation: glow-drift-1  9s ease-in-out infinite; }
-.animate-glow-drift-2 { animation: glow-drift-2 12s ease-in-out infinite; }
-.animate-glow-drift-3 { animation: glow-drift-3  7s ease-in-out infinite; }
+.animate-float-up   { animation: float-up  0.5s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in    { animation: fade-in   0.5s ease-out both; }
+.animate-card-enter { animation: card-enter 0.45s cubic-bezier(0.22,1,0.36,1) both; }
 
-.animate-float-up   { animation: float-up  0.65s cubic-bezier(0.22,1,0.36,1) both; }
-.animate-fade-in    { animation: fade-in   0.70s ease-out both; }
-.animate-card-enter { animation: card-enter 0.60s cubic-bezier(0.22,1,0.36,1) both; }
-
-/* Premium card — hover lift */
+/* Premium card — subtle hover lift, no color glow */
 .lyra-card {
-  transition: transform 0.28s cubic-bezier(0.22,1,0.36,1),
-              box-shadow 0.28s cubic-bezier(0.22,1,0.36,1),
-              border-color 0.28s ease;
+  transition: transform 0.2s cubic-bezier(0.22,1,0.36,1),
+              box-shadow 0.2s cubic-bezier(0.22,1,0.36,1),
+              border-color 0.2s ease;
 }
 .lyra-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 28px 64px rgba(244,63,94,0.22) !important;
-  border-color: rgba(244,63,94,0.26) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.08) !important;
+  border-color: var(--color-hairline) !important;
 }
 
-/* Border breathe on status card */
-.lyra-border-breathe { animation: border-breathe 4s ease-in-out infinite; }
-
-/* Shimmer sweep on image tiles */
-.tile-shimmer { position: relative; overflow: hidden; }
-.tile-shimmer::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 25%,
-    rgba(255,255,255,0.09) 50%,
-    transparent 75%
-  );
-  animation: shimmer-sweep 4.5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* Glowing CTA button */
-.btn-glow { animation: btn-glow-breathe 2.6s ease-in-out infinite; }
-
-/* Back button smooth press */
+/* Back/icon button smooth press */
 .lyra-icon-btn {
   transition: background 0.2s ease, transform 0.15s ease;
 }
-.lyra-icon-btn:active { transform: scale(0.92); }
+.lyra-icon-btn:active { transform: scale(0.94); }
 
 /* Row hover — for server component table/list rows */
 .row-hover {
   transition: background 0.15s ease;
 }
 .row-hover:hover {
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.03);
 }
 
 /* Card hover — for server component card grids */
 .card-hover {
-  background: rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.02);
   transition: background 0.2s ease;
 }
 .card-hover:hover {
-  background: rgba(255,255,255,0.09);
+  background: rgba(0,0,0,0.04);
+}
+
+/* Deprecated decorative classes kept as no-ops so any stray
+   reference doesn't break — all now resolve to zero motion. */
+.animate-glow-drift-1,
+.animate-glow-drift-2,
+.animate-glow-drift-3,
+.lyra-border-breathe,
+.btn-glow { animation: none; }
+.tile-shimmer::after { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-up,
+  .animate-fade-in,
+  .animate-card-enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .lyra-card:hover { transform: none; }
+  * {
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ─────────────────────────────────────────────

@@ -10,13 +10,13 @@ export default function DashboardTabs({ overview, rfid }: { overview: ReactNode;
 
   return (
     <>
-      <div className="flex items-center gap-2 p-1 rounded-2xl w-fit" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="flex items-center gap-2 p-1 rounded-2xl w-fit" style={{ background: '#f5f5f7', border: '1px solid #f5f5f7' }}>
         <button
           onClick={() => setTab('overview')}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
           style={tab === 'overview'
-            ? { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }
-            : { color: 'rgba(255,255,255,0.50)' }}
+            ? { background: '#1d1d1f', color: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }
+            : { color: '#6e6e73' }}
         >
           <LayoutGrid className="w-3.5 h-3.5" />
           Overview
@@ -25,8 +25,8 @@ export default function DashboardTabs({ overview, rfid }: { overview: ReactNode;
           onClick={() => setTab('rfid')}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
           style={tab === 'rfid'
-            ? { background: 'linear-gradient(135deg, #A78BFA, #7C3AED)', color: 'white', boxShadow: '0 2px 12px rgba(167,139,250,0.35)' }
-            : { color: 'rgba(255,255,255,0.50)' }}
+            ? { background: 'linear-gradient(135deg, #6e6e73, #6e6e73)', color: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }
+            : { color: '#6e6e73' }}
         >
           <Nfc className="w-3.5 h-3.5" />
           RFID Usage

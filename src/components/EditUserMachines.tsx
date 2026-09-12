@@ -74,7 +74,7 @@ export default function EditUserMachines({
       )}
       
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-[#e8f5ea] border border-[#c8e6c9] text-[#1d7a3c] px-4 py-3 rounded-lg text-sm">
           ✓ Machines updated successfully!
         </div>
       )}
@@ -104,12 +104,12 @@ export default function EditUserMachines({
                       setSelectedMachines(selectedMachines.filter(id => id !== machine.id));
                     }
                   }}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
                 />
                 <span className="text-sm text-gray-900">{machine.name}</span>
                 <span className="text-xs text-gray-500">- {machine.location}</span>
                 {machine.customer_id === userId && (
-                  <span className="ml-auto text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                  <span className="ml-auto text-xs bg-[#e8f5ea] text-[#1d7a3c] px-2 py-0.5 rounded-full">
                     Assigned
                   </span>
                 )}
@@ -130,7 +130,7 @@ export default function EditUserMachines({
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
+        className="w-full bg-[#1d1d1f] text-white px-4 py-2 rounded-lg hover:bg-black disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
       >
         {loading ? 'Saving...' : 'Save Machine Assignments'}
       </button>

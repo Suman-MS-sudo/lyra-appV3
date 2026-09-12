@@ -7,19 +7,19 @@ import { createSuperCustomer } from '@/app/actions/super-customer';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default async function NewSuperCustomerPage() {
   const supabase = await createClient();
@@ -42,11 +42,11 @@ export default async function NewSuperCustomerPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Add Super Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Create a new organization account</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Add Super Customer</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Create a new organization account</p>
       </div>
 
-      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.20)' }}>
+      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}>
         <p className="text-sm" style={{ color: '#93C5FD' }}>
           A password reset email will be automatically sent to the super customer's email address. They will set their own password using the secure link.
         </p>
@@ -54,9 +54,9 @@ export default async function NewSuperCustomerPage() {
 
       <form action={createSuperCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
         {/* Account section */}
-        <div className="pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <h3 className="text-base font-semibold text-white mb-0.5">Account Information</h3>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.42)' }}>Login credentials for the super customer</p>
+        <div className="pb-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
+          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Account Information</h3>
+          <p className="text-sm" style={{ color: '#6e6e73' }}>Login credentials for the super customer</p>
         </div>
 
         <div>
@@ -72,7 +72,7 @@ export default async function NewSuperCustomerPage() {
             style={INPUT}
             placeholder="super@company.com"
           />
-          <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>Super customer will receive a password reset link at this email</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Super customer will receive a password reset link at this email</p>
         </div>
 
         <div>
@@ -91,9 +91,9 @@ export default async function NewSuperCustomerPage() {
         </div>
 
         {/* Organization section */}
-        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <h3 className="text-base font-semibold text-white mb-0.5">Organization Details</h3>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.42)' }}>Information about the organization</p>
+        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid #f5f5f7' }}>
+          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Organization Details</h3>
+          <p className="text-sm" style={{ color: '#6e6e73' }}>Information about the organization</p>
         </div>
 
         <div>
@@ -157,14 +157,14 @@ export default async function NewSuperCustomerPage() {
           <Link
             href="/admin/super-customers"
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             Cancel
           </Link>
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Create Super Customer
           </button>

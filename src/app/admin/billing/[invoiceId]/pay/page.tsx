@@ -7,8 +7,8 @@ import Link from 'next/link';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
@@ -38,12 +38,12 @@ export default async function PaymentPage({
     return (
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div className="rounded-2xl p-8 text-center space-y-4" style={CARD}>
-          <h1 className="text-2xl font-bold text-white">Invoice Not Found</h1>
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>The invoice you're looking for doesn't exist.</p>
+          <h1 className="text-2xl font-bold text-[#1d1d1f]">Invoice Not Found</h1>
+          <p className="text-sm" style={{ color: '#6e6e73' }}>The invoice you're looking for doesn't exist.</p>
           <Link
             href="/admin/billing"
-            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}
+            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f' }}
           >
             ← Back to Billing
           </Link>
@@ -59,24 +59,24 @@ export default async function PaymentPage({
           <div className="text-center mb-8">
             <div
               className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
-              style={{ background: 'rgba(52,211,153,0.15)' }}
+              style={{ background: 'rgba(29,122,60,0.12)' }}
             >
               <span className="text-3xl">✓</span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Payment Complete</h1>
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>This invoice has been fully paid.</p>
+            <h1 className="text-2xl font-bold text-[#1d1d1f] mb-2">Payment Complete</h1>
+            <p className="text-sm" style={{ color: '#6e6e73' }}>This invoice has been fully paid.</p>
           </div>
 
-          <div className="space-y-0 mb-8" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="space-y-0 mb-8" style={{ borderTop: '1px solid #f5f5f7' }}>
             {[
               ['Invoice Number', invoice.invoice_number],
               ['Organization', invoice.organizations.name],
               ['Total Amount', `₹${(invoice.total_amount_paisa / 100).toFixed(2)}`],
               ['Paid On', invoice.paid_at ? new Date(invoice.paid_at).toLocaleDateString('en-IN') : 'N/A'],
             ].map(([label, value]) => (
-              <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>{label}</span>
-                <span className="text-sm font-medium text-white">{value}</span>
+              <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid #f5f5f7' }}>
+                <span className="text-sm" style={{ color: '#6e6e73' }}>{label}</span>
+                <span className="text-sm font-medium text-[#1d1d1f]">{value}</span>
               </div>
             ))}
           </div>
@@ -84,7 +84,7 @@ export default async function PaymentPage({
           <Link
             href="/admin/billing"
             className="block w-full text-center px-4 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             ← Back to Billing
           </Link>
@@ -102,18 +102,18 @@ export default async function PaymentPage({
       <div>
         <Link
           href="/admin/billing"
-          className="text-sm transition-colors hover:text-white mb-2 inline-block"
-          style={{ color: 'rgba(255,255,255,0.55)' }}
+          className="text-sm transition-colors hover:text-[#1d1d1f] mb-2 inline-block"
+          style={{ color: '#6e6e73' }}
         >
           ← Back to Billing
         </Link>
-        <h1 className="text-2xl font-bold text-white">Pay Invoice</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>{invoice.invoice_number}</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Pay Invoice</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>{invoice.invoice_number}</p>
       </div>
 
       <div className="rounded-2xl p-6" style={CARD}>
-        <h2 className="font-semibold text-white mb-4">Payment Details</h2>
-        <div className="space-y-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <h2 className="font-semibold text-[#1d1d1f] mb-4">Payment Details</h2>
+        <div className="space-y-0" style={{ borderTop: '1px solid #f5f5f7' }}>
           {[
             ['Invoice Number', invoice.invoice_number],
             ['Organization', invoice.organizations.name],
@@ -124,13 +124,13 @@ export default async function PaymentPage({
               : []),
             ['Link Valid Until', expiryDate.toLocaleDateString('en-IN')],
           ].map(([label, value]) => (
-            <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <span className="text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>{label}</span>
+            <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid #f5f5f7' }}>
+              <span className="text-sm" style={{ color: '#6e6e73' }}>{label}</span>
               <span
                 className="text-sm font-medium"
                 style={{
                   color: label === 'Link Valid Until'
-                    ? (isExpired ? '#FCA5A5' : '#6EE7B7')
+                    ? (isExpired ? '#c8102e' : '#1d7a3c')
                     : '#f3f4f6'
                 }}
               >
@@ -139,16 +139,16 @@ export default async function PaymentPage({
             </div>
           ))}
           <div className="flex justify-between py-4">
-            <span className="font-semibold text-white">Amount Due</span>
-            <span className="text-xl font-bold" style={{ color: '#F472B6' }}>
+            <span className="font-semibold text-[#1d1d1f]">Amount Due</span>
+            <span className="text-xl font-bold" style={{ color: '#0071e3' }}>
               ₹{(invoice.amount_due_paisa / 100).toFixed(2)}
             </span>
           </div>
         </div>
 
         {isExpired ? (
-          <div className="mt-4 rounded-xl p-4" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.25)' }}>
-            <p className="text-sm font-semibold" style={{ color: '#FCA5A5' }}>Payment Link Expired</p>
+          <div className="mt-4 rounded-xl p-4" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
+            <p className="text-sm font-semibold" style={{ color: '#c8102e' }}>Payment Link Expired</p>
             <p className="text-xs mt-1" style={{ color: 'rgba(252,165,165,0.70)' }}>
               This payment link expired on {expiryDate.toLocaleDateString('en-IN')}. Please contact admin for a new payment link.
             </p>

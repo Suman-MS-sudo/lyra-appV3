@@ -3,56 +3,29 @@ import { ArrowRight, Shield, Zap, MapPin } from 'lucide-react';
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden pt-28 pb-24 sm:pt-36 sm:pb-32">
-      {/* Glow blobs */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1"
-          style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.28) 0%, transparent 65%)' }}
-        />
-        <div
-          className="absolute top-1/2 -left-32 w-96 h-96 rounded-full animate-glow-drift-2"
-          style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.22) 0%, transparent 65%)', animationDelay: '2s' }}
-        />
-        <div
-          className="absolute bottom-0 right-1/3 w-80 h-80 rounded-full animate-glow-drift-3"
-          style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.18) 0%, transparent 65%)', animationDelay: '4s' }}
-        />
-      </div>
-
+    <section className="relative overflow-hidden pt-28 pb-24 sm:pt-36 sm:pb-32 bg-white">
       <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
         {/* Live badge */}
         <div className="flex justify-center mb-7 animate-float-up" style={{ animationDelay: '0.05s' }}>
-          <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase"
-            style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.30)', color: '#F472B6' }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#F43F5E' }} />
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold tracking-widest uppercase bg-[#f5f5f7] text-[#6e6e73]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0071e3]" />
             Smart Hygiene Access
           </div>
         </div>
 
-        {/* Headline */}
-        <div className="mx-auto max-w-3xl text-center">
+        {/* Headline — signature: oversized, tight-tracking confident type */}
+        <div className="mx-auto max-w-4xl text-center">
           <h1
-            className="text-4xl font-black tracking-tight sm:text-6xl lg:text-7xl text-white animate-float-up"
-            style={{ lineHeight: 1.1, animationDelay: '0.12s' }}
+            className="text-5xl font-semibold tracking-tight sm:text-7xl lg:text-8xl text-[#1d1d1f] animate-float-up"
+            style={{ lineHeight: 1.02, letterSpacing: '-0.03em', animationDelay: '0.12s' }}
           >
-            Empowering Women&apos;s Hygiene{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg, #FDA4AF, #F43F5E, #EC4899)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              Through Innovation
-            </span>
+            Empowering Women&apos;s Hygiene
+            <br />
+            <span className="text-[#6e6e73]">Through Innovation</span>
           </h1>
           <p
-            className="mt-6 text-lg leading-8 sm:text-xl animate-float-up"
-            style={{ color: 'rgba(255,255,255,0.52)', animationDelay: '0.22s' }}
+            className="mt-8 text-lg leading-8 sm:text-xl animate-float-up text-[#6e6e73] max-w-2xl mx-auto"
+            style={{ animationDelay: '0.22s' }}
           >
             IoT-enabled sanitary napkin vending machines for schools, workplaces, and public spaces.
             Promoting menstrual health accessibility with cashless, contactless solutions.
@@ -63,16 +36,14 @@ export function HeroSection() {
           >
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-semibold text-white transition-all active:scale-[0.97] btn-glow"
-              style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}
+              className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 min-h-11 text-base font-semibold text-white bg-[#1d1d1f] transition-transform active:scale-[0.97]"
             >
               Customer Login
               <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
               href="/login?type=admin"
-              className="inline-flex items-center rounded-full px-8 py-3.5 text-base font-semibold transition-all active:scale-[0.97]"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.80)' }}
+              className="inline-flex items-center rounded-full px-8 py-3.5 min-h-11 text-base font-semibold text-[#1d1d1f] border border-[#d2d2d7] transition-transform active:scale-[0.97]"
             >
               Admin Login
             </Link>
@@ -88,31 +59,18 @@ export function HeroSection() {
           ].map(({ icon: Icon, title, desc, delay }) => (
             <div
               key={title}
-              className="flex flex-col items-center rounded-3xl px-6 py-8 text-center lyra-card animate-card-enter"
-              style={{
-                background: 'rgba(255,255,255,0.07)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                animationDelay: delay,
-              }}
+              className="flex flex-col items-center rounded-2xl px-6 py-8 text-center lyra-card animate-card-enter border border-[#e5e5e7]"
+              style={{ animationDelay: delay }}
             >
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-                style={{ background: 'rgba(244,63,94,0.18)', border: '1px solid rgba(244,63,94,0.28)' }}
-              >
-                <Icon className="h-7 w-7" style={{ color: '#F472B6' }} />
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-[#f5f5f7]">
+                <Icon className="h-6 w-6 text-[#1d1d1f]" />
               </div>
-              <h3 className="text-sm font-semibold text-white mb-2">{title}</h3>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.48)' }}>{desc}</p>
+              <h3 className="text-sm font-semibold text-[#1d1d1f] mb-2">{title}</h3>
+              <p className="text-xs text-[#6e6e73]">{desc}</p>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Bottom separator */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-px"
-        style={{ background: 'linear-gradient(to right, transparent 0%, rgba(244,63,94,0.25) 35%, rgba(167,139,250,0.25) 65%, transparent 100%)' }}
-      />
     </section>
   );
 }
