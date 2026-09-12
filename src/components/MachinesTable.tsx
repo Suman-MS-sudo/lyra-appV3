@@ -382,7 +382,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                     {m.status !== 'online' && m.status !== 'offline' && (
                       <span
                         className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium"
-                        style={{ background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }}
+                        style={{ background: 'rgba(251,191,36,0.15)', color: '#B45309' }}
                       >
                         {m.status}
                       </span>
@@ -413,14 +413,14 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                       >
                         <span
                           className="font-semibold text-sm"
-                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#FBBF24' : 'white' }}
+                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#B45309' : '#0f172a' }}
                         >
                           {m.stock_level}{m.max_capacity ? <span style={{ color: '#64748b', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
                           {m.stock_level === 0 && (
                             <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.18)', color: '#B91C1C' }}>Empty</span>
                           )}
                           {m.stock_level > 0 && m.stock_level < 5 && (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#B45309' }}>Low</span>
                           )}
                         </span>
                       </div>
@@ -518,8 +518,9 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             top: motorTooltip.top,
             right: motorTooltip.right,
             transform: motorTooltip.above ? 'translateY(-100%)' : undefined,
-            background: '#1A1030',
+            background: '#ffffff',
             border: '1px solid #e2e8f0',
+            boxShadow: '0 8px 24px rgba(15,23,42,0.16)',
           }}
         >
           {motorTooltip.stock.map((s, i) => (

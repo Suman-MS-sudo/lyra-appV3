@@ -32,7 +32,7 @@ export async function createVendingMachine(formData: FormData) {
     firmware_version: formData.get('firmware_version') as string || null,
     rfid_enabled: formData.get('rfid_enabled') === 'true',
     body_type: (formData.get('body_type') as string) || 'single_motor',
-    max_capacity: formData.get('body_type') === 'quad_motor' ? 100 : 35,
+    max_capacity: formData.get('body_type') === 'quad_motor' ? 100 : 25,
 
     // Organization fields (customer_id stores the organization UUID)
     customer_id: formData.get('organization_id') as string || null,

@@ -60,7 +60,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase();
   const style =
     s === 'paid'    ? { background: 'rgba(16,185,129,0.15)',  color: '#047857' } :
-    s === 'pending' ? { background: 'rgba(251,191,36,0.15)',  color: '#FDE68A' } :
+    s === 'pending' ? { background: 'rgba(251,191,36,0.15)',  color: '#B45309' } :
     s === 'overdue' ? { background: 'rgba(239,68,68,0.15)',   color: '#B91C1C' } :
                       { background: '#f1f5f9', color: '#334155' };
   const Icon = s === 'paid' ? CheckCircle : s === 'pending' ? Clock : AlertCircle;
@@ -271,7 +271,7 @@ export function BillingTablesClient({
                   <td className="py-3.5 px-4 text-right">
                     <p className="font-semibold text-slate-900">₹{fmt(inv.total_amount_paisa)}</p>
                     {inv.amount_due_paisa > 0 && inv.status !== 'paid' && (
-                      <p className="text-xs mt-0.5" style={{ color: '#FDE68A' }}>Due ₹{fmt(inv.amount_due_paisa)}</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#B45309' }}>Due ₹{fmt(inv.amount_due_paisa)}</p>
                     )}
                   </td>
                   <td className="py-3.5 px-4 text-center">

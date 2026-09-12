@@ -1,8 +1,7 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { MapPin, Building2, ChevronUp, ChevronDown, ChevronsUpDown, Gamepad2 } from 'lucide-react';
-import { OfflineMachineGame } from '@/components/OfflineMachineGame';
+import { MapPin, Building2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 
 type SortKey = 'name' | 'location' | 'asset_online' | 'stock_level' | 'totalTransactions' | 'totalRevenue';
 type SortDir = 'asc' | 'desc';
@@ -41,7 +40,6 @@ export function CustomerMachinesTable({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [gameFor, setGameFor] = useState<string | null>(null);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -77,13 +75,7 @@ export function CustomerMachinesTable({
   const thClass = "py-2.5 px-4 text-xs font-semibold uppercase tracking-wide select-none cursor-pointer transition-colors hover:text-slate-900";
   const thStyle = { color: '#64748b' };
 
-  const gameTarget = gameFor ? machines.find(m => m.id === gameFor) : null;
-
   return (
-    <>
-    {gameTarget && (
-      <OfflineMachineGame machineName={gameTarget.name} onClose={() => setGameFor(null)} />
-    )}
     <div className="rounded-2xl overflow-hidden" style={CARD}>
       <div className="px-5 py-4" style={{ borderBottom: '1px solid #f1f5f9' }}>
         <h2 className="font-semibold text-slate-900 flex items-center gap-2">
@@ -145,22 +137,11 @@ export function CustomerMachinesTable({
                       <span className={`w-1.5 h-1.5 rounded-full ${machine.asset_online ? 'animate-pulse bg-emerald-400' : 'bg-gray-500'}`} />
                       {machine.asset_online ? 'Online' : 'Offline'}
                     </span>
-                    {!machine.asset_online && (
-                      <button
-                        onClick={() => setGameFor(machine.id)}
-                        title="Play while you wait!"
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all hover:scale-105"
-                        style={{ background: 'rgba(96,165,250,0.18)', border: '1px solid rgba(96,165,250,0.30)', color: '#60A5FA' }}
-                      >
-                        <Gamepad2 className="w-3 h-3" />
-                        Play
-                      </button>
-                    )}
                   </div>
                 </td>
                 <td
                   className="py-3.5 px-4 text-right font-medium"
-                  style={{ color: machine.stock_level !== null && machine.stock_level < 5 ? '#FBBF24' : 'white' }}
+                  style={{ color: machine.stock_level !== null && machine.stock_level < 5 ? '#B45309' : '#0f172a' }}
                 >
                   {machine.stock_level !== null ? `${machine.stock_level} units` : 'N/A'}
                 </td>
@@ -195,6 +176,5 @@ export function CustomerMachinesTable({
         </table>
       </div>
     </div>
-    </>
   );
 }

@@ -101,7 +101,7 @@ export default function ReportDownload() {
         >
           <div
             className="w-full max-w-lg rounded-2xl p-5 relative"
-            style={{ ...CARD, background: '#1A1030' }}
+            style={{ ...CARD, background: '#ffffff', boxShadow: '0 20px 60px rgba(15,23,42,0.18)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <button

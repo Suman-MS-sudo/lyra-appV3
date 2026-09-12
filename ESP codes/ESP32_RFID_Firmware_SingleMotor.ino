@@ -1,5 +1,5 @@
 // ESP32 firmware for Lyra vending machine — RFID-ONLY payment mode
-// BODY TYPE: SINGLE MOTOR — 35 napkin capacity, one dispenser
+// BODY TYPE: SINGLE MOTOR — 25 napkin capacity, one dispenser
 //
 // Same payment flow and architecture as the quad-motor variant, with a
 // single dispenser instead of 4 (no round-robin — one motor, one stock
@@ -124,7 +124,7 @@
 #endif
 
 // ==================== CAPACITY ====================
-#define MAX_STOCK 35   // single-motor body: 35-napkin hopper
+#define MAX_STOCK 25   // single-motor body: 25-napkin hopper
 
 // EEPROM: single stock byte at address 64 (see EEPROM FUNCTIONS below for
 // why 0-3 are used for something else now)

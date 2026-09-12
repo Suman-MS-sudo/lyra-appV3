@@ -174,7 +174,7 @@ export default async function CustomerBillingPage() {
                           isPaid
                             ? { background: 'rgba(16,185,129,0.15)', color: '#047857' }
                             : invoice.status === 'pending'
-                            ? { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }
+                            ? { background: 'rgba(251,191,36,0.15)', color: '#B45309' }
                             : { background: '#f1f5f9', color: '#334155' }
                         }
                       >

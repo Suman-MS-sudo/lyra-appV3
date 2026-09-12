@@ -456,7 +456,7 @@ export default async function CustomerDashboard() {
           className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
           style={overdueInvoices.length > 0
             ? { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.28)', color: '#B91C1C' }
-            : { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.28)', color: '#FDE68A' }
+            : { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.28)', color: '#B45309' }
           }
         >
           <div className="flex items-center gap-2 text-sm">
@@ -588,7 +588,7 @@ export default async function CustomerDashboard() {
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs" style={{ color: '#64748b' }}>{formatLastSync(m.last_ping)}</span>
                   {m.stock_level !== null && m.stock_level < 5 && (
-                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.18)', color: '#FDE68A' }}>Low</span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.18)', color: '#B45309' }}>Low</span>
                   )}
                 </div>
               </div>
@@ -722,7 +722,7 @@ export default async function CustomerDashboard() {
                         className="px-2 py-0.5 rounded text-xs font-semibold"
                         style={issue === 'Offline'
                           ? { background: 'rgba(239,68,68,0.25)', color: '#B91C1C' }
-                          : { background: 'rgba(251,191,36,0.25)', color: '#FDE68A' }
+                          : { background: 'rgba(251,191,36,0.25)', color: '#B45309' }
                         }
                       >
                         {issue}
@@ -804,7 +804,7 @@ export default async function CustomerDashboard() {
                           <span
                             className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                             style={i === 0
-                              ? { background: 'rgba(251,191,36,0.20)', color: '#FDE68A' }
+                              ? { background: 'rgba(251,191,36,0.20)', color: '#B45309' }
                               : { background: '#f1f5f9', color: '#334155' }}
                           >
                             {i + 1}

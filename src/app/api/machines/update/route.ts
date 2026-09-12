@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest) {
 
     if (body_type !== undefined) {
       updateData.body_type = body_type;
-      updateData.max_capacity = body_type === 'quad_motor' ? 100 : 35;
+      updateData.max_capacity = body_type === 'quad_motor' ? 100 : 25;
     }
 
     const { error: updateError } = await supabase

@@ -3,7 +3,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ShoppingCart, Heart, Package, X, Minus, Plus } from 'lucide-react';
-import { OfflineMachineGame } from '@/components/OfflineMachineGame';
 import { Header } from '@/components/landing/header';
 import { HeroSection } from '@/components/landing/hero-section';
 import { AboutSection } from '@/components/landing/about-section';
@@ -868,15 +867,12 @@ function HomeContent() {
           {/* ── Main scrollable content ── */}
           <main className="max-w-md mx-auto px-5 pb-40" style={{ position: 'relative', zIndex: 1 }}>
 
-            {/* Offline: show game instead of products */}
+            {/* Offline: show status message instead of products */}
             {!machine?.asset_online && (
-              <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.38s' }}>
-                <div className="text-center py-2">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#2563EB' }}>Machine Status</p>
-                  <h2 className="text-xl font-bold text-slate-900 mb-1">Your machine is offline</h2>
-                  <p className="text-sm" style={{ color: '#334155' }}>Play while you wait for it to come back online</p>
-                </div>
-                <OfflineMachineGame machineName={machine?.name || machineId!} inline />
+              <div className="animate-fade-in space-y-4 text-center py-16" style={{ animationDelay: '0.38s' }}>
+                <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#2563EB' }}>Machine Status</p>
+                <h2 className="text-xl font-bold text-slate-900 mb-1">Your machine is offline</h2>
+                <p className="text-sm" style={{ color: '#334155' }}>Please try again once it comes back online.</p>
               </div>
             )}
 

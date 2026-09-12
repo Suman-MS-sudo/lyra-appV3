@@ -64,7 +64,7 @@ export default async function InvoiceDetailPage({
   const getStatusStyle = (status: string): React.CSSProperties => {
     switch (status) {
       case 'paid': return { background: 'rgba(16,185,129,0.15)', color: '#047857' };
-      case 'pending': return { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' };
+      case 'pending': return { background: 'rgba(251,191,36,0.15)', color: '#B45309' };
       case 'overdue': return { background: 'rgba(37,99,235,0.15)', color: '#B91C1C' };
       default: return { background: '#f8fafc', color: '#334155' };
     }
@@ -243,7 +243,7 @@ export default async function InvoiceDetailPage({
           <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#64748b' }}>Notes</p>
           {invoice.notes && (
             <div className="rounded-xl p-4 mb-4" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.20)' }}>
-              <p className="text-sm font-medium" style={{ color: '#FDE68A' }}>Consolidated Invoice</p>
+              <p className="text-sm font-medium" style={{ color: '#B45309' }}>Consolidated Invoice</p>
               <p className="text-sm mt-1" style={{ color: 'rgba(253,230,138,0.80)' }}>{invoice.notes}</p>
             </div>
           )}

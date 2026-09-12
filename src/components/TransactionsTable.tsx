@@ -66,7 +66,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
   const tabs: { key: TxType; label: string; count: number; activeStyle: React.CSSProperties }[] = [
     { key: 'all',    label: 'All',    count: onlineCount + coinCount + rfidCount, activeStyle: { background: '#f8fafc', color: '#0f172a' } },
     { key: 'online', label: 'Online', count: onlineCount,             activeStyle: { background: 'rgba(37,99,235,0.22)',  color: '#93C5FD', border: '1px solid rgba(37,99,235,0.35)' } },
-    { key: 'coin',   label: 'Coin',   count: coinCount,               activeStyle: { background: 'rgba(251,191,36,0.18)', color: '#FDE68A', border: '1px solid rgba(251,191,36,0.30)' } },
+    { key: 'coin',   label: 'Coin',   count: coinCount,               activeStyle: { background: 'rgba(251,191,36,0.18)', color: '#B45309', border: '1px solid rgba(251,191,36,0.30)' } },
     { key: 'rfid',   label: 'RFID',   count: rfidCount,               activeStyle: { background: 'rgba(96,165,250,0.18)', color: '#93C5FD', border: '1px solid rgba(96,165,250,0.30)' } },
   ];
 
@@ -138,7 +138,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
                       ? { background: 'rgba(37,99,235,0.15)', color: '#93C5FD' }
                       : tx.type === 'rfid'
                       ? { background: 'rgba(96,165,250,0.15)', color: '#93C5FD' }
-                      : { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }
+                      : { background: 'rgba(251,191,36,0.15)', color: '#B45309' }
                     }
                   >
                     {tx.type === 'online' ? <CreditCard className="w-3 h-3" /> : tx.type === 'rfid' ? <Nfc className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
@@ -167,7 +167,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
                       tx.status === 'paid' || tx.status === 'dispensed'
                         ? { background: 'rgba(16,185,129,0.15)', color: '#047857' }
                         : tx.status === 'pending'
-                        ? { background: 'rgba(251,191,36,0.15)', color: '#FDE68A' }
+                        ? { background: 'rgba(251,191,36,0.15)', color: '#B45309' }
                         : { background: '#f1f5f9', color: '#334155' }
                     }
                   >
