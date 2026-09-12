@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient, SupabaseClient } from '@supabase/supabase-js';
@@ -37,19 +37,19 @@ async function sendCustomerSetPasswordEmail(
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #f1f5f9',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#0f172a' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 async function createCustomer(formData: FormData) {
   'use server';
@@ -190,11 +190,11 @@ export default async function NewCustomerPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Add Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Create a new customer account</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Add Customer</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Create a new customer account</p>
       </div>
 
-      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.20)' }}>
+      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}>
         <p className="text-sm" style={{ color: '#93C5FD' }}>
           A password reset email will be automatically sent to the customer's email address. They will receive a secure link to set their password.
         </p>
@@ -210,11 +210,11 @@ export default async function NewCustomerPage() {
             id="email"
             name="email"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="customer@example.com"
           />
-          <p className="text-xs mt-1" style={{ color: '#64748b' }}>Customer will receive a password reset link at this email</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Customer will receive a password reset link at this email</p>
         </div>
 
         <div>
@@ -226,7 +226,7 @@ export default async function NewCustomerPage() {
             id="full_name"
             name="full_name"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="John Doe"
           />
@@ -239,7 +239,7 @@ export default async function NewCustomerPage() {
           <select
             id="organization_id"
             name="organization_id"
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
             <option value="" style={{ background: '#ffffff' }}>No Organization (Independent Customer)</option>
@@ -249,7 +249,7 @@ export default async function NewCustomerPage() {
               </option>
             ))}
           </select>
-          <p className="text-xs mt-1" style={{ color: '#64748b' }}>Select an organization if this customer belongs to a company</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Select an organization if this customer belongs to a company</p>
         </div>
 
         <div>
@@ -257,25 +257,25 @@ export default async function NewCustomerPage() {
             <input
               type="checkbox"
               name="can_edit"
-              className="w-4 h-4 rounded accent-blue-600"
+              className="w-4 h-4 rounded accent-pink-500"
             />
             <span className="text-sm font-medium" style={LABEL}>Can Edit (Allow customer to make purchases)</span>
           </label>
-          <p className="text-xs mt-1 ml-7" style={{ color: '#64748b' }}>If unchecked, customer will have read-only access</p>
+          <p className="text-xs mt-1 ml-7" style={{ color: '#86868b' }}>If unchecked, customer will have read-only access</p>
         </div>
 
         <div className="flex gap-4 pt-2">
           <Link
             href="/admin/customers"
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             Cancel
           </Link>
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Create Customer
           </button>

@@ -24,10 +24,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const isSuperCustomer = profile?.account_type === 'super_customer';
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%)' }}
-    >
+    <div className="min-h-screen bg-white">
       <CustomerNav userEmail={user.email ?? ''} isSuperCustomer={isSuperCustomer} />
       <div className="flex-1">{children}</div>
     </div>

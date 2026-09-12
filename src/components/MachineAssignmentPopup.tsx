@@ -22,7 +22,7 @@ export default function MachineAssignmentPopup({ machines, userName }: MachineAs
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+        className="text-sm font-medium text-[#0071e3] hover:underline"
       >
         View {machines.length} {machines.length === 1 ? 'device' : 'devices'}
       </button>

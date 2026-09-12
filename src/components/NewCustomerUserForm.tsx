@@ -70,9 +70,9 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-[#f5f5f7] border border-[#e5e5e7] rounded-lg p-4">
         <h4 className="text-sm font-semibold text-blue-900 mb-1">📧 Password Setup</h4>
-        <p className="text-sm text-blue-700">
+        <p className="text-sm text-[#3a3a3c]">
           A password reset link will be sent to the user's email address. They will set their own password upon first login.
         </p>
       </div>
@@ -86,7 +86,7 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
           id="email"
           name="email"
           required
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
           placeholder="user@example.com"
         />
         <p className="text-xs text-gray-500 mt-1">User will receive a setup link at this email</p>
@@ -100,7 +100,7 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
           type="text"
           id="full_name"
           name="full_name"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
           placeholder="John Doe"
         />
       </div>
@@ -113,7 +113,7 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
           type="tel"
           id="phone"
           name="phone"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
           placeholder="+91 98765 43210"
         />
       </div>
@@ -137,7 +137,7 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
                       setSelectedMachines(selectedMachines.filter(id => id !== machine.id));
                     }
                   }}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
                 />
                 <span className="text-sm text-gray-900">{machine.name}</span>
                 <span className="text-xs text-gray-500">- {machine.location}</span>
@@ -150,9 +150,9 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-[#f5f5f7] border border-[#e5e5e7] rounded-lg p-4">
         <h4 className="text-sm font-semibold text-blue-900 mb-2">User Permissions</h4>
-        <ul className="text-sm text-blue-700 space-y-1">
+        <ul className="text-sm text-[#3a3a3c] space-y-1">
           <li>✓ View machines and their status</li>
           <li>✓ See revenue and transaction data</li>
           <li>✓ Access customer dashboard</li>
@@ -165,7 +165,7 @@ export default function NewCustomerUserForm({ superCustomerId, organizationId, m
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
+          className="flex-1 bg-[#1d1d1f] text-white px-6 py-3 rounded-lg hover:bg-black disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
         >
           {loading ? 'Creating...' : 'Create User'}
         </button>

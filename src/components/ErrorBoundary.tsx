@@ -75,7 +75,7 @@ export class ErrorBoundary extends Component<Props, State> {
               )}
               <button
                 onClick={() => window.location.reload()}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                className="w-full bg-[#1d1d1f] hover:bg-black text-white font-medium py-3 px-6 rounded-lg transition-colors"
               >
                 Refresh Page
               </button>

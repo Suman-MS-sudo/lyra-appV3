@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -44,27 +44,27 @@ function formatDate(dateString: string) {
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   if (!active) return <ChevronsUpDown className="w-3 h-3 ml-1 inline opacity-25" />;
   return dir === 'asc'
-    ? <ChevronUp   className="w-3 h-3 ml-1 inline" style={{ color: '#2563EB' }} />
-    : <ChevronDown className="w-3 h-3 ml-1 inline" style={{ color: '#2563EB' }} />;
+    ? <ChevronUp   className="w-3 h-3 ml-1 inline" style={{ color: '#0071e3' }} />
+    : <ChevronDown className="w-3 h-3 ml-1 inline" style={{ color: '#0071e3' }} />;
 }
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #f1f5f9',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT_STYLE: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: 'white',
   borderRadius: 12,
   outline: 'none',
 };
 
 const SELECT_STYLE: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#1d1d1f',
   borderRadius: 10,
   outline: 'none',
 };
@@ -175,8 +175,8 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
   }
 
   const activeFilters = statusFilter !== 'all' || customerFilter !== 'all' || onlineFilter !== 'all';
-  const thStyle: React.CSSProperties = { color: '#64748b' };
-  const thClass = 'py-3 px-4 text-xs font-semibold uppercase tracking-wide text-left select-none cursor-pointer hover:text-slate-900 transition-colors';
+  const thStyle: React.CSSProperties = { color: '#86868b' };
+  const thClass = 'py-3 px-4 text-xs font-semibold uppercase tracking-wide text-left select-none cursor-pointer hover:text-[#1d1d1f] transition-colors';
 
   return (
     <div className="space-y-5">
@@ -184,17 +184,17 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Machines', value: stats.total,   icon: Building2,     iconColor: '#60A5FA', iconBg: 'rgba(96,165,250,0.18)'  },
-          { label: 'Online',         value: stats.online,  icon: CheckCircle,   iconColor: '#34D399', iconBg: 'rgba(16,185,129,0.18)'  },
-          { label: 'Offline',        value: stats.offline, icon: Clock,         iconColor: '#64748b', iconBg: '#f1f5f9' },
-          { label: 'Low Stock',      value: stats.lowStock,icon: AlertCircle,   iconColor: '#FBBF24', iconBg: 'rgba(251,191,36,0.18)'  },
+          { label: 'Total Machines', value: stats.total,   icon: Building2,     iconColor: '#0071e3', iconBg: 'rgba(0,113,227,0.10)'  },
+          { label: 'Online',         value: stats.online,  icon: CheckCircle,   iconColor: '#1d7a3c', iconBg: 'rgba(29,122,60,0.12)'  },
+          { label: 'Offline',        value: stats.offline, icon: Clock,         iconColor: '#6e6e73', iconBg: '#f5f5f7' },
+          { label: 'Low Stock',      value: stats.lowStock,icon: AlertCircle,   iconColor: '#9a6400', iconBg: 'rgba(154,100,0,0.12)'  },
         ].map(({ label, value, icon: Icon, iconColor, iconBg }) => (
           <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
               <Icon className="w-5 h-5" style={{ color: iconColor }} />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>{label}</p>
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
+            <p className="text-2xl font-bold text-[#1d1d1f]">{value}</p>
           </div>
         ))}
       </div>
@@ -204,7 +204,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#64748b' }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#86868b' }} />
             <input
               type="text"
               placeholder="Search name, machine ID, MAC, location…"
@@ -219,8 +219,8 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             onClick={() => setShowFilters(f => !f)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
             style={activeFilters
-              ? { background: 'rgba(37,99,235,0.18)', border: '1px solid rgba(37,99,235,0.35)', color: '#2563EB' }
-              : { background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }
+              ? { background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#0071e3' }
+              : { background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }
             }
           >
             <Filter className="w-4 h-4" />
@@ -230,7 +230,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
           <button
             onClick={exportToCSV}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-            style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }}
           >
             <Download className="w-4 h-4" />
             Export
@@ -238,7 +238,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3" style={{ borderTop: '1px solid #f5f5f7' }}>
             {[
               {
                 label: 'Status', value: statusFilter, set: setStatusFilter,
@@ -254,7 +254,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
               },
             ].map(({ label, value, set, options }) => (
               <div key={label}>
-                <p className="text-xs font-semibold mb-1.5" style={{ color: '#334155' }}>{label}</p>
+                <p className="text-xs font-semibold mb-1.5" style={{ color: '#6e6e73' }}>{label}</p>
                 <select
                   value={value}
                   onChange={e => { set(e.target.value); setCurrentPage(1); }}
@@ -271,7 +271,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
 
       {/* ── Results info ── */}
       <div className="flex items-center justify-between">
-        <p className="text-sm" style={{ color: '#334155' }}>
+        <p className="text-sm" style={{ color: '#6e6e73' }}>
           Showing {Math.min(start + 1, filtered.length)}–{Math.min(start + itemsPerPage, filtered.length)} of {filtered.length} machines
         </p>
         <select
@@ -289,7 +289,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
                 <th className={thClass} style={thStyle} onClick={() => handleSort('name')}>
                   Name <SortIcon active={sortBy === 'name'} dir={sortDir} />
                 </th>
@@ -323,22 +323,22 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
               {page.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-16 text-center">
-                    <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: '#94a3b8' }} />
-                    <p className="font-medium" style={{ color: '#334155' }}>No machines match your filters</p>
+                    <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: '#e5e5e7' }} />
+                    <p className="font-medium" style={{ color: '#6e6e73' }}>No machines match your filters</p>
                   </td>
                 </tr>
               ) : page.map(m => (
-                <tr key={m.id} className="row-hover" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <tr key={m.id} className="row-hover" style={{ borderBottom: '1px solid #f5f5f7' }}>
                   {/* Name */}
                   <td className="py-3.5 px-4">
-                    <p className="font-semibold text-slate-900">{m.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{m.machine_type}</p>
+                    <p className="font-semibold text-[#1d1d1f]">{m.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>{m.machine_type}</p>
                   </td>
 
                   {/* Machine ID */}
                   <td className="py-3.5 px-4 hidden md:table-cell">
-                    <p className="font-mono text-xs text-slate-900">{m.machine_id}</p>
-                    <p className="font-mono text-xs mt-0.5" style={{ color: '#64748b' }}>{m.mac_id}</p>
+                    <p className="font-mono text-xs text-[#1d1d1f]">{m.machine_id}</p>
+                    <p className="font-mono text-xs mt-0.5" style={{ color: '#86868b' }}>{m.mac_id}</p>
                   </td>
 
                   {/* Motor Type */}
@@ -346,8 +346,8 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                     <span
                       className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
                       style={m.body_type === 'quad_motor'
-                        ? { background: 'rgba(37,99,235,0.12)', color: '#1D4ED8' }
-                        : { background: '#f1f5f9', color: '#334155' }
+                        ? { background: 'rgba(244,114,182,0.15)', color: '#F9A8D4' }
+                        : { background: '#f5f5f7', color: '#6e6e73' }
                       }
                     >
                       {m.body_type === 'quad_motor' ? 'Quad Motor' : 'Single Motor'}
@@ -356,14 +356,14 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
 
                   {/* Location */}
                   <td className="py-3.5 px-4 hidden lg:table-cell">
-                    <div className="flex items-center gap-1.5" style={{ color: '#334155' }}>
+                    <div className="flex items-center gap-1.5" style={{ color: '#6e6e73' }}>
                       <MapPin className="w-3.5 h-3.5 shrink-0" />
                       <span className="text-sm">{m.location}</span>
                     </div>
                   </td>
 
                   {/* Customer */}
-                  <td className="py-3.5 px-4 text-sm hidden lg:table-cell" style={{ color: '#334155' }}>
+                  <td className="py-3.5 px-4 text-sm hidden lg:table-cell" style={{ color: '#6e6e73' }}>
                     {m.customer_name || '—'}
                   </td>
 
@@ -372,8 +372,8 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                     <span
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                       style={m.asset_online
-                        ? { background: 'rgba(16,185,129,0.15)', color: '#047857' }
-                        : { background: '#f1f5f9', color: '#334155' }
+                        ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
+                        : { background: '#f5f5f7', color: '#6e6e73' }
                       }
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${m.asset_online ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
@@ -382,7 +382,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                     {m.status !== 'online' && m.status !== 'offline' && (
                       <span
                         className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium"
-                        style={{ background: 'rgba(251,191,36,0.15)', color: '#B45309' }}
+                        style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}
                       >
                         {m.status}
                       </span>
@@ -390,7 +390,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                   </td>
 
                   {/* Last ping */}
-                  <td className="py-3.5 px-4 text-xs hidden sm:table-cell" style={{ color: '#334155' }}>
+                  <td className="py-3.5 px-4 text-xs hidden sm:table-cell" style={{ color: '#6e6e73' }}>
                     {m.last_ping ? formatDate(m.last_ping) : '—'}
                   </td>
 
@@ -413,19 +413,19 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                       >
                         <span
                           className="font-semibold text-sm"
-                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#B45309' : '#0f172a' }}
+                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#9a6400' : 'white' }}
                         >
-                          {m.stock_level}{m.max_capacity ? <span style={{ color: '#64748b', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
+                          {m.stock_level}{m.max_capacity ? <span style={{ color: '#86868b', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
                           {m.stock_level === 0 && (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.18)', color: '#B91C1C' }}>Empty</span>
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(200,16,46,0.10)', color: '#c8102e' }}>Empty</span>
                           )}
                           {m.stock_level > 0 && m.stock_level < 5 && (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,191,36,0.18)', color: '#B45309' }}>Low</span>
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}>Low</span>
                           )}
                         </span>
                       </div>
                     ) : (
-                      <span style={{ color: '#64748b' }}>—</span>
+                      <span style={{ color: '#a1a1a6' }}>—</span>
                     )}
                   </td>
 
@@ -435,19 +435,19 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                       <Link
                         href={`/admin/machines/${m.id}/edit${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ''}`}
                         className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.20)' }}
+                        style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}
                         title="Edit machine"
                       >
-                        <Edit2 className="w-3.5 h-3.5" style={{ color: '#60A5FA' }} />
+                        <Edit2 className="w-3.5 h-3.5" style={{ color: '#0071e3' }} />
                       </Link>
                       <button
                         onClick={() => handleDelete(m.id, m.name)}
                         disabled={deletingId === m.id}
                         className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors disabled:opacity-40"
-                        style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.20)' }}
+                        style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)' }}
                         title="Delete machine"
                       >
-                        <Trash2 className="w-3.5 h-3.5" style={{ color: '#B91C1C' }} />
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: '#c8102e' }} />
                       </button>
                     </div>
                   </td>
@@ -465,7 +465,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
-            style={{ background: '#ffffff', border: '1px solid #f1f5f9', color: '#0f172a' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }}
           >
             Previous
           </button>
@@ -483,15 +483,15 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             }
             return pages.map((p) =>
               p < 0 ? (
-                <span key={p} className="px-1 text-sm" style={{ color: '#64748b' }}>…</span>
+                <span key={p} className="px-1 text-sm" style={{ color: '#86868b' }}>…</span>
               ) : (
                 <button
                   key={p}
                   onClick={() => setCurrentPage(p)}
                   className="w-9 h-9 rounded-xl text-sm font-semibold transition-colors"
                   style={currentPage === p
-                    ? { background: 'linear-gradient(135deg,#2563EB,#3B82F6)', color: '#ffffff' }
-                    : { background: '#ffffff', border: '1px solid #f1f5f9', color: '#0f172a' }
+                    ? { background: '#1d1d1f', color: 'white' }
+                    : { background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }
                   }
                 >
                   {p}
@@ -504,7 +504,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
             className="px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-40"
-            style={{ background: '#ffffff', border: '1px solid #f1f5f9', color: '#0f172a' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }}
           >
             Next
           </button>
@@ -518,15 +518,14 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             top: motorTooltip.top,
             right: motorTooltip.right,
             transform: motorTooltip.above ? 'translateY(-100%)' : undefined,
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 8px 24px rgba(15,23,42,0.16)',
+            background: '#1A1030',
+            border: '1px solid #e5e5e7',
           }}
         >
           {motorTooltip.stock.map((s, i) => (
             <div key={i} className="flex items-center justify-between gap-4">
-              <span style={{ color: '#334155' }}>M{i + 1}</span>
-              <span className="font-semibold text-slate-900">{s}</span>
+              <span style={{ color: '#6e6e73' }}>M{i + 1}</span>
+              <span className="font-semibold text-[#1d1d1f]">{s}</span>
             </div>
           ))}
         </div>,

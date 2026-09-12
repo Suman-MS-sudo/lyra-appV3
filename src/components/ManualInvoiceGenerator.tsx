@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { FileText, X } from 'lucide-react';
@@ -9,19 +9,19 @@ interface Organization {
 }
 
 const MODAL: React.CSSProperties = {
-  background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%)',
-  border: '1px solid #e2e8f0',
+  background: '#ffffff',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#0f172a' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export function ManualInvoiceGenerator() {
   const [isOpen, setIsOpen] = useState(false);
@@ -99,7 +99,7 @@ export function ManualInvoiceGenerator() {
       <button
         onClick={() => setIsOpen(true)}
         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-        style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+        style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
       >
         <FileText size={16} />
         Generate Manual Invoice
@@ -118,11 +118,11 @@ export function ManualInvoiceGenerator() {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md p-6" style={MODAL}>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-slate-900">Generate Invoice</h2>
+            <h2 className="text-xl font-bold text-[#1d1d1f]">Generate Invoice</h2>
             <button
               onClick={() => setIsOpen(false)}
               className="transition-opacity hover:opacity-70"
-              style={{ color: '#334155' }}
+              style={{ color: '#6e6e73' }}
             >
               <X size={22} />
             </button>
@@ -134,7 +134,7 @@ export function ManualInvoiceGenerator() {
               <select
                 value={selectedOrg}
                 onChange={(e) => setSelectedOrg(e.target.value)}
-                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
                 style={INPUT}
                 disabled={loading}
               >
@@ -153,7 +153,7 @@ export function ManualInvoiceGenerator() {
                 type="date"
                 value={periodStart}
                 onChange={(e) => setPeriodStart(e.target.value)}
-                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
                 style={INPUT}
                 disabled={loading}
               />
@@ -165,7 +165,7 @@ export function ManualInvoiceGenerator() {
                 type="date"
                 value={periodEnd}
                 onChange={(e) => setPeriodEnd(e.target.value)}
-                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
                 style={INPUT}
                 disabled={loading}
               />
@@ -182,7 +182,7 @@ export function ManualInvoiceGenerator() {
                   setPeriodEnd(end.toISOString().split('T')[0]);
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)', color: '#93C5FD' }}
+                style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)', color: '#93C5FD' }}
                 disabled={loading}
               >
                 This Month
@@ -196,7 +196,7 @@ export function ManualInvoiceGenerator() {
                   setPeriodEnd(end.toISOString().split('T')[0]);
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+                style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }}
                 disabled={loading}
               >
                 Last Month
@@ -207,8 +207,8 @@ export function ManualInvoiceGenerator() {
               <div
                 className="p-3 rounded-xl text-sm"
                 style={message.startsWith('✅')
-                  ? { background: 'rgba(16,185,129,0.10)', border: '1px solid rgba(16,185,129,0.25)', color: '#047857' }
-                  : { background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.25)', color: '#B91C1C' }
+                  ? { background: 'rgba(29,122,60,0.12)', border: '1px solid rgba(29,122,60,0.12)', color: '#1d7a3c' }
+                  : { background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }
                 }
               >
                 {message}
@@ -219,8 +219,8 @@ export function ManualInvoiceGenerator() {
               <button
                 onClick={handleGenerate}
                 disabled={loading || !selectedOrg || !periodStart || !periodEnd}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
               >
                 {loading ? 'Generating...' : 'Generate Invoice'}
               </button>
@@ -228,7 +228,7 @@ export function ManualInvoiceGenerator() {
                 onClick={() => setIsOpen(false)}
                 disabled={loading}
                 className="px-4 py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+                style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
               >
                 Cancel
               </button>

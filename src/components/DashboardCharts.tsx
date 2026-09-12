@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -17,16 +17,15 @@ interface DashboardChartsProps {
   revenueTimeline: { date: string; online: number; coin: number; rfid: number }[];
 }
 
-const PALETTE = ['#2563EB', '#0EA5E9', '#34D399', '#FBBF24', '#60A5FA', '#1D4ED8'];
-const GRID_COLOR  = '#e2e8f0';
-const AXIS_COLOR  = '#64748b';
+const PALETTE = ['#0071e3', '#1d1d1f', '#6e6e73', '#9a6400', '#1d7a3c', '#a1a1a6'];
+const GRID_COLOR  = '#f5f5f7';
+const AXIS_COLOR  = '#86868b';
 const TOOLTIP_STYLE = {
-  backgroundColor: '#ffffff',
-  border: '1px solid #e2e8f0',
+  backgroundColor: '#1d1d1f',
+  border: '1px solid #1d1d1f',
   borderRadius: 12,
-  color: '#0f172a',
+  color: '#fff',
   fontSize: 12,
-  boxShadow: '0 8px 24px rgba(15,23,42,0.10)',
 };
 
 const formatRupee = (v: number) => `₹${v.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -42,7 +41,7 @@ export function PaymentDonutChart({
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#64748b' }}>
+      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#86868b' }}>
         No transaction data yet
       </div>
     );
@@ -82,7 +81,7 @@ export function MachineRevenueBar({
   const data = machineHealthData.slice(0, 8);
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#64748b' }}>
+      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#86868b' }}>
         No machine data
       </div>
     );
@@ -123,7 +122,7 @@ export function RevenueAreaChart({
 }: Pick<DashboardChartsProps, 'revenueTimeline'>) {
   if (revenueTimeline.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#64748b' }}>
+      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#86868b' }}>
         No timeline data
       </div>
     );
@@ -133,16 +132,16 @@ export function RevenueAreaChart({
       <AreaChart data={revenueTimeline} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
         <defs>
           <linearGradient id="onlineGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#2563EB" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#2563EB" stopOpacity={0}    />
+            <stop offset="5%"  stopColor="#0071e3" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#0071e3" stopOpacity={0}    />
           </linearGradient>
           <linearGradient id="coinGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#FBBF24" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#FBBF24" stopOpacity={0}    />
+            <stop offset="5%"  stopColor="#9a6400" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#9a6400" stopOpacity={0}    />
           </linearGradient>
           <linearGradient id="rfidGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#0EA5E9" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0}    />
+            <stop offset="5%"  stopColor="#6e6e73" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#6e6e73" stopOpacity={0}    />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
@@ -165,9 +164,9 @@ export function RevenueAreaChart({
           iconType="circle"
           iconSize={8}
         />
-        <Area type="monotone" dataKey="online" name="Online" stroke="#2563EB" fill="url(#onlineGrad)" strokeWidth={2} dot={false} />
-        <Area type="monotone" dataKey="coin"   name="Coin"   stroke="#FBBF24" fill="url(#coinGrad)"   strokeWidth={2} dot={false} />
-        <Area type="monotone" dataKey="rfid"   name="RFID"   stroke="#0EA5E9" fill="url(#rfidGrad)"   strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="online" name="Online" stroke="#0071e3" fill="url(#onlineGrad)" strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="coin"   name="Coin"   stroke="#9a6400" fill="url(#coinGrad)"   strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="rfid"   name="RFID"   stroke="#6e6e73" fill="url(#rfidGrad)"   strokeWidth={2} dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -175,14 +174,14 @@ export function RevenueAreaChart({
 
 export function MachineStatusBar({ online, offline, total }: { online: number; offline: number; total: number }) {
   const pct = total > 0 ? Math.round((online / total) * 100) : 0;
-  const barColor = pct > 70 ? '#34D399' : pct > 40 ? '#FBBF24' : '#2563EB';
+  const barColor = pct > 70 ? '#1d7a3c' : pct > 40 ? '#9a6400' : '#0071e3';
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
-        <span style={{ color: '#334155' }}>{online} online · {offline} offline</span>
-        <span className="font-semibold text-slate-900">{pct}%</span>
+        <span style={{ color: '#6e6e73' }}>{online} online · {offline} offline</span>
+        <span className="font-semibold text-[#1d1d1f]">{pct}%</span>
       </div>
-      <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ background: '#f8fafc' }}>
+      <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ background: '#f5f5f7' }}>
         <div
           className="h-2.5 rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}cc, ${barColor})` }}

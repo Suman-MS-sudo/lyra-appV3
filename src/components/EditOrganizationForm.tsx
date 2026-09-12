@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -23,19 +23,19 @@ interface EditOrganizationFormProps {
 }
 
 const CARD: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #f1f5f9',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#0f172a' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default function EditOrganizationForm({ organization }: EditOrganizationFormProps) {
   const router = useRouter();
@@ -87,7 +87,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-6" style={CARD}>
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', color: '#B91C1C' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}>
           {error}
         </div>
       )}
@@ -95,7 +95,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
       <div className="grid md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Organization Name <span style={{ color: '#2563EB' }}>*</span>
+            Organization Name <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <input
             type="text"
@@ -103,7 +103,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             required
             value={formData.name}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="Enter organization name"
           />
@@ -116,7 +116,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="contact_email"
             value={formData.contact_email}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="contact@example.com"
           />
@@ -129,7 +129,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="contact_phone"
             value={formData.contact_phone}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="+91 98765 43210"
           />
@@ -142,7 +142,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="address"
             value={formData.address}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="Street address"
           />
@@ -155,7 +155,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="city"
             value={formData.city}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="City"
           />
@@ -168,7 +168,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="state"
             value={formData.state}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="State"
           />
@@ -181,7 +181,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="zip_code"
             value={formData.zip_code}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="600001"
           />
@@ -194,7 +194,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="gstin"
             value={formData.gstin}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="GST Number"
           />
@@ -207,7 +207,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             name="pan"
             value={formData.pan}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="PAN Number"
           />
@@ -220,7 +220,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             value={formData.notes}
             onChange={handleChange}
             rows={3}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="Additional notes..."
           />
@@ -231,15 +231,15 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
         <Link
           href="/admin/organizations"
           className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-          style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+          style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-6 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+          className="flex-1 px-6 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {loading ? 'Updating...' : 'Update Organization'}
         </button>

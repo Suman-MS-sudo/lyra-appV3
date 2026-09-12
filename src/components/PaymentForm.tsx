@@ -127,7 +127,7 @@ export default function PaymentForm({
       <button
         onClick={handlePayment}
         disabled={loading}
-        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+        className="w-full bg-[#1d1d1f] text-white px-6 py-3 rounded-lg hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
       >
         {loading ? 'Processing...' : `Pay ₹${(amount / 100).toFixed(2)}`}
       </button>
@@ -137,7 +137,7 @@ export default function PaymentForm({
         <p className="mt-1">UPI • Cards • Net Banking • Wallets</p>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+      <div className="bg-[#f5f5f7] border border-[#e5e5e7] rounded-lg p-4 text-sm text-[#3a3a3c]">
         <p className="font-semibold mb-2">Payment Instructions:</p>
         <ul className="list-disc list-inside space-y-1">
           <li>Click "Pay" button above to open payment gateway</li>

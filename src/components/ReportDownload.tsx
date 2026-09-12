@@ -1,17 +1,17 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { Download, FileText, FileSpreadsheet, Calendar, Loader2, X } from 'lucide-react';
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #f1f5f9',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
@@ -86,8 +86,8 @@ export default function ReportDownload() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
-        style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+        style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
       >
         <Download className="w-4 h-4" />
         Report
@@ -101,22 +101,22 @@ export default function ReportDownload() {
         >
           <div
             className="w-full max-w-lg rounded-2xl p-5 relative"
-            style={{ ...CARD, background: '#ffffff', boxShadow: '0 20px 60px rgba(15,23,42,0.18)' }}
+            style={{ ...CARD, background: '#1A1030' }}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setOpen(false)}
               className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-              style={{ background: '#ffffff', border: '1px solid #e2e8f0' }}
+              style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}
             >
-              <X className="w-4 h-4" style={{ color: '#0f172a' }} />
+              <X className="w-4 h-4" style={{ color: '#3a3a3c' }} />
             </button>
 
             <div className="flex items-center gap-2 mb-1">
-              <Download className="w-4 h-4" style={{ color: '#2563EB' }} />
-              <h2 className="font-semibold text-slate-900">Download Reports</h2>
+              <Download className="w-4 h-4" style={{ color: '#0071e3' }} />
+              <h2 className="font-semibold text-[#1d1d1f]">Download Reports</h2>
             </div>
-            <p className="text-xs mb-4" style={{ color: '#334155' }}>
+            <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>
               Export machine &amp; RFID usage insights — most-used machines, top users, revenue trends — as CSV or a branded PDF for any date range
             </p>
 
@@ -129,8 +129,8 @@ export default function ReportDownload() {
                   className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors"
                   style={
                     preset === p.value
-                      ? { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff' }
-                      : { background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }
+                      ? { background: '#1d1d1f', color: 'white' }
+                      : { background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }
                   }
                 >
                   {p.label}
@@ -141,8 +141,8 @@ export default function ReportDownload() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors"
                 style={
                   preset === 'custom'
-                    ? { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff' }
-                    : { background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }
+                    ? { background: '#1d1d1f', color: 'white' }
+                    : { background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#3a3a3c' }
                 }
               >
                 <Calendar className="w-3.5 h-3.5" />
@@ -154,25 +154,25 @@ export default function ReportDownload() {
             {preset === 'custom' && (
               <div className="grid grid-cols-2 gap-3 mb-4 max-w-md">
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#334155' }}>From</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#6e6e73' }}>From</label>
                   <input
                     type="date"
                     value={customStart}
                     max={customEnd || todayISO()}
                     onChange={(e) => setCustomStart(e.target.value)}
-                    className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
                     style={INPUT}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#334155' }}>To</label>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: '#6e6e73' }}>To</label>
                   <input
                     type="date"
                     value={customEnd}
                     min={customStart}
                     max={todayISO()}
                     onChange={(e) => setCustomEnd(e.target.value)}
-                    className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
                     style={INPUT}
                   />
                 </div>
@@ -181,18 +181,18 @@ export default function ReportDownload() {
 
             {/* Format + download */}
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
+              <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #e5e5e7' }}>
                 <button
                   onClick={() => setFormat('csv')}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors"
-                  style={format === 'csv' ? { background: 'rgba(37,99,235,0.20)', color: '#93C5FD' } : { background: 'transparent', color: '#334155' }}
+                  style={format === 'csv' ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' } : { background: 'transparent', color: '#6e6e73' }}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
                 </button>
                 <button
                   onClick={() => setFormat('pdf')}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors"
-                  style={format === 'pdf' ? { background: 'rgba(37,99,235,0.20)', color: '#93C5FD' } : { background: 'transparent', color: '#334155' }}
+                  style={format === 'pdf' ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' } : { background: 'transparent', color: '#6e6e73' }}
                 >
                   <FileText className="w-3.5 h-3.5" /> PDF
                 </button>
@@ -201,18 +201,18 @@ export default function ReportDownload() {
               <button
                 onClick={handleDownload}
                 disabled={downloading || rangeInvalid}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 4px 14px rgba(37,99,235,0.30)' }}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#1d1d1f] rounded-xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: '#1d1d1f', boxShadow: '0 4px 14px rgba(0,0,0,0.04)' }}
               >
                 {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                 {downloading ? 'Generating…' : 'Download Report'}
               </button>
 
               {rangeInvalid && (
-                <span className="text-xs" style={{ color: '#B91C1C' }}>Select a valid date range</span>
+                <span className="text-xs" style={{ color: '#c8102e' }}>Select a valid date range</span>
               )}
               {error && (
-                <span className="text-xs" style={{ color: '#B91C1C' }}>{error}</span>
+                <span className="text-xs" style={{ color: '#c8102e' }}>{error}</span>
               )}
             </div>
           </div>

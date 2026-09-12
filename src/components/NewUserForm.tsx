@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,19 +14,19 @@ interface NewUserFormProps {
 }
 
 const CARD: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #f1f5f9',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#0f172a' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default function NewUserForm({ organizations }: NewUserFormProps) {
   const router = useRouter();
@@ -77,19 +77,19 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-6" style={CARD}>
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', color: '#B91C1C' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}>
           {error}
         </div>
       )}
 
-      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.20)' }}>
+      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}>
         <p className="text-sm" style={{ color: '#93C5FD' }}>A password reset email will be automatically sent to the user after account creation.</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="md:col-span-2">
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Email <span style={{ color: '#2563EB' }}>*</span>
+            Email <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <input
             type="email"
@@ -97,7 +97,7 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             required
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="user@example.com"
           />
@@ -110,7 +110,7 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             name="full_name"
             value={formData.full_name}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="Enter full name"
           />
@@ -123,7 +123,7 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             name="phone"
             value={formData.phone}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="+91 98765 43210"
           />
@@ -131,13 +131,13 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
 
         <div>
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Account Type <span style={{ color: '#2563EB' }}>*</span>
+            Account Type <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <select
             name="account_type"
             value={formData.account_type}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
             <option value="customer" style={{ background: '#ffffff' }}>Customer</option>
@@ -148,13 +148,13 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
 
         <div>
           <label className="block text-sm font-medium mb-2" style={LABEL}>
-            Role <span style={{ color: '#2563EB' }}>*</span>
+            Role <span style={{ color: '#0071e3' }}>*</span>
           </label>
           <select
             name="role"
             value={formData.role}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
             <option value="customer" style={{ background: '#ffffff' }}>Customer</option>
@@ -169,7 +169,7 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
             name="organization_id"
             value={formData.organization_id}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
             <option value="" style={{ background: '#ffffff' }}>No Organization</option>
@@ -179,7 +179,7 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
               </option>
             ))}
           </select>
-          <p className="text-xs mt-1" style={{ color: '#64748b' }}>Only applicable for super customers</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Only applicable for super customers</p>
         </div>
       </div>
 
@@ -187,15 +187,15 @@ export default function NewUserForm({ organizations }: NewUserFormProps) {
         <Link
           href="/admin/users"
           className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-          style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+          style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-6 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+          className="flex-1 px-6 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {loading ? 'Creating...' : 'Create User'}
         </button>

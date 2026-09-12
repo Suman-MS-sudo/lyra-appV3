@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
@@ -102,61 +102,38 @@ function LoginForm() {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4 relative"
-      style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}
-    >
-      {/* Glow blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-        <div className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.26) 0%, transparent 65%)' }} />
-        <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full animate-glow-drift-2" style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.20) 0%, transparent 65%)', animationDelay: '2s' }} />
-        <div className="absolute top-1/2 right-1/4 w-64 h-64 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 65%)', animationDelay: '4s' }} />
-      </div>
-
-      <div className="max-w-md w-full relative z-10">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-white">
+      <div className="max-w-md w-full">
         {/* Brand */}
         <div className="text-center mb-8 animate-float-up" style={{ animationDelay: '0.05s' }}>
           <Link href="/" className="inline-block">
-            <span className="text-2xl font-black tracking-wide" style={{ color: '#0f172a' }}>
-              Lyra <span style={{ color: '#2563EB' }}>Enterprises</span>
+            <span className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">
+              Lyra Enterprises
             </span>
           </Link>
-          <p className="text-xs font-medium tracking-widest uppercase mt-1" style={{ color: '#64748b' }}>
+          <p className="text-xs font-medium tracking-widest uppercase mt-1 text-[#86868b]">
             Smart Hygiene Access
           </p>
         </div>
 
         {/* Card */}
         <div
-          className="rounded-3xl p-8 animate-card-enter"
-          style={{
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            boxShadow: '0 8px 48px rgba(15,23,42,0.08)',
-            animationDelay: '0.10s',
-          }}
+          className="rounded-2xl p-8 animate-card-enter border border-[#e5e5e7]"
+          style={{ animationDelay: '0.10s' }}
         >
-          <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
-          <p className="text-sm mb-6" style={{ color: '#334155' }}>Sign in to your account</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-[#1d1d1f] mb-1">Welcome back</h2>
+          <p className="text-[15px] mb-6 text-[#6e6e73]">Sign in to your account</p>
 
           {/* User type toggle */}
-          <div
-            className="flex gap-2 p-1 rounded-2xl mb-6"
-            style={{ background: '#f1f5f9', border: '1px solid #f1f5f9' }}
-          >
+          <div className="flex gap-2 p-1 rounded-xl mb-6 bg-[#f5f5f7]">
             {(['customer', 'admin'] as const).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setUserType(type)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all capitalize"
-                style={
-                  userType === type
-                    ? { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff', boxShadow: '0 4px 14px rgba(37,99,235,0.40)' }
-                    : { color: '#334155' }
-                }
+                className={`flex-1 py-2.5 min-h-11 rounded-lg text-sm font-semibold transition-colors capitalize ${
+                  userType === type ? 'bg-[#1d1d1f] text-white' : 'text-[#6e6e73]'
+                }`}
               >
                 {type}
               </button>
@@ -165,17 +142,14 @@ function LoginForm() {
 
           {/* Error */}
           {error && (
-            <div
-              className="mb-5 p-3.5 rounded-2xl text-sm"
-              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.28)', color: '#B91C1C' }}
-            >
+            <div className="mb-5 p-3.5 rounded-xl text-sm bg-[#fbe9e9] text-[#c8102e]">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold tracking-wide uppercase mb-2" style={{ color: '#334155' }}>
+              <label htmlFor="email" className="block text-xs font-semibold tracking-wide uppercase mb-2 text-[#6e6e73]">
                 Email address
               </label>
               <input
@@ -184,18 +158,13 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500"
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  color: '#0f172a',
-                }}
+                className="w-full px-4 py-3 min-h-11 rounded-xl text-[15px] outline-none transition-shadow border border-[#d2d2d7] focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold tracking-wide uppercase mb-2" style={{ color: '#334155' }}>
+              <label htmlFor="password" className="block text-xs font-semibold tracking-wide uppercase mb-2 text-[#6e6e73]">
                 Password
               </label>
               <input
@@ -204,22 +173,17 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500"
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  color: '#0f172a',
-                }}
+                className="w-full px-4 py-3 min-h-11 rounded-xl text-[15px] outline-none transition-shadow border border-[#d2d2d7] focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
                 placeholder="••••••••"
               />
             </div>
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-0" />
-                <span className="text-xs" style={{ color: '#334155' }}>Remember me</span>
+                <input type="checkbox" className="rounded border-[#d2d2d7] text-[#0071e3] focus:ring-[#0071e3] focus:ring-offset-0" />
+                <span className="text-xs text-[#6e6e73]">Remember me</span>
               </label>
-              <Link href="/forgot-password" className="text-xs font-medium transition-colors hover:text-slate-900" style={{ color: '#2563EB' }}>
+              <Link href="/forgot-password" className="text-xs font-medium text-[#0071e3] hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -227,21 +191,16 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all active:scale-[0.97] ${!isLoading ? 'btn-glow' : ''}`}
-              style={
-                isLoading
-                  ? { background: '#f8fafc', cursor: 'not-allowed', color: '#64748b' }
-                  : { background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }
-              }
+              className="w-full py-3.5 min-h-11 rounded-xl text-[15px] font-semibold text-white transition-transform active:scale-[0.97] disabled:cursor-not-allowed bg-[#1d1d1f] disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6]"
             >
               {isLoading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-xs" style={{ color: '#64748b' }}>
+            <p className="text-xs text-[#6e6e73]">
               Don&apos;t have an account?{' '}
-              <Link href="/signup" className="font-semibold transition-colors hover:text-slate-900" style={{ color: '#2563EB' }}>
+              <Link href="/signup" className="font-semibold text-[#0071e3] hover:underline">
                 Sign up
               </Link>
             </p>
@@ -249,7 +208,7 @@ function LoginForm() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link href="/" className="text-xs transition-colors hover:text-slate-900" style={{ color: '#64748b' }}>
+          <Link href="/" className="text-xs text-[#86868b] hover:text-[#1d1d1f] transition-colors">
             ← Back to home
           </Link>
         </div>
@@ -261,18 +220,15 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center relative">
-            <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)', animationDuration: '1.5s' }} />
-            <div className="relative w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }}>
-              <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            </div>
+          <div className="w-11 h-11 mx-auto mb-4 rounded-full flex items-center justify-center bg-[#1d1d1f]">
+            <svg className="w-5 h-5 text-white animate-spin motion-reduce:animate-none" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            </svg>
           </div>
-          <p className="text-sm font-medium" style={{ color: '#2563EB' }}>Loading…</p>
+          <p className="text-sm font-medium text-[#6e6e73]">Loading…</p>
         </div>
       </div>
     }>

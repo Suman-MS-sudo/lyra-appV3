@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -7,19 +7,19 @@ import { updateCustomer } from '@/app/actions/admin';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #f1f5f9',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#0f172a' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,8 +57,8 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Update customer details and permissions</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Edit Customer</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Update customer details and permissions</p>
       </div>
 
       <form action={updateCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
@@ -75,9 +75,9 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
             disabled
             defaultValue={customer.email}
             className="w-full px-4 py-2.5 cursor-not-allowed"
-            style={{ ...INPUT, background: '#f1f5f9', color: '#334155' }}
+            style={{ ...INPUT, background: '#f5f5f7', color: '#6e6e73' }}
           />
-          <p className="text-xs mt-1" style={{ color: '#64748b' }}>Email cannot be changed</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Email cannot be changed</p>
         </div>
 
         <div>
@@ -90,7 +90,7 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
             name="full_name"
             required
             defaultValue={customer.full_name || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
         </div>
@@ -103,7 +103,7 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
             id="organization_id"
             name="organization_id"
             defaultValue={customer.organization_id || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           >
             <option value="" style={{ background: '#ffffff' }}>Independent (No Organization)</option>
@@ -121,7 +121,7 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
               type="checkbox"
               name="can_edit"
               defaultChecked={customer.permissions?.can_edit || false}
-              className="w-4 h-4 rounded accent-blue-600"
+              className="w-4 h-4 rounded accent-pink-500"
             />
             <span className="text-sm font-medium" style={LABEL}>
               Can Edit (allow customer to make purchases and transactions)
@@ -132,15 +132,15 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Update Customer
           </button>
           <Link
             href="/admin/customers"
             className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             Cancel
           </Link>

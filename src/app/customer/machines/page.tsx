@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { Building2, Activity } from 'lucide-react';
@@ -7,7 +7,7 @@ import { CustomerMachinesTable } from '@/components/CustomerMachinesTable';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #f1f5f9',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
@@ -97,60 +97,60 @@ export default async function CustomerMachinesPage() {
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Page title */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">My Machines</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>View and monitor all your vending machines</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">My Machines</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>View and monitor all your vending machines</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Machines */}
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(96,165,250,0.18)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(96,165,250,0.18)' }}>
-            <Building2 className="w-5 h-5" style={{ color: '#60A5FA' }} />
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(0,113,227,0.10)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(0,113,227,0.10)' }}>
+            <Building2 className="w-5 h-5" style={{ color: '#0071e3' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Total Machines</p>
-          <p className="text-2xl font-bold text-slate-900">{machinesWithStats.length}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Total Machines</p>
+          <p className="text-2xl font-bold text-[#1d1d1f]">{machinesWithStats.length}</p>
         </div>
 
         {/* Online */}
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(16,185,129,0.18)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(16,185,129,0.18)' }}>
-            <Activity className="w-5 h-5" style={{ color: '#34D399' }} />
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(29,122,60,0.12)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(29,122,60,0.12)' }}>
+            <Activity className="w-5 h-5" style={{ color: '#1d7a3c' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Online</p>
-          <p className="text-2xl font-bold" style={{ color: '#34D399' }}>{onlineCount}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Online</p>
+          <p className="text-2xl font-bold" style={{ color: '#1d7a3c' }}>{onlineCount}</p>
         </div>
 
         {/* Low Stock */}
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(251,191,36,0.18)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(251,191,36,0.18)' }}>
-            <Building2 className="w-5 h-5" style={{ color: '#FBBF24' }} />
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(154,100,0,0.12)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(154,100,0,0.12)' }}>
+            <Building2 className="w-5 h-5" style={{ color: '#9a6400' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Low Stock</p>
-          <p className="text-2xl font-bold" style={{ color: '#FBBF24' }}>{lowStockCount}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Low Stock</p>
+          <p className="text-2xl font-bold" style={{ color: '#9a6400' }}>{lowStockCount}</p>
         </div>
 
         {/* Total Revenue (super customer only) */}
         {isSuperCustomer ? (
           <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-            <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(37,99,235,0.18)', opacity: 0.15 }} />
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(37,99,235,0.18)' }}>
-              <Activity className="w-5 h-5" style={{ color: '#2563EB' }} />
+            <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(0,0,0,0.04)', opacity: 0.15 }} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(0,0,0,0.04)' }}>
+              <Activity className="w-5 h-5" style={{ color: '#0071e3' }} />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Total Revenue</p>
-            <p className="text-2xl font-bold text-slate-900">₹{formatAmount(totalRevenue)}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Total Revenue</p>
+            <p className="text-2xl font-bold text-[#1d1d1f]">₹{formatAmount(totalRevenue)}</p>
           </div>
         ) : (
           <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-            <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(37,99,235,0.18)', opacity: 0.15 }} />
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(37,99,235,0.18)' }}>
-              <Building2 className="w-5 h-5" style={{ color: '#2563EB' }} />
+            <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(0,0,0,0.04)', opacity: 0.15 }} />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(0,0,0,0.04)' }}>
+              <Building2 className="w-5 h-5" style={{ color: '#0071e3' }} />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Offline</p>
-            <p className="text-2xl font-bold" style={{ color: '#2563EB' }}>{machinesWithStats.length - onlineCount}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Offline</p>
+            <p className="text-2xl font-bold" style={{ color: '#0071e3' }}>{machinesWithStats.length - onlineCount}</p>
           </div>
         )}
       </div>

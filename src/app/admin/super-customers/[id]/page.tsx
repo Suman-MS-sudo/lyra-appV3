@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -7,19 +7,19 @@ import { updateSuperCustomer } from '@/app/actions/super-customer';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #f1f5f9',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  color: '#0f172a',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
+  color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#0f172a' };
+const LABEL: React.CSSProperties = { color: '#1d1d1f' };
 
 export default async function EditSuperCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -56,8 +56,8 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Super Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Update account and organization details</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Edit Super Customer</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Update account and organization details</p>
       </div>
 
       <form action={updateSuperCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
@@ -65,9 +65,9 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
         <input type="hidden" name="org_id" value={organization?.id || ''} />
 
         {/* Account section */}
-        <div className="pb-4" style={{ borderBottom: '1px solid #f1f5f9' }}>
-          <h3 className="text-base font-semibold text-slate-900 mb-0.5">Account Information</h3>
-          <p className="text-sm" style={{ color: '#334155' }}>Login credentials for the super customer</p>
+        <div className="pb-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
+          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Account Information</h3>
+          <p className="text-sm" style={{ color: '#6e6e73' }}>Login credentials for the super customer</p>
         </div>
 
         <div>
@@ -80,10 +80,10 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="email"
             required
             defaultValue={superCustomer.email}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
-          <p className="text-xs mt-1" style={{ color: '#64748b' }}>Email cannot be changed after creation</p>
+          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Email cannot be changed after creation</p>
         </div>
 
         <div>
@@ -96,15 +96,15 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="full_name"
             required
             defaultValue={superCustomer.full_name || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
         </div>
 
         {/* Organization section */}
-        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid #f1f5f9' }}>
-          <h3 className="text-base font-semibold text-slate-900 mb-0.5">Organization Details</h3>
-          <p className="text-sm" style={{ color: '#334155' }}>Information about the organization</p>
+        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid #f5f5f7' }}>
+          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Organization Details</h3>
+          <p className="text-sm" style={{ color: '#6e6e73' }}>Information about the organization</p>
         </div>
 
         <div>
@@ -117,7 +117,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="org_name"
             required
             defaultValue={organization?.name || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
         </div>
@@ -131,7 +131,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             id="org_email"
             name="org_email"
             defaultValue={organization?.contact_email || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
         </div>
@@ -145,7 +145,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             id="org_phone"
             name="org_phone"
             defaultValue={organization?.contact_phone || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
         </div>
@@ -159,7 +159,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="org_address"
             rows={3}
             defaultValue={organization?.address || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
           />
         </div>
@@ -167,15 +167,15 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Update Super Customer
           </button>
           <Link
             href="/admin/super-customers"
             className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
+            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             Cancel
           </Link>

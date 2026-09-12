@@ -1,4 +1,4 @@
-﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import PaymentForm from './PaymentForm';
@@ -6,8 +6,8 @@ import PaymentForm from './PaymentForm';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #f1f5f9',
+  background: '#f5f5f7',
+  border: '1px solid #e5e5e7',
   borderRadius: 20,
 };
 
@@ -44,13 +44,13 @@ export default async function PaymentPage({ params }: { params: { invoiceId: str
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Pay Invoice</h1>
-        <p className="text-sm mt-1" style={{ color: '#334155' }}>Invoice {invoice.invoice_number}</p>
+        <h1 className="text-2xl font-bold text-[#1d1d1f]">Pay Invoice</h1>
+        <p className="text-sm mt-1" style={{ color: '#6e6e73' }}>Invoice {invoice.invoice_number}</p>
       </div>
 
       <div className="rounded-2xl p-6" style={CARD}>
-        <h2 className="font-semibold text-slate-900 mb-4">Payment Details</h2>
-        <div className="space-y-0" style={{ borderTop: '1px solid #f1f5f9' }}>
+        <h2 className="font-semibold text-[#1d1d1f] mb-4">Payment Details</h2>
+        <div className="space-y-0" style={{ borderTop: '1px solid #f5f5f7' }}>
           {[
             ['Organization', invoice.organizations?.name],
             ['Invoice Number', invoice.invoice_number],
@@ -58,14 +58,14 @@ export default async function PaymentPage({ params }: { params: { invoiceId: str
               ? `${new Date(invoice.period_start).toLocaleDateString('en-IN')} — ${new Date(invoice.period_end).toLocaleDateString('en-IN')}`
               : 'N/A'],
           ].map(([label, value]) => (
-            <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <span className="text-sm" style={{ color: '#334155' }}>{label}</span>
-              <span className="text-sm font-medium text-slate-900">{value}</span>
+            <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid #f5f5f7' }}>
+              <span className="text-sm" style={{ color: '#6e6e73' }}>{label}</span>
+              <span className="text-sm font-medium text-[#1d1d1f]">{value}</span>
             </div>
           ))}
           <div className="flex justify-between py-3">
-            <span className="text-base font-semibold text-slate-900">Total Amount</span>
-            <span className="text-2xl font-bold" style={{ color: '#2563EB' }}>
+            <span className="text-base font-semibold text-[#1d1d1f]">Total Amount</span>
+            <span className="text-2xl font-bold" style={{ color: '#0071e3' }}>
               ₹{(invoice.total_amount_paisa / 100).toFixed(2)}
             </span>
           </div>

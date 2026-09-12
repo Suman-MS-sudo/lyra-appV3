@@ -14,7 +14,7 @@ export default function RefundPolicyPage() {
         <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-[#1d1d1f] rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
@@ -97,7 +97,7 @@ export default function RefundPolicyPage() {
                 company, it may take some time before your refund is officially posted. Next contact your bank. There is often 
                 some processing time before a refund is posted. If you&apos;ve done all of this and you still have not received 
                 your refund yet, please contact us at{' '}
-                <a href="mailto:lyraenterprisessales@gmail.com" className="text-blue-600 hover:underline">
+                <a href="mailto:lyraenterprisessales@gmail.com" className="text-[#0071e3] hover:underline">
                   lyraenterprisessales@gmail.com
                 </a>
                 .
@@ -110,7 +110,7 @@ export default function RefundPolicyPage() {
               <p className="text-gray-700 leading-relaxed">
                 We only replace items if they are defective or damaged. If you need to exchange it for the same item, send 
                 us an email at{' '}
-                <a href="mailto:lyraenterprisessales@gmail.com" className="text-blue-600 hover:underline">
+                <a href="mailto:lyraenterprisessales@gmail.com" className="text-[#0071e3] hover:underline">
                   lyraenterprisessales@gmail.com
                 </a>{' '}
                 and send your item to: 622 Manglam Electronic Market Jaipur Rajasthan India 302001.
@@ -128,11 +128,11 @@ export default function RefundPolicyPage() {
             </section>
 
             {/* Questions */}
-            <section className="bg-blue-50 p-6 rounded-lg">
+            <section className="bg-[#f5f5f7] p-6 rounded-lg">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Questions?</h2>
               <p className="text-gray-700 leading-relaxed">
                 For any questions about returns or refunds, contact us at{' '}
-                <a href="mailto:lyraenterprisessales@gmail.com" className="text-blue-600 hover:underline">
+                <a href="mailto:lyraenterprisessales@gmail.com" className="text-[#0071e3] hover:underline">
                   lyraenterprisessales@gmail.com
                 </a>
               </p>

@@ -443,7 +443,7 @@ export default async function CustomerDashboard() {
   };
 
   const CARD: React.CSSProperties = {
-    border: '1px solid #f1f5f9',
+    border: '1px solid #e5e5e7',
     borderRadius: 20,
   };
 
@@ -455,8 +455,8 @@ export default async function CustomerDashboard() {
         <div
           className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
           style={overdueInvoices.length > 0
-            ? { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.28)', color: '#B91C1C' }
-            : { background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.28)', color: '#B45309' }
+            ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }
+            : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)', color: '#FDE68A' }
           }
         >
           <div className="flex items-center gap-2 text-sm">
@@ -471,7 +471,7 @@ export default async function CustomerDashboard() {
           <Link
             href="/customer/billing"
             className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-opacity hover:opacity-80 whitespace-nowrap"
-            style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#0f172a' }}
+            style={{ background: '#e5e5e7', border: '1px solid #e5e5e7', color: 'white' }}
           >
             View &amp; Pay →
           </Link>
@@ -481,13 +481,13 @@ export default async function CustomerDashboard() {
       {/* Page Title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Real-time overview of your vending machine network</p>
+          <h1 className="text-2xl font-bold text-[#1d1d1f]">Dashboard</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Real-time overview of your vending machine network</p>
         </div>
         <div className="flex items-center gap-3">
           <div
             className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
-            style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', color: '#047857' }}
+            style={{ background: 'rgba(29,122,60,0.12)', border: '1px solid rgba(29,122,60,0.12)', color: '#1d7a3c' }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Live
@@ -502,19 +502,19 @@ export default async function CustomerDashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: 'Total Revenue',    value: `₹${formatAmount(totalRevenue)}`,  sub: `${onlineTransactionCount + coinTransactionCount + rfidTransactionCount} transactions`, icon: TrendingUp, color: '#34D399', bg: 'rgba(16,185,129,0.18)'   },
-          { label: 'Online Payments',  value: `₹${formatAmount(onlineRevenue)}`, sub: `${onlineTransactionCount} paid`,                                icon: CreditCard, color: '#60A5FA', bg: 'rgba(96,165,250,0.18)'  },
-          { label: 'Coin Payments',    value: `₹${formatAmount(coinRevenue)}`,   sub: `${coinTransactionCount} collections`,                            icon: Coins,      color: '#FBBF24', bg: 'rgba(251,191,36,0.18)'   },
-          { label: 'RFID Payments',    value: `₹${formatAmount(rfidRevenue)}`,   sub: `${rfidTransactionCount} taps`,                                   icon: Nfc,        color: '#2563EB', bg: 'rgba(37,99,235,0.18)'    },
-          { label: 'Machines Online',  value: `${onlineMachines} / ${totalMachines}`, sub: needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy', icon: Wifi, color: '#60A5FA', bg: 'rgba(96,165,250,0.18)' },
+          { label: 'Total Revenue',    value: `₹${formatAmount(totalRevenue)}`,  sub: `${onlineTransactionCount + coinTransactionCount + rfidTransactionCount} transactions`, icon: TrendingUp, color: '#1d7a3c', bg: 'rgba(29,122,60,0.12)'   },
+          { label: 'Online Payments',  value: `₹${formatAmount(onlineRevenue)}`, sub: `${onlineTransactionCount} paid`,                                icon: CreditCard, color: '#6e6e73', bg: 'rgba(0,0,0,0.04)'  },
+          { label: 'Coin Payments',    value: `₹${formatAmount(coinRevenue)}`,   sub: `${coinTransactionCount} collections`,                            icon: Coins,      color: '#9a6400', bg: 'rgba(154,100,0,0.12)'   },
+          { label: 'RFID Payments',    value: `₹${formatAmount(rfidRevenue)}`,   sub: `${rfidTransactionCount} taps`,                                   icon: Nfc,        color: '#0071e3', bg: 'rgba(0,0,0,0.04)'    },
+          { label: 'Machines Online',  value: `${onlineMachines} / ${totalMachines}`, sub: needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy', icon: Wifi, color: '#0071e3', bg: 'rgba(0,113,227,0.10)' },
         ].map(({ label, value, sub, icon: Icon, color, bg }) => (
           <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
             <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full" style={{ background: bg, opacity: 0.4 }} />
             <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
               <Icon className="w-4 h-4" style={{ color }} />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>{label}</p>
-            <p className="text-xl font-bold text-slate-900">{value}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
+            <p className="text-xl font-bold text-[#1d1d1f]">{value}</p>
             <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
           </div>
         ))}
@@ -523,14 +523,14 @@ export default async function CustomerDashboard() {
       {/* Charts Row */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-2xl p-5" style={CARD}>
-          <h2 className="font-semibold text-slate-900 mb-0.5">Revenue Trend</h2>
-          <p className="text-xs mb-4" style={{ color: '#334155' }}>Last 14 days — online vs coin vs RFID</p>
+          <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Revenue Trend</h2>
+          <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Last 14 days — online vs coin vs RFID</p>
           <RevenueAreaChart revenueTimeline={revenueTimeline} />
         </div>
 
         <div className="rounded-2xl p-5" style={CARD}>
-          <h2 className="font-semibold text-slate-900 mb-0.5">Payment Split</h2>
-          <p className="text-xs mb-2" style={{ color: '#334155' }}>Revenue by payment type</p>
+          <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Payment Split</h2>
+          <p className="text-xs mb-2" style={{ color: '#6e6e73' }}>Revenue by payment type</p>
           <PaymentDonutChart
             onlineRevenue={onlineRevenue}
             coinRevenue={coinRevenue}
@@ -541,16 +541,16 @@ export default async function CustomerDashboard() {
           />
           <div className="flex flex-col gap-2 mt-3">
             {[
-              { label: 'Online', color: '#2563EB', amount: onlineRevenue },
-              { label: 'Coin',   color: '#FBBF24', amount: coinRevenue   },
-              { label: 'RFID',   color: '#60A5FA', amount: rfidRevenue  },
+              { label: 'Online', color: '#0071e3', amount: onlineRevenue },
+              { label: 'Coin',   color: '#9a6400', amount: coinRevenue   },
+              { label: 'RFID',   color: '#6e6e73', amount: rfidRevenue  },
             ].map(({ label, color, amount }) => (
               <div key={label} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2" style={{ color: '#0f172a' }}>
+                <span className="flex items-center gap-2" style={{ color: '#3a3a3c' }}>
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
                   {label}
                 </span>
-                <span className="font-semibold text-slate-900">₹{formatAmount(amount)}</span>
+                <span className="font-semibold text-[#1d1d1f]">₹{formatAmount(amount)}</span>
               </div>
             ))}
           </div>
@@ -560,41 +560,41 @@ export default async function CustomerDashboard() {
       {/* Machine Revenue + Health */}
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="rounded-2xl p-5" style={CARD}>
-          <h2 className="font-semibold text-slate-900 mb-0.5">Revenue by Machine</h2>
-          <p className="text-xs mb-4" style={{ color: '#334155' }}>Top {Math.min(machineHealthData.length, 8)} by total revenue</p>
+          <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Revenue by Machine</h2>
+          <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Top {Math.min(machineHealthData.length, 8)} by total revenue</p>
           <MachineRevenueBar machineHealthData={machineHealthData} />
         </div>
 
         <div className="rounded-2xl p-5" style={CARD}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-slate-900">Machine Health</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#334155' }}>Real-time connectivity</p>
+              <h2 className="font-semibold text-[#1d1d1f]">Machine Health</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#6e6e73' }}>Real-time connectivity</p>
             </div>
-            <Link href="/customer/machines" className="text-xs font-medium transition-colors hover:text-slate-900" style={{ color: '#2563EB' }}>
+            <Link href="/customer/machines" className="text-xs font-medium transition-colors hover:text-[#1d1d1f]" style={{ color: '#0071e3' }}>
               View all →
             </Link>
           </div>
           <MachineStatusBar online={onlineMachines} offline={totalMachines - onlineMachines} total={totalMachines} />
           <div className="mt-4 space-y-0 max-h-48 overflow-y-auto">
             {machinesWithUpdatedStatus.map(m => (
-              <div key={m.id} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <div key={m.id} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f5f5f7' }}>
                 <div className="flex items-center gap-2 min-w-0">
                   {m.asset_online
-                    ? <Wifi className="w-3.5 h-3.5 shrink-0" style={{ color: '#34D399' }} />
+                    ? <Wifi className="w-3.5 h-3.5 shrink-0" style={{ color: '#1d7a3c' }} />
                     : <WifiOff className="w-3.5 h-3.5 shrink-0" style={{ color: '#F87171' }} />}
-                  <span className="text-sm font-medium text-slate-900 truncate">{m.name}</span>
+                  <span className="text-sm font-medium text-[#1d1d1f] truncate">{m.name}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs" style={{ color: '#64748b' }}>{formatLastSync(m.last_ping)}</span>
+                  <span className="text-xs" style={{ color: '#86868b' }}>{formatLastSync(m.last_ping)}</span>
                   {m.stock_level !== null && m.stock_level < 5 && (
-                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(251,191,36,0.18)', color: '#B45309' }}>Low</span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}>Low</span>
                   )}
                 </div>
               </div>
             ))}
             {machinesWithUpdatedStatus.length === 0 && (
-              <p className="text-sm text-center py-4" style={{ color: '#64748b' }}>No machines assigned</p>
+              <p className="text-sm text-center py-4" style={{ color: '#a1a1a6' }}>No machines assigned</p>
             )}
           </div>
         </div>
@@ -608,13 +608,13 @@ export default async function CustomerDashboard() {
         <div className="rounded-2xl p-5" style={CARD}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="font-semibold text-slate-900">Team &amp; Machine Access</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#334155' }}>Users in your organization</p>
+              <h2 className="font-semibold text-[#1d1d1f]">Team &amp; Machine Access</h2>
+              <p className="text-xs mt-0.5" style={{ color: '#6e6e73' }}>Users in your organization</p>
             </div>
             <Link
               href="/customer/users"
-              className="px-3 py-1.5 text-xs font-semibold text-slate-900 rounded-xl transition-all active:scale-[0.97]"
-              style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 4px 14px rgba(37,99,235,0.30)' }}
+              className="px-3 py-1.5 text-xs font-semibold text-[#1d1d1f] rounded-xl transition-all active:scale-[0.97]"
+              style={{ background: '#1d1d1f', boxShadow: '0 4px 14px rgba(0,0,0,0.04)' }}
             >
               Manage Users
             </Link>
@@ -622,12 +622,12 @@ export default async function CustomerDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
                   {['User', 'Email', 'Role', 'Machines', 'Devices', 'Actions'].map((h, i) => (
                     <th
                       key={h}
                       className={`py-2 px-3 text-xs font-semibold uppercase tracking-wide ${i === 1 ? 'text-left hidden sm:table-cell' : i === 2 || i === 3 ? 'text-center' : i === 5 ? 'text-right' : 'text-left'}`}
-                      style={{ color: '#64748b' }}
+                      style={{ color: '#86868b' }}
                     >
                       {h}
                     </th>
@@ -639,26 +639,26 @@ export default async function CustomerDashboard() {
                   <tr
                     key={orgUser.id}
                     className="row-hover"
-                    style={{ borderBottom: '1px solid #f1f5f9' }}
+                    style={{ borderBottom: '1px solid #f5f5f7' }}
                   >
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-slate-900 font-semibold text-xs shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #2563EB, #60A5FA)' }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[#1d1d1f] font-semibold text-xs shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #0071e3, #6e6e73)' }}
                         >
                           {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-slate-900 truncate max-w-24">{orgUser.full_name || 'N/A'}</span>
+                        <span className="font-medium text-[#1d1d1f] truncate max-w-24">{orgUser.full_name || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 hidden sm:table-cell" style={{ color: '#334155' }}>{orgUser.email}</td>
+                    <td className="py-3 px-3 hidden sm:table-cell" style={{ color: '#6e6e73' }}>{orgUser.email}</td>
                     <td className="py-3 px-3 text-center">
                       <span
                         className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
                         style={orgUser.account_type === 'super_customer'
-                          ? { background: 'rgba(96,165,250,0.18)', color: '#93C5FD' }
-                          : { background: '#f8fafc', color: '#334155' }
+                          ? { background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }
+                          : { background: '#f5f5f7', color: '#6e6e73' }
                         }
                       >
                         {orgUser.account_type === 'super_customer' ? 'Admin' : 'Member'}
@@ -667,7 +667,7 @@ export default async function CustomerDashboard() {
                     <td className="py-3 px-3 text-center">
                       <span
                         className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold"
-                        style={{ background: 'rgba(96,165,250,0.18)', color: '#93C5FD' }}
+                        style={{ background: 'rgba(0,113,227,0.10)', color: '#93C5FD' }}
                       >
                         {orgUser.machineCount}
                       </span>
@@ -677,7 +677,7 @@ export default async function CustomerDashboard() {
                     </td>
                     <td className="py-3 px-3 text-right">
                       {orgUser.account_type !== 'super_customer' && (
-                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium hover:text-slate-900 transition-colors" style={{ color: '#2563EB' }}>
+                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium hover:text-[#1d1d1f] transition-colors" style={{ color: '#0071e3' }}>
                           Edit →
                         </Link>
                       )}
@@ -695,8 +695,8 @@ export default async function CustomerDashboard() {
         <div className="rounded-2xl p-5" style={CARD}>
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5" style={{ color: '#F87171' }} />
-            <h2 className="font-semibold text-slate-900">Machines Needing Attention</h2>
-            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(239,68,68,0.18)', color: '#B91C1C' }}>
+            <h2 className="font-semibold text-[#1d1d1f]">Machines Needing Attention</h2>
+            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(200,16,46,0.10)', color: '#c8102e' }}>
               {needsAttentionMachines.length}
             </span>
           </div>
@@ -706,14 +706,14 @@ export default async function CustomerDashboard() {
                 key={m.id}
                 className="rounded-xl p-4"
                 style={!m.asset_online
-                  ? { background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.25)' }
-                  : { background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.25)' }
+                  ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)' }
+                  : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)' }
                 }
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-slate-900 text-sm">{m.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#334155' }}>{m.location}</p>
+                    <p className="font-semibold text-[#1d1d1f] text-sm">{m.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#6e6e73' }}>{m.location}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {(m.issues as string[]).map((issue: string) => (
@@ -721,8 +721,8 @@ export default async function CustomerDashboard() {
                         key={issue}
                         className="px-2 py-0.5 rounded text-xs font-semibold"
                         style={issue === 'Offline'
-                          ? { background: 'rgba(239,68,68,0.25)', color: '#B91C1C' }
-                          : { background: 'rgba(251,191,36,0.25)', color: '#B45309' }
+                          ? { background: 'rgba(200,16,46,0.10)', color: '#c8102e' }
+                          : { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
                         }
                       >
                         {issue}
@@ -730,7 +730,7 @@ export default async function CustomerDashboard() {
                     ))}
                   </div>
                 </div>
-                <p className="text-xs mt-2" style={{ color: '#64748b' }}>
+                <p className="text-xs mt-2" style={{ color: '#86868b' }}>
                   Last seen: {formatLastSync(m.last_ping)}
                 </p>
               </div>
@@ -745,18 +745,18 @@ export default async function CustomerDashboard() {
             {/* RFID KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: 'Total RFID Taps',   value: String(rfidTransactionCount),           sub: `across ${rfidMachineStats.length} machine${rfidMachineStats.length !== 1 ? 's' : ''}`, icon: Nfc,       color: '#60A5FA', bg: 'rgba(96,165,250,0.18)' },
-                { label: 'Total RFID Revenue', value: `₹${formatAmount(rfidRevenue)}`,         sub: 'all-time',                                                                              icon: TrendingUp, color: '#34D399', bg: 'rgba(16,185,129,0.18)' },
-                { label: 'Unique Cards Used',  value: String(uniqueCardCount),                 sub: 'distinct RFID cards',                                                                   icon: Users,      color: '#60A5FA', bg: 'rgba(96,165,250,0.18)' },
-                { label: 'Daily Average',      value: rfidOverallDailyAverage.toFixed(1),       sub: 'taps per active day',                                                                   icon: Calendar,   color: '#FBBF24', bg: 'rgba(251,191,36,0.18)' },
+                { label: 'Total RFID Taps',   value: String(rfidTransactionCount),           sub: `across ${rfidMachineStats.length} machine${rfidMachineStats.length !== 1 ? 's' : ''}`, icon: Nfc,       color: '#6e6e73', bg: 'rgba(0,0,0,0.04)' },
+                { label: 'Total RFID Revenue', value: `₹${formatAmount(rfidRevenue)}`,         sub: 'all-time',                                                                              icon: TrendingUp, color: '#1d7a3c', bg: 'rgba(29,122,60,0.12)' },
+                { label: 'Unique Cards Used',  value: String(uniqueCardCount),                 sub: 'distinct RFID cards',                                                                   icon: Users,      color: '#0071e3', bg: 'rgba(0,113,227,0.10)' },
+                { label: 'Daily Average',      value: rfidOverallDailyAverage.toFixed(1),       sub: 'taps per active day',                                                                   icon: Calendar,   color: '#9a6400', bg: 'rgba(154,100,0,0.12)' },
               ].map(({ label, value, sub, icon: Icon, color, bg }) => (
                 <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
                   <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full" style={{ background: bg, opacity: 0.4 }} />
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
                     <Icon className="w-4 h-4" style={{ color }} />
                   </div>
-                  <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>{label}</p>
-                  <p className="text-xl font-bold text-slate-900">{value}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
+                  <p className="text-xl font-bold text-[#1d1d1f]">{value}</p>
                   <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
                 </div>
               ))}
@@ -767,22 +767,22 @@ export default async function CustomerDashboard() {
 
             {/* 14-day tap trend */}
             <div className="rounded-2xl p-5" style={CARD}>
-              <h2 className="font-semibold text-slate-900 mb-0.5">Tap Activity</h2>
-              <p className="text-xs mb-4" style={{ color: '#334155' }}>Last 14 days — RFID taps per day</p>
+              <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Tap Activity</h2>
+              <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Last 14 days — RFID taps per day</p>
               <div className="flex items-end gap-1.5 h-32">
                 {(() => {
                   const max = Math.max(...rfidDailyTrend.map(d => d.count), 1);
                   return rfidDailyTrend.map((d, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group relative">
-                      <span className="text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#93C5FD' }}>{d.count}</span>
+                      <span className="text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#6e6e73' }}>{d.count}</span>
                       <div
                         className="w-full rounded-t-md transition-all"
                         style={{
                           height: `${Math.max((d.count / max) * 100, d.count > 0 ? 6 : 2)}%`,
-                          background: d.count > 0 ? 'linear-gradient(180deg, #60A5FA, #2563EB)' : '#e2e8f0',
+                          background: d.count > 0 ? 'linear-gradient(180deg, #6e6e73, #6e6e73)' : '#f5f5f7',
                         }}
                       />
-                      <span className="text-[9px]" style={{ color: '#64748b' }}>{d.date.split(' ')[1]}</span>
+                      <span className="text-[9px]" style={{ color: '#86868b' }}>{d.date.split(' ')[1]}</span>
                     </div>
                   ));
                 })()}
@@ -793,74 +793,74 @@ export default async function CustomerDashboard() {
               {/* Top consumers */}
               <div className="rounded-2xl p-5" style={CARD}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Trophy className="w-4 h-4" style={{ color: '#FBBF24' }} />
-                  <h2 className="font-semibold text-slate-900">Top Consumers</h2>
+                  <Trophy className="w-4 h-4" style={{ color: '#9a6400' }} />
+                  <h2 className="font-semibold text-[#1d1d1f]">Top Consumers</h2>
                 </div>
                 {topConsumers.length > 0 ? (
                   <div className="space-y-0 max-h-80 overflow-y-auto">
                     {topConsumers.map((c, i) => (
-                      <div key={c.label + i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <div key={c.label + i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f5f5f7' }}>
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span
                             className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                             style={i === 0
-                              ? { background: 'rgba(251,191,36,0.20)', color: '#B45309' }
-                              : { background: '#f1f5f9', color: '#334155' }}
+                              ? { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                              : { background: '#f5f5f7', color: '#6e6e73' }}
                           >
                             {i + 1}
                           </span>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">{c.label}</p>
+                            <p className="text-sm font-medium text-[#1d1d1f] truncate">{c.label}</p>
                             {c.label !== c.uid && (
-                              <p className="text-xs font-mono truncate" style={{ color: '#64748b' }}>{c.uid}</p>
+                              <p className="text-xs font-mono truncate" style={{ color: '#86868b' }}>{c.uid}</p>
                             )}
-                            <p className="text-xs" style={{ color: '#64748b' }}>Last tap {formatTimeAgo(c.lastTap)}</p>
+                            <p className="text-xs" style={{ color: '#86868b' }}>Last tap {formatTimeAgo(c.lastTap)}</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0 ml-2">
-                          <p className="text-sm font-bold text-slate-900">{c.count} taps</p>
-                          <p className="text-xs" style={{ color: '#93C5FD' }}>₹{formatAmount(c.amount)}</p>
+                          <p className="text-sm font-bold text-[#1d1d1f]">{c.count} taps</p>
+                          <p className="text-xs" style={{ color: '#6e6e73' }}>₹{formatAmount(c.amount)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-center py-8" style={{ color: '#64748b' }}>No RFID taps recorded yet</p>
+                  <p className="text-sm text-center py-8" style={{ color: '#a1a1a6' }}>No RFID taps recorded yet</p>
                 )}
               </div>
 
               {/* Per-machine RFID breakdown */}
               <div className="rounded-2xl p-5" style={CARD}>
-                <h2 className="font-semibold text-slate-900 mb-0.5">By Machine</h2>
-                <p className="text-xs mb-4" style={{ color: '#334155' }}>Taps, revenue &amp; daily average per machine</p>
+                <h2 className="font-semibold text-[#1d1d1f] mb-0.5">By Machine</h2>
+                <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Taps, revenue &amp; daily average per machine</p>
                 {rfidMachineStats.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#64748b' }}>Machine</th>
-                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#64748b' }}>Taps</th>
-                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#64748b' }}>Revenue</th>
-                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#64748b' }}>Avg/Day</th>
+                        <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
+                          <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Machine</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Taps</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Revenue</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Avg/Day</th>
                         </tr>
                       </thead>
                       <tbody>
                         {rfidMachineStats.map(m => (
-                          <tr key={m.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <tr key={m.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
                             <td className="py-2.5 px-2">
-                              <p className="font-medium text-slate-900 truncate max-w-32">{m.name}</p>
-                              <p className="text-xs truncate max-w-32" style={{ color: '#64748b' }}>{m.location}</p>
+                              <p className="font-medium text-[#1d1d1f] truncate max-w-32">{m.name}</p>
+                              <p className="text-xs truncate max-w-32" style={{ color: '#86868b' }}>{m.location}</p>
                             </td>
-                            <td className="py-2.5 px-2 text-right font-semibold text-slate-900">{m.transactionCount}</td>
-                            <td className="py-2.5 px-2 text-right" style={{ color: '#93C5FD' }}>₹{formatAmount(m.revenue)}</td>
-                            <td className="py-2.5 px-2 text-right" style={{ color: '#334155' }}>{m.dailyAverage.toFixed(1)}</td>
+                            <td className="py-2.5 px-2 text-right font-semibold text-[#1d1d1f]">{m.transactionCount}</td>
+                            <td className="py-2.5 px-2 text-right" style={{ color: '#6e6e73' }}>₹{formatAmount(m.revenue)}</td>
+                            <td className="py-2.5 px-2 text-right" style={{ color: '#6e6e73' }}>{m.dailyAverage.toFixed(1)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <p className="text-sm text-center py-8" style={{ color: '#64748b' }}>No RFID-enabled machines with activity yet</p>
+                  <p className="text-sm text-center py-8" style={{ color: '#a1a1a6' }}>No RFID-enabled machines with activity yet</p>
                 )}
               </div>
             </div>
