@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,19 +16,19 @@ interface EditProductFormProps {
 }
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#ffffff',
+  border: '1px solid #f1f5f9',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  color: '#f3f4f6',
+  background: '#ffffff',
+  border: '1px solid #e2e8f0',
+  color: '#0f172a',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#0f172a' };
 
 export default function EditProductForm({ product }: EditProductFormProps) {
   const router = useRouter();
@@ -80,14 +80,14 @@ export default function EditProductForm({ product }: EditProductFormProps) {
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-6" style={CARD}>
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)', color: '#FCA5A5' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)', color: '#B91C1C' }}>
           {error}
         </div>
       )}
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium mb-2" style={LABEL}>
-          Product Name <span style={{ color: '#F472B6' }}>*</span>
+          Product Name <span style={{ color: '#2563EB' }}>*</span>
         </label>
         <input
           type="text"
@@ -96,7 +96,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           required
           value={formData.name}
           onChange={handleChange}
-          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           style={INPUT}
           placeholder="e.g., Coca Cola"
         />
@@ -104,7 +104,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
 
       <div>
         <label htmlFor="sku" className="block text-sm font-medium mb-2" style={LABEL}>
-          SKU <span style={{ color: '#F472B6' }}>*</span>
+          SKU <span style={{ color: '#2563EB' }}>*</span>
         </label>
         <input
           type="text"
@@ -113,7 +113,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           required
           value={formData.sku}
           onChange={handleChange}
-          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           style={INPUT}
           placeholder="e.g., SKU-001"
         />
@@ -121,7 +121,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
 
       <div>
         <label htmlFor="price" className="block text-sm font-medium mb-2" style={LABEL}>
-          Price <span style={{ color: '#F472B6' }}>*</span>
+          Price <span style={{ color: '#2563EB' }}>*</span>
         </label>
         <input
           type="number"
@@ -132,7 +132,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           required
           value={formData.price}
           onChange={handleChange}
-          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           style={INPUT}
           placeholder="0.00"
         />
@@ -142,7 +142,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
         <Link
           href="/admin/products"
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+          style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
         >
           Cancel
         </Link>
@@ -150,7 +150,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           type="submit"
           disabled={loading}
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
         >
           {loading ? 'Updating...' : 'Update Product'}
         </button>

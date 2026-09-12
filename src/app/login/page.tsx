@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
@@ -104,24 +104,24 @@ function LoginForm() {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 relative"
-      style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 50%, #150828 100%)' }}
+      style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}
     >
       {/* Glow blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-        <div className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.26) 0%, transparent 65%)' }} />
-        <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full animate-glow-drift-2" style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.20) 0%, transparent 65%)', animationDelay: '2s' }} />
-        <div className="absolute top-1/2 right-1/4 w-64 h-64 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.15) 0%, transparent 65%)', animationDelay: '4s' }} />
+        <div className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.26) 0%, transparent 65%)' }} />
+        <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full animate-glow-drift-2" style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.20) 0%, transparent 65%)', animationDelay: '2s' }} />
+        <div className="absolute top-1/2 right-1/4 w-64 h-64 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 65%)', animationDelay: '4s' }} />
       </div>
 
       <div className="max-w-md w-full relative z-10">
         {/* Brand */}
         <div className="text-center mb-8 animate-float-up" style={{ animationDelay: '0.05s' }}>
           <Link href="/" className="inline-block">
-            <span className="text-2xl font-black tracking-wide" style={{ color: 'rgba(255,255,255,0.92)' }}>
-              Lyra <span style={{ color: '#F472B6' }}>Enterprises</span>
+            <span className="text-2xl font-black tracking-wide" style={{ color: '#0f172a' }}>
+              Lyra <span style={{ color: '#2563EB' }}>Enterprises</span>
             </span>
           </Link>
-          <p className="text-xs font-medium tracking-widest uppercase mt-1" style={{ color: 'rgba(255,255,255,0.30)' }}>
+          <p className="text-xs font-medium tracking-widest uppercase mt-1" style={{ color: '#64748b' }}>
             Smart Hygiene Access
           </p>
         </div>
@@ -130,21 +130,21 @@ function LoginForm() {
         <div
           className="rounded-3xl p-8 animate-card-enter"
           style={{
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.13)',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
-            boxShadow: '0 8px 48px rgba(0,0,0,0.40)',
+            boxShadow: '0 8px 48px rgba(15,23,42,0.08)',
             animationDelay: '0.10s',
           }}
         >
-          <h2 className="text-2xl font-bold text-white mb-1">Welcome back</h2>
-          <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.42)' }}>Sign in to your account</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
+          <p className="text-sm mb-6" style={{ color: '#334155' }}>Sign in to your account</p>
 
           {/* User type toggle */}
           <div
             className="flex gap-2 p-1 rounded-2xl mb-6"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+            style={{ background: '#f1f5f9', border: '1px solid #f1f5f9' }}
           >
             {(['customer', 'admin'] as const).map((type) => (
               <button
@@ -154,8 +154,8 @@ function LoginForm() {
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all capitalize"
                 style={
                   userType === type
-                    ? { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white', boxShadow: '0 4px 14px rgba(244,63,94,0.40)' }
-                    : { color: 'rgba(255,255,255,0.50)' }
+                    ? { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff', boxShadow: '0 4px 14px rgba(37,99,235,0.40)' }
+                    : { color: '#334155' }
                 }
               >
                 {type}
@@ -167,7 +167,7 @@ function LoginForm() {
           {error && (
             <div
               className="mb-5 p-3.5 rounded-2xl text-sm"
-              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.28)', color: '#FCA5A5' }}
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.28)', color: '#B91C1C' }}
             >
               {error}
             </div>
@@ -175,7 +175,7 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold tracking-wide uppercase mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <label htmlFor="email" className="block text-xs font-semibold tracking-wide uppercase mb-2" style={{ color: '#334155' }}>
                 Email address
               </label>
               <input
@@ -184,18 +184,18 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-all focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500"
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  color: '#f3f4f6',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  color: '#0f172a',
                 }}
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold tracking-wide uppercase mb-2" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <label htmlFor="password" className="block text-xs font-semibold tracking-wide uppercase mb-2" style={{ color: '#334155' }}>
                 Password
               </label>
               <input
@@ -204,11 +204,11 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-all focus:ring-2 focus:ring-pink-500"
+                className="w-full px-4 py-3 rounded-2xl text-sm outline-none transition-all focus:ring-2 focus:ring-blue-500"
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  color: '#f3f4f6',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  color: '#0f172a',
                 }}
                 placeholder="••••••••"
               />
@@ -216,10 +216,10 @@ function LoginForm() {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-600 text-pink-500 focus:ring-pink-500 focus:ring-offset-0" />
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>Remember me</span>
+                <input type="checkbox" className="rounded border-gray-600 text-blue-600 focus:ring-blue-500 focus:ring-offset-0" />
+                <span className="text-xs" style={{ color: '#334155' }}>Remember me</span>
               </label>
-              <Link href="/forgot-password" className="text-xs font-medium transition-colors hover:text-white" style={{ color: '#F472B6' }}>
+              <Link href="/forgot-password" className="text-xs font-medium transition-colors hover:text-slate-900" style={{ color: '#2563EB' }}>
                 Forgot password?
               </Link>
             </div>
@@ -230,8 +230,8 @@ function LoginForm() {
               className={`w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all active:scale-[0.97] ${!isLoading ? 'btn-glow' : ''}`}
               style={
                 isLoading
-                  ? { background: 'rgba(255,255,255,0.08)', cursor: 'not-allowed', color: 'rgba(255,255,255,0.35)' }
-                  : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }
+                  ? { background: '#f8fafc', cursor: 'not-allowed', color: '#64748b' }
+                  : { background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }
               }
             >
               {isLoading ? 'Signing in…' : 'Sign in'}
@@ -239,9 +239,9 @@ function LoginForm() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            <p className="text-xs" style={{ color: '#64748b' }}>
               Don&apos;t have an account?{' '}
-              <Link href="/signup" className="font-semibold transition-colors hover:text-white" style={{ color: '#F472B6' }}>
+              <Link href="/signup" className="font-semibold transition-colors hover:text-slate-900" style={{ color: '#2563EB' }}>
                 Sign up
               </Link>
             </p>
@@ -249,7 +249,7 @@ function LoginForm() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link href="/" className="text-xs transition-colors hover:text-white" style={{ color: 'rgba(255,255,255,0.30)' }}>
+          <Link href="/" className="text-xs transition-colors hover:text-slate-900" style={{ color: '#64748b' }}>
             ← Back to home
           </Link>
         </div>
@@ -261,18 +261,18 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 50%, #150828 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}>
         <div className="text-center">
           <div className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center relative">
-            <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.35) 0%, transparent 70%)', animationDuration: '1.5s' }} />
-            <div className="relative w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}>
+            <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)', animationDuration: '1.5s' }} />
+            <div className="relative w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }}>
               <svg className="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             </div>
           </div>
-          <p className="text-sm font-medium" style={{ color: '#F472B6' }}>Loading…</p>
+          <p className="text-sm font-medium" style={{ color: '#2563EB' }}>Loading…</p>
         </div>
       </div>
     }>

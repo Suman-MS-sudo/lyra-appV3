@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -7,19 +7,19 @@ import { createProduct } from '@/app/actions/admin';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#ffffff',
+  border: '1px solid #f1f5f9',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  color: '#f3f4f6',
+  background: '#ffffff',
+  border: '1px solid #e2e8f0',
+  color: '#0f172a',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#0f172a' };
 
 export default async function NewProductPage() {
   const supabase = await createClient();
@@ -42,8 +42,8 @@ export default async function NewProductPage() {
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Add Product</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Create a new product</p>
+        <h1 className="text-2xl font-bold text-slate-900">Add Product</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Create a new product</p>
       </div>
 
       <form action={createProduct} className="rounded-2xl p-6 space-y-6" style={CARD}>
@@ -56,7 +56,7 @@ export default async function NewProductPage() {
             id="name"
             name="name"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style={INPUT}
             placeholder="e.g., Coca Cola"
           />
@@ -71,7 +71,7 @@ export default async function NewProductPage() {
             id="sku"
             name="sku"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style={INPUT}
             placeholder="e.g., SKU-001"
           />
@@ -88,7 +88,7 @@ export default async function NewProductPage() {
             step="0.01"
             min="0"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style={INPUT}
             placeholder="0.00"
           />
@@ -104,14 +104,14 @@ export default async function NewProductPage() {
           <Link
             href="/admin/products"
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+            style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
           >
             Cancel
           </Link>
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
           >
             Create Product
           </button>

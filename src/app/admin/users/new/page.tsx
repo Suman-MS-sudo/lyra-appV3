@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import NewUserForm from '@/components/NewUserForm';
@@ -31,8 +31,8 @@ export default async function NewUserPage() {
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Add New User</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Create a new user account</p>
+        <h1 className="text-2xl font-bold text-slate-900">Add New User</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Create a new user account</p>
       </div>
       <NewUserForm organizations={organizations || []} />
     </main>

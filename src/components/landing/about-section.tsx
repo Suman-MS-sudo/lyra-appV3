@@ -6,8 +6,8 @@ export function AboutSection() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#F472B6' }}>About Us</p>
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#2563EB' }}>About Us</p>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Revolutionizing Women&apos;s Hygiene Access
           </h2>
         </div>
@@ -17,22 +17,21 @@ export function AboutSection() {
           <div
             className="rounded-3xl px-8 py-10 sm:px-12"
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 24px rgba(15,23,42,0.05)',
             }}
           >
             <div className="flex items-start gap-4">
               <div
                 className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 mt-1"
-                style={{ background: 'rgba(244,63,94,0.18)', border: '1px solid rgba(244,63,94,0.28)' }}
+                style={{ background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.22)' }}
               >
-                <Heart className="h-6 w-6" style={{ color: '#F472B6' }} fill="rgba(244,63,94,0.35)" />
+                <Heart className="h-6 w-6" style={{ color: '#2563EB' }} fill="rgba(37,99,235,0.25)" />
               </div>
-              <p className="text-lg leading-8" style={{ color: 'rgba(255,255,255,0.70)' }}>
+              <p className="text-lg leading-8" style={{ color: '#475569' }}>
                 At{' '}
-                <span className="font-semibold" style={{ color: '#F472B6' }}>Lyra Enterprises</span>, we empower
+                <span className="font-semibold" style={{ color: '#2563EB' }}>Lyra Enterprises</span>, we empower
                 women&apos;s hygiene through innovative sanitary napkin vending machines. We offer easy-to-use,
                 cashless solutions for schools, workplaces, and public spaces, promoting menstrual health and
                 accessibility.
@@ -44,15 +43,15 @@ export function AboutSection() {
         {/* Use cases */}
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { icon: School,    label: 'Schools',       desc: 'Ensuring student wellness and dignity',  iconColor: '#A78BFA', iconBg: 'rgba(167,139,250,0.20)', iconBorder: 'rgba(167,139,250,0.30)' },
-            { icon: Building2, label: 'Workplaces',    desc: 'Employee health and convenience',         iconColor: '#60A5FA', iconBg: 'rgba(96,165,250,0.20)',  iconBorder: 'rgba(96,165,250,0.30)'  },
-            { icon: Users,     label: 'Public Spaces', desc: 'Accessible hygiene for everyone',         iconColor: '#F472B6', iconBg: 'rgba(244,63,94,0.18)',   iconBorder: 'rgba(244,63,94,0.28)'   },
-            { icon: Heart,     label: 'Community',     desc: 'Breaking menstrual health stigma',        iconColor: '#F472B6', iconBg: 'rgba(236,72,153,0.18)',  iconBorder: 'rgba(236,72,153,0.28)'  },
+            { icon: School,    label: 'Schools',       desc: 'Ensuring student wellness and dignity',  iconColor: '#0EA5E9', iconBg: 'rgba(14,165,233,0.14)', iconBorder: 'rgba(14,165,233,0.28)' },
+            { icon: Building2, label: 'Workplaces',    desc: 'Employee health and convenience',         iconColor: '#2563EB', iconBg: 'rgba(37,99,235,0.12)',  iconBorder: 'rgba(37,99,235,0.24)'  },
+            { icon: Users,     label: 'Public Spaces', desc: 'Accessible hygiene for everyone',         iconColor: '#1D4ED8', iconBg: 'rgba(29,78,216,0.12)',   iconBorder: 'rgba(29,78,216,0.24)'   },
+            { icon: Heart,     label: 'Community',     desc: 'Breaking menstrual health stigma',        iconColor: '#3B82F6', iconBg: 'rgba(59,130,246,0.12)',  iconBorder: 'rgba(59,130,246,0.24)'  },
           ].map(({ icon: Icon, label, desc, iconColor, iconBg, iconBorder }) => (
             <div
               key={label}
               className="flex flex-col items-center text-center rounded-3xl px-4 py-8 lyra-card"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}
+              style={{ background: '#ffffff', border: '1px solid #e2e8f0' }}
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
@@ -60,8 +59,8 @@ export function AboutSection() {
               >
                 <Icon className="h-7 w-7" style={{ color: iconColor }} />
               </div>
-              <h3 className="text-sm font-semibold text-white mb-1">{label}</h3>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{desc}</p>
+              <h3 className="text-sm font-semibold text-slate-900 mb-1">{label}</h3>
+              <p className="text-xs" style={{ color: '#64748b' }}>{desc}</p>
             </div>
           ))}
         </div>
@@ -69,7 +68,7 @@ export function AboutSection() {
 
       <div
         className="absolute bottom-0 left-0 right-0 h-px"
-        style={{ background: 'linear-gradient(to right, transparent 0%, rgba(167,139,250,0.20) 35%, rgba(244,63,94,0.20) 65%, transparent 100%)' }}
+        style={{ background: 'linear-gradient(to right, transparent 0%, rgba(37,99,235,0.18) 35%, rgba(96,165,250,0.18) 65%, transparent 100%)' }}
       />
     </section>
   );

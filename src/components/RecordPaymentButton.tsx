@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { IndianRupee, X } from 'lucide-react';
@@ -11,19 +11,19 @@ interface RecordPaymentButtonProps {
 }
 
 const MODAL: React.CSSProperties = {
-  background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%)',
+  border: '1px solid #e2e8f0',
   borderRadius: 20,
 };
 
 const INPUT: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  color: '#f3f4f6',
+  background: '#ffffff',
+  border: '1px solid #e2e8f0',
+  color: '#0f172a',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: 'rgba(255,255,255,0.70)' };
+const LABEL: React.CSSProperties = { color: '#0f172a' };
 
 export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: RecordPaymentButtonProps) {
   const [showModal, setShowModal] = useState(false);
@@ -73,12 +73,12 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
           style={{ background: 'rgba(0,0,0,0.70)' }}
         >
           <div className="w-full max-w-md" style={MODAL}>
-            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <h3 className="text-lg font-semibold text-white">Record Payment</h3>
+            <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <h3 className="text-lg font-semibold text-slate-900">Record Payment</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg transition-colors hover:opacity-70"
-                style={{ color: 'rgba(255,255,255,0.50)' }}
+                style={{ color: '#334155' }}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -92,7 +92,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   value={organizationName}
                   disabled
                   className="w-full px-3 py-2 cursor-not-allowed"
-                  style={{ ...INPUT, background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.40)' }}
+                  style={{ ...INPUT, background: '#f1f5f9', color: '#334155' }}
                 />
               </div>
 
@@ -106,10 +106,10 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
-                  className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   style={INPUT}
                 />
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                <p className="text-xs mt-1" style={{ color: '#64748b' }}>
                   Amount due: ₹{(amountDue / 100).toFixed(2)}
                 </p>
               </div>
@@ -121,7 +121,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   placeholder="Payment reference, transaction ID, etc."
-                  className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   style={INPUT}
                 />
               </div>
@@ -131,7 +131,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+                  style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
                 >
                   Cancel
                 </button>

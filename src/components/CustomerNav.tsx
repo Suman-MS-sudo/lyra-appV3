@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -25,10 +25,11 @@ export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavP
     <header
       className="sticky top-0 z-50"
       style={{
-        background: 'rgba(20,6,42,0.92)',
+        background: '#f8fafc',
         backdropFilter: 'blur(28px)',
         WebkitBackdropFilter: 'blur(28px)',
-        borderBottom: '1px solid rgba(255,255,255,0.09)',
+        borderBottom: '1px solid #e2e8f0',
+        boxShadow: '0 1px 0 rgba(15,23,42,0.04)',
       }}
     >
       <div className="px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -36,12 +37,12 @@ export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavP
         <Link href="/customer/dashboard" className="flex items-center gap-2.5 shrink-0">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 10px rgba(244,63,94,0.45)' }}
+            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 10px rgba(37,99,235,0.45)' }}
           >
             <span className="text-white text-xs font-black">L</span>
           </div>
-          <span className="text-sm font-black tracking-wide" style={{ color: 'rgba(255,255,255,0.92)' }}>
-            Lyra <span style={{ color: '#F472B6' }}>Care</span>
+          <span className="text-sm font-black tracking-wide" style={{ color: '#0f172a' }}>
+            Lyra <span style={{ color: '#2563EB' }}>Care</span>
           </span>
         </Link>
 
@@ -55,8 +56,8 @@ export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavP
                 href={href}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                 style={isActive
-                  ? { background: 'rgba(244,63,94,0.18)', color: '#F472B6', border: '1px solid rgba(244,63,94,0.28)' }
-                  : { color: 'rgba(255,255,255,0.52)', border: '1px solid transparent' }
+                  ? { background: 'rgba(37,99,235,0.18)', color: '#2563EB', border: '1px solid rgba(37,99,235,0.28)' }
+                  : { color: '#334155', border: '1px solid transparent' }
                 }
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -70,7 +71,7 @@ export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavP
         <div className="flex items-center gap-2">
           <span
             className="text-xs hidden lg:block truncate max-w-40"
-            style={{ color: 'rgba(255,255,255,0.32)' }}
+            style={{ color: '#64748b' }}
           >
             {userEmail}
           </span>
@@ -78,7 +79,7 @@ export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavP
             <button
               type="submit"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-              style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)', color: '#FCA5A5' }}
+              style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.20)', color: '#B91C1C' }}
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Logout</span>
@@ -100,8 +101,8 @@ export default function CustomerNav({ userEmail, isSuperCustomer }: CustomerNavP
               href={href}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all"
               style={isActive
-                ? { background: 'rgba(244,63,94,0.18)', color: '#F472B6', border: '1px solid rgba(244,63,94,0.28)' }
-                : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.50)', border: '1px solid rgba(255,255,255,0.08)' }
+                ? { background: 'rgba(37,99,235,0.18)', color: '#2563EB', border: '1px solid rgba(37,99,235,0.28)' }
+                : { background: '#f1f5f9', color: '#334155', border: '1px solid #f1f5f9' }
               }
             >
               <Icon className="w-3 h-3" />

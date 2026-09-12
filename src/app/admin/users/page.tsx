@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -8,7 +8,7 @@ import DeleteUserButton from '@/components/DeleteUserButton';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.10)',
+  border: '1px solid #f1f5f9',
   borderRadius: 20,
 };
 
@@ -56,14 +56,14 @@ export default async function UsersPage() {
   const adminCount = usersWithOrgs.filter(u => u.account_type === 'admin').length;
 
   const accountTypeBadgeStyle = (accountType: string): React.CSSProperties => {
-    if (accountType === 'admin')          return { background: 'rgba(52,211,153,0.15)',  color: '#6EE7B7' };
-    if (accountType === 'super_customer') return { background: 'rgba(167,139,250,0.15)', color: '#A78BFA' };
+    if (accountType === 'admin')          return { background: 'rgba(16,185,129,0.15)',  color: '#047857' };
+    if (accountType === 'super_customer') return { background: 'rgba(96,165,250,0.15)', color: '#60A5FA' };
     return { background: 'rgba(96,165,250,0.15)', color: '#60A5FA' };
   };
 
   const avatarStyle = (accountType: string): React.CSSProperties => {
     if (accountType === 'admin')          return { background: 'linear-gradient(135deg, #34D399, #059669)' };
-    if (accountType === 'super_customer') return { background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' };
+    if (accountType === 'super_customer') return { background: 'linear-gradient(135deg, #60A5FA, #2563EB)' };
     return { background: 'linear-gradient(135deg, #60A5FA, #3B82F6)' };
   };
 
@@ -72,13 +72,13 @@ export default async function UsersPage() {
       {/* Page title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">All Users</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Manage normal users and super users (organizations)</p>
+          <h1 className="text-2xl font-bold text-slate-900">All Users</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Manage normal users and super users (organizations)</p>
         </div>
         <Link
           href="/admin/users/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
         >
           <UserPlus className="w-4 h-4" />
           Add User
@@ -92,46 +92,46 @@ export default async function UsersPage() {
           <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(96,165,250,0.18)' }}>
             <User className="w-5 h-5" style={{ color: '#60A5FA' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Normal Users</p>
-          <p className="text-2xl font-bold text-white">{normalCount}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Normal Users</p>
+          <p className="text-2xl font-bold text-slate-900">{normalCount}</p>
         </div>
 
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(167,139,250,0.18)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(167,139,250,0.18)' }}>
-            <Building2 className="w-5 h-5" style={{ color: '#A78BFA' }} />
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(96,165,250,0.18)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(96,165,250,0.18)' }}>
+            <Building2 className="w-5 h-5" style={{ color: '#60A5FA' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Super Users</p>
-          <p className="text-2xl font-bold text-white">{superCount}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Super Users</p>
+          <p className="text-2xl font-bold text-slate-900">{superCount}</p>
         </div>
 
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(52,211,153,0.18)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(52,211,153,0.18)' }}>
+          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(16,185,129,0.18)', opacity: 0.15 }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(16,185,129,0.18)' }}>
             <Shield className="w-5 h-5" style={{ color: '#34D399' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Admin Users</p>
-          <p className="text-2xl font-bold text-white">{adminCount}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Admin Users</p>
+          <p className="text-2xl font-bold text-slate-900">{adminCount}</p>
         </div>
       </div>
 
       {/* Users Table */}
       {usersWithOrgs.length === 0 ? (
         <div className="rounded-2xl py-16 text-center" style={CARD}>
-          <Users className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
-          <p className="font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>No users found</p>
+          <Users className="w-12 h-12 mx-auto mb-4" style={{ color: '#94a3b8' }} />
+          <p className="font-medium" style={{ color: '#334155' }}>No users found</p>
         </div>
       ) : (
         <div className="rounded-2xl overflow-hidden" style={CARD}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                   {['User', 'Type', 'Organization', 'Role', 'Joined', 'Actions'].map((h, i) => (
                     <th
                       key={h}
                       className={`py-2.5 px-5 text-xs font-semibold uppercase tracking-wide ${i === 5 ? 'text-right' : 'text-left'}`}
-                      style={{ color: 'rgba(255,255,255,0.35)' }}
+                      style={{ color: '#64748b' }}
                     >{h}</th>
                   ))}
                 </tr>
@@ -141,12 +141,12 @@ export default async function UsersPage() {
                   <tr
                     key={u.id}
                     className="row-hover"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                    style={{ borderBottom: '1px solid #f1f5f9' }}
                   >
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0"
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-900 shrink-0"
                           style={avatarStyle(u.account_type)}
                         >
                           {u.account_type === 'admin' ? (
@@ -158,8 +158,8 @@ export default async function UsersPage() {
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-white">{u.email}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{u.id.substring(0, 8)}…</p>
+                          <p className="font-medium text-slate-900">{u.email}</p>
+                          <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{u.id.substring(0, 8)}…</p>
                         </div>
                       </div>
                     </td>
@@ -179,13 +179,13 @@ export default async function UsersPage() {
                     </td>
                     <td className="py-3.5 px-5">
                       {u.organizations?.name ? (
-                        <span className="font-medium text-white">{u.organizations.name}</span>
+                        <span className="font-medium text-slate-900">{u.organizations.name}</span>
                       ) : (
-                        <span style={{ color: 'rgba(255,255,255,0.30)' }}>—</span>
+                        <span style={{ color: '#64748b' }}>—</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-5 capitalize" style={{ color: 'rgba(255,255,255,0.55)' }}>{u.role}</td>
-                    <td className="py-3.5 px-5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    <td className="py-3.5 px-5 capitalize" style={{ color: '#334155' }}>{u.role}</td>
+                    <td className="py-3.5 px-5" style={{ color: '#334155' }}>
                       {new Date(u.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </td>
                     <td className="py-3.5 px-5 text-right">
@@ -194,7 +194,7 @@ export default async function UsersPage() {
                           href={`/admin/users/${u.id}/edit`}
                           className="p-2 rounded-lg inline-flex transition-colors hover:bg-white/10"
                           title="Edit user"
-                          style={{ color: '#F472B6' }}
+                          style={{ color: '#2563EB' }}
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>

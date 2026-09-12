@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -35,13 +35,13 @@ export default async function OrganizationsPage() {
       {/* Page title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Organizations</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Manage partner organizations</p>
+          <h1 className="text-2xl font-bold text-slate-900">Organizations</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Manage partner organizations</p>
         </div>
         <Link
           href="/admin/organizations/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
         >
           <Plus className="w-4 h-4" />
           Add Organization
@@ -54,46 +54,46 @@ export default async function OrganizationsPage() {
             <div
               key={org.id}
               className="card-hover rounded-2xl p-5"
-              style={{ border: '1px solid rgba(255,255,255,0.10)', borderRadius: 20 }}
+              style={{ border: '1px solid #f1f5f9', borderRadius: 20 }}
             >
               <div className="flex items-start gap-3 mb-4">
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' }}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-slate-900 font-bold text-lg shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #60A5FA, #2563EB)' }}
                 >
                   {org.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <Link href={`/admin/organizations/${org.id}/transactions`}>
-                    <h3 className="font-semibold text-white truncate hover:text-pink-400 transition-colors cursor-pointer">{org.name}</h3>
+                    <h3 className="font-semibold text-slate-900 truncate hover:text-blue-500 transition-colors cursor-pointer">{org.name}</h3>
                   </Link>
                   {org.profiles && (
-                    <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(255,255,255,0.45)' }}>{org.profiles.full_name}</p>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: '#334155' }}>{org.profiles.full_name}</p>
                   )}
                 </div>
               </div>
 
               <div className="space-y-1.5 text-sm">
                 {org.contact_email && (
-                  <p style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    <span className="font-medium text-white">Email: </span>{org.contact_email}
+                  <p style={{ color: '#334155' }}>
+                    <span className="font-medium text-slate-900">Email: </span>{org.contact_email}
                   </p>
                 )}
                 {org.contact_phone && (
-                  <p style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    <span className="font-medium text-white">Phone: </span>{org.contact_phone}
+                  <p style={{ color: '#334155' }}>
+                    <span className="font-medium text-slate-900">Phone: </span>{org.contact_phone}
                   </p>
                 )}
                 {org.address && (
-                  <div className="flex items-start gap-1.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  <div className="flex items-start gap-1.5" style={{ color: '#334155' }}>
                     <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                     <span className="line-clamp-2">{org.address}</span>
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <span className="text-xs" style={{ color: '#64748b' }}>
                   Created {new Date(org.created_at).toLocaleDateString('en-IN')}
                 </span>
                 <div className="flex items-center gap-1">
@@ -101,7 +101,7 @@ export default async function OrganizationsPage() {
                     href={`/admin/organizations/${org.id}/edit`}
                     className="p-2 rounded-lg transition-colors hover:bg-white/10"
                     title="Edit organization"
-                    style={{ color: '#F472B6' }}
+                    style={{ color: '#2563EB' }}
                   >
                     <Pencil className="w-4 h-4" />
                   </Link>
@@ -112,14 +112,14 @@ export default async function OrganizationsPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl py-20 text-center" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
-          <Building2 className="w-16 h-16 mx-auto mb-4" style={{ color: 'rgba(255,255,255,0.15)' }} />
-          <h3 className="font-semibold text-white mb-2">No Organizations Yet</h3>
-          <p className="text-sm mb-6" style={{ color: 'rgba(255,255,255,0.38)' }}>Add partner organizations to track machines by location</p>
+        <div className="rounded-2xl py-20 text-center" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+          <Building2 className="w-16 h-16 mx-auto mb-4" style={{ color: '#94a3b8' }} />
+          <h3 className="font-semibold text-slate-900 mb-2">No Organizations Yet</h3>
+          <p className="text-sm mb-6" style={{ color: '#64748b' }}>Add partner organizations to track machines by location</p>
           <Link
             href="/admin/organizations/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)' }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-slate-900 transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }}
           >
             <Plus className="w-4 h-4" />
             Add Your First Organization

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
@@ -10,7 +10,7 @@ import { BillingTablesClient } from '@/components/BillingTablesClient';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  border: '1px solid rgba(255,255,255,0.10)',
+  border: '1px solid #f1f5f9',
   borderRadius: 20,
 };
 
@@ -159,8 +159,8 @@ export default async function OrganizationBillingPage({
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Organization Billing</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Manage coin payment invoices and collections</p>
+          <h1 className="text-2xl font-bold text-slate-900">Organization Billing</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Manage coin payment invoices and collections</p>
         </div>
         <div className="flex items-center gap-3">
           <ManualInvoiceGenerator />

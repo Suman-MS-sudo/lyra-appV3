@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import Link from 'next/link';
@@ -7,8 +7,8 @@ import NewCustomerUserForm from '@/components/NewCustomerUserForm';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#ffffff',
+  border: '1px solid #f1f5f9',
   borderRadius: 20,
 };
 
@@ -42,13 +42,13 @@ export default async function NewCustomerUserPage() {
       <div>
         <Link
           href="/customer/users"
-          className="text-sm transition-colors hover:text-white mb-2 inline-block"
-          style={{ color: 'rgba(255,255,255,0.55)' }}
+          className="text-sm transition-colors hover:text-slate-900 mb-2 inline-block"
+          style={{ color: '#334155' }}
         >
           ← Back to Users
         </Link>
-        <h1 className="text-2xl font-bold text-white">Create New User</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Add a new user to your organization with limited access</p>
+        <h1 className="text-2xl font-bold text-slate-900">Create New User</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Add a new user to your organization with limited access</p>
       </div>
 
       <div className="rounded-2xl p-6 sm:p-8" style={CARD}>

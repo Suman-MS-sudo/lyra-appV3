@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
@@ -9,10 +9,10 @@ const ROWS = 7;
 const MAX_MOVES = 20;
 
 const GEMS = [
-  { bg: 'linear-gradient(145deg,#FF8FB5,#F43F5E)', glow: '#F43F5E', emoji: '🎀', name: 'Blossom' },
+  { bg: 'linear-gradient(145deg,#FF8FB5,#2563EB)', glow: '#2563EB', emoji: '🎀', name: 'Blossom' },
   { bg: 'linear-gradient(145deg,#93C5FD,#3B82F6)', glow: '#60A5FA', emoji: '💙', name: 'Bubbles' },
   { bg: 'linear-gradient(145deg,#6EE7B7,#10B981)', glow: '#34D399', emoji: '⚡', name: 'Buttercup' },
-  { bg: 'linear-gradient(145deg,#C4B5FD,#7C3AED)', glow: '#A78BFA', emoji: '🔮', name: 'Mojo' },
+  { bg: 'linear-gradient(145deg,#C4B5FD,#2563EB)', glow: '#60A5FA', emoji: '🔮', name: 'Mojo' },
   { bg: 'linear-gradient(145deg,#FDE68A,#F59E0B)', glow: '#FBBF24', emoji: '👑', name: 'Princess' },
   { bg: 'linear-gradient(145deg,#FCA5A5,#DC2626)', glow: '#EF4444', emoji: '😈', name: 'Him' },
 ] as const;
@@ -311,7 +311,7 @@ export function OfflineMachineGame({
   const introContent = (
     <div className="px-5 pt-5 pb-6 space-y-4">
       <div className="text-center">
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#F472B6' }}>Mini Game</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#60A5FA' }}>Mini Game</p>
         <h3 className="text-xl font-black text-white mb-0.5">Powerpuff Match 3!</h3>
         <p className="text-xs" style={{ color: 'rgba(255,255,255,0.42)' }}>Match gems · Score big · {MAX_MOVES} moves</p>
       </div>
@@ -339,7 +339,7 @@ export function OfflineMachineGame({
       <button
         onClick={startGame}
         className="w-full py-4 rounded-2xl font-black text-white text-base active:scale-95 transition-transform"
-        style={{ background: 'linear-gradient(135deg,#F43F5E,#EC4899)', boxShadow: '0 8px 24px rgba(244,63,94,0.40)' }}
+        style={{ background: 'linear-gradient(135deg,#2563EB,#3B82F6)', boxShadow: '0 8px 24px rgba(37,99,235,0.40)' }}
       >
         ✨ Let&apos;s Go!
       </button>
@@ -358,7 +358,7 @@ export function OfflineMachineGame({
         <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Final Score</p>
         <p
           className="text-4xl font-black"
-          style={{ background: 'linear-gradient(135deg,#F472B6,#A78BFA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
+          style={{ background: 'linear-gradient(135deg,#60A5FA,#60A5FA)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}
         >
           {score.toLocaleString()}
         </p>
@@ -366,7 +366,7 @@ export function OfflineMachineGame({
       <button
         onClick={startGame}
         className="px-8 py-3 rounded-2xl font-black text-white text-sm active:scale-95 transition-transform"
-        style={{ background: 'linear-gradient(135deg,#F43F5E,#EC4899)', boxShadow: '0 8px 24px rgba(244,63,94,0.35)' }}
+        style={{ background: 'linear-gradient(135deg,#2563EB,#3B82F6)', boxShadow: '0 8px 24px rgba(37,99,235,0.35)' }}
       >
         Play Again 🎀
       </button>
@@ -380,7 +380,7 @@ export function OfflineMachineGame({
       <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.35)' }}>Score</p>
-          <p className="text-xl font-black leading-none" style={{ color: '#F472B6' }}>{score.toLocaleString()}</p>
+          <p className="text-xl font-black leading-none" style={{ color: '#60A5FA' }}>{score.toLocaleString()}</p>
         </div>
         {combo > 1 && (
           <div
@@ -468,7 +468,7 @@ export function OfflineMachineGame({
               height: '100%',
               borderRadius: 9999,
               width: `${(moves / MAX_MOVES) * 100}%`,
-              background: moves <= 5 ? 'linear-gradient(90deg,#EF4444,#F43F5E)' : 'linear-gradient(90deg,#F43F5E,#EC4899)',
+              background: moves <= 5 ? 'linear-gradient(90deg,#EF4444,#2563EB)' : 'linear-gradient(90deg,#2563EB,#3B82F6)',
               transition: 'width 0.3s ease, background 0.3s ease',
             }}
           />
@@ -485,7 +485,7 @@ export function OfflineMachineGame({
         background: gameBg,
         border: phase === 'play'
           ? '1px solid rgba(167,139,250,0.25)'
-          : '1px solid rgba(244,63,94,0.28)',
+          : '1px solid rgba(37,99,235,0.28)',
       }}
     >
       {/* Close button for non-inline modal on intro/over */}

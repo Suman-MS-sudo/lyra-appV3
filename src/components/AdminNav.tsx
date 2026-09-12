@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -29,10 +29,11 @@ export default function AdminNav() {
     <header
       className="sticky top-0 z-50"
       style={{
-        background: 'rgba(20,6,42,0.92)',
+        background: '#f8fafc',
         backdropFilter: 'blur(28px)',
         WebkitBackdropFilter: 'blur(28px)',
-        borderBottom: '1px solid rgba(255,255,255,0.09)',
+        borderBottom: '1px solid #e2e8f0',
+        boxShadow: '0 1px 0 rgba(15,23,42,0.04)',
       }}
     >
       <div className="px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -40,12 +41,12 @@ export default function AdminNav() {
         <Link href="/admin/dashboard" className="flex items-center gap-2.5 shrink-0">
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 10px rgba(244,63,94,0.45)' }}
+            style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 10px rgba(37,99,235,0.45)' }}
           >
             <span className="text-white text-xs font-black">L</span>
           </div>
-          <span className="text-sm font-black tracking-wide" style={{ color: 'rgba(255,255,255,0.92)' }}>
-            Lyra <span style={{ color: '#F472B6' }}>Admin</span>
+          <span className="text-sm font-black tracking-wide" style={{ color: '#0f172a' }}>
+            Lyra <span style={{ color: '#2563EB' }}>Admin</span>
           </span>
         </Link>
 
@@ -59,8 +60,8 @@ export default function AdminNav() {
                 href={href}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap"
                 style={isActive
-                  ? { background: 'rgba(244,63,94,0.18)', color: '#F472B6', border: '1px solid rgba(244,63,94,0.28)' }
-                  : { color: 'rgba(255,255,255,0.52)', border: '1px solid transparent' }
+                  ? { background: 'rgba(37,99,235,0.18)', color: '#2563EB', border: '1px solid rgba(37,99,235,0.28)' }
+                  : { color: '#334155', border: '1px solid transparent' }
                 }
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -75,19 +76,19 @@ export default function AdminNav() {
           {/* Mobile menu button */}
           <button
             className="lg:hidden p-2 rounded-xl transition-colors"
-            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}
+            style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}
             onClick={() => setMobileOpen(v => !v)}
           >
             {mobileOpen
-              ? <X className="w-4 h-4 text-white" />
-              : <Menu className="w-4 h-4 text-white" />}
+              ? <X className="w-4 h-4 text-slate-900" />
+              : <Menu className="w-4 h-4 text-slate-900" />}
           </button>
 
           <form action="/api/auth/logout" method="POST">
             <button
               type="submit"
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.22)', color: '#FCA5A5' }}
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.22)', color: '#B91C1C' }}
             >
               <LogOut className="w-3.5 h-3.5" />
               Logout
@@ -100,7 +101,7 @@ export default function AdminNav() {
       {mobileOpen && (
         <div
           className="lg:hidden px-4 pb-4 pt-2 grid grid-cols-3 gap-2"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ borderTop: '1px solid #f1f5f9' }}
         >
           {navItems.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(href + '/');
@@ -111,8 +112,8 @@ export default function AdminNav() {
                 onClick={() => setMobileOpen(false)}
                 className="flex flex-col items-center gap-1 px-2 py-3 rounded-2xl text-xs font-medium transition-all text-center"
                 style={isActive
-                  ? { background: 'rgba(244,63,94,0.18)', color: '#F472B6', border: '1px solid rgba(244,63,94,0.28)' }
-                  : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.08)' }
+                  ? { background: 'rgba(37,99,235,0.18)', color: '#2563EB', border: '1px solid rgba(37,99,235,0.28)' }
+                  : { background: '#f1f5f9', color: '#334155', border: '1px solid #f1f5f9' }
                 }
               >
                 <Icon className="w-4 h-4" />
@@ -124,7 +125,7 @@ export default function AdminNav() {
             <button
               type="submit"
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-medium transition-all"
-              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.22)', color: '#FCA5A5' }}
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.22)', color: '#B91C1C' }}
             >
               <LogOut className="w-4 h-4" />
               Logout

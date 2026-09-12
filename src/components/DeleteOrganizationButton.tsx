@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
@@ -11,8 +11,8 @@ interface Props {
 }
 
 const MODAL: React.CSSProperties = {
-  background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)',
-  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%)',
+  border: '1px solid #e2e8f0',
   borderRadius: 20,
 };
 
@@ -41,7 +41,7 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
         onClick={() => setShowConfirm(true)}
         className="p-2 rounded-lg transition-colors hover:bg-white/10"
         title="Delete organization"
-        style={{ color: '#FCA5A5' }}
+        style={{ color: '#B91C1C' }}
         disabled={isDeleting}
       >
         <Trash2 className="w-4 h-4" />
@@ -55,23 +55,23 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
         >
           <div className="w-full max-w-lg p-6" style={MODAL} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(244,63,94,0.15)' }}>
-                <AlertTriangle className="h-6 w-6" style={{ color: '#FCA5A5' }} />
+              <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(37,99,235,0.15)' }}>
+                <AlertTriangle className="h-6 w-6" style={{ color: '#B91C1C' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-white mb-2">Delete Organization?</h3>
-                <p className="text-sm mb-2" style={{ color: 'rgba(255,255,255,0.60)' }}>
-                  Are you sure you want to delete <strong className="text-white">{orgName}</strong>?
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Organization?</h3>
+                <p className="text-sm mb-2" style={{ color: '#0f172a' }}>
+                  Are you sure you want to delete <strong className="text-slate-900">{orgName}</strong>?
                 </p>
-                <p className="text-sm font-medium" style={{ color: '#FCA5A5' }}>
+                <p className="text-sm font-medium" style={{ color: '#B91C1C' }}>
                   This action cannot be undone.
                 </p>
               </div>
             </div>
 
             {error && (
-              <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}>
-                <p className="text-sm" style={{ color: '#FCA5A5' }}>{error}</p>
+              <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)' }}>
+                <p className="text-sm" style={{ color: '#B91C1C' }}>{error}</p>
               </div>
             )}
 
@@ -79,7 +79,7 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
               <button
                 onClick={() => { setShowConfirm(false); setError(null); }}
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+                style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
                 disabled={isDeleting}
               >
                 Cancel
@@ -87,7 +87,7 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
               <button
                 onClick={handleDelete}
                 className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 2px 12px rgba(244,63,94,0.35)' }}
+                style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 2px 12px rgba(37,99,235,0.35)' }}
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete Organization'}

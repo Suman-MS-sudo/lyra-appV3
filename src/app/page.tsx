@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -474,12 +474,12 @@ function HomeContent() {
       return (
         <div
           className="min-h-screen flex flex-col items-center justify-center"
-          style={{ background: 'linear-gradient(160deg, #1C0930 0%, #110720 50%, #0D0518 100%)' }}
+          style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}
         >
           {/* Ambient glow */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.15) 0%, transparent 70%)' }} />
-            <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.10) 0%, transparent 70%)' }} />
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%)' }} />
+            <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.10) 0%, transparent 70%)' }} />
           </div>
 
           {/* Logo + branding */}
@@ -487,11 +487,11 @@ function HomeContent() {
             <div className="relative mb-8">
               <div
                 className="absolute inset-0 rounded-full animate-ping"
-                style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.35) 0%, transparent 70%)', animationDuration: '2s' }}
+                style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)', animationDuration: '2s' }}
               />
               <div
                 className="relative w-20 h-20 rounded-full flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 0 48px rgba(244,63,94,0.45)' }}
+                style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 0 48px rgba(37,99,235,0.45)' }}
               >
                 {/* Pad/drop icon */}
                 <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none">
@@ -502,8 +502,8 @@ function HomeContent() {
               </div>
             </div>
 
-            <p className="text-2xl font-black text-white mb-1">Lyra <span style={{ color: '#F472B6' }}>Care</span></p>
-            <p className="text-sm mb-10" style={{ color: 'rgba(255,255,255,0.38)' }}>Smart hygiene access, anytime.</p>
+            <p className="text-2xl font-black text-slate-900 mb-1">Lyra <span style={{ color: '#2563EB' }}>Care</span></p>
+            <p className="text-sm mb-10" style={{ color: '#64748b' }}>Smart hygiene access, anytime.</p>
 
             {/* Bouncing dots */}
             <div className="flex items-center gap-2">
@@ -511,7 +511,7 @@ function HomeContent() {
                 <div
                   key={delay}
                   className="w-2 h-2 rounded-full animate-bounce"
-                  style={{ background: '#F472B6', animationDelay: `${delay}ms` }}
+                  style={{ background: '#2563EB', animationDelay: `${delay}ms` }}
                 />
               ))}
             </div>
@@ -525,12 +525,12 @@ function HomeContent() {
       return (
         <div
           className="min-h-screen flex items-center justify-center px-5"
-          style={{ background: 'linear-gradient(160deg, #1C0930 0%, #110720 50%, #0D0518 100%)' }}
+          style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}
         >
           {/* Ambient glow */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.12) 0%, transparent 70%)' }} />
-            <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(192,38,211,0.08) 0%, transparent 70%)' }} />
+            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)' }} />
+            <div className="absolute bottom-0 -left-32 w-80 h-80 rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.08) 0%, transparent 70%)' }} />
           </div>
 
           <div className="max-w-md w-full relative z-10">
@@ -538,8 +538,8 @@ function HomeContent() {
             <div
               className="rounded-3xl p-8 sm:p-10 text-center"
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: '#ffffff',
+                border: '1px solid #f1f5f9',
                 backdropFilter: 'blur(24px)',
                 WebkitBackdropFilter: 'blur(24px)',
               }}
@@ -551,7 +551,7 @@ function HomeContent() {
                     className="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
                     style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)' }}
                   >
-                    <svg className="w-10 h-10" style={{ color: '#FCD34D' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-10 h-10" style={{ color: '#B45309' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
@@ -567,19 +567,19 @@ function HomeContent() {
                 ) : (
                   <div
                     className="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}
+                    style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.25)' }}
                   >
-                    <svg className="w-10 h-10" style={{ color: '#F472B6' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-10 h-10" style={{ color: '#2563EB' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 )}
               </div>
 
-              <h1 className="text-2xl font-black text-white mb-3">{error.message}</h1>
-              <p className="text-sm mb-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.40)' }}>
+              <h1 className="text-2xl font-black text-slate-900 mb-3">{error.message}</h1>
+              <p className="text-sm mb-8 leading-relaxed" style={{ color: '#334155' }}>
                 {error.type === 'not_found' && (
-                  <>Machine <span className="font-mono font-semibold" style={{ color: 'rgba(255,255,255,0.65)' }}>{machineId}</span> is not registered in our network.</>
+                  <>Machine <span className="font-mono font-semibold" style={{ color: '#0f172a' }}>{machineId}</span> is not registered in our network.</>
                 )}
                 {error.type === 'network_error' && <>Unable to reach our servers. Please check your connection and try again.</>}
                 {error.type === 'server_error' && <>Our servers are temporarily unavailable. We&apos;re working on it.</>}
@@ -593,7 +593,7 @@ function HomeContent() {
                   <button
                     onClick={() => fetchMachineAndProducts()}
                     className="w-full py-3.5 rounded-2xl font-bold text-sm text-white transition-all active:scale-[0.98]"
-                    style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 8px 24px rgba(244,63,94,0.35)' }}
+                    style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 8px 24px rgba(37,99,235,0.35)' }}
                   >
                     Try Again
                   </button>
@@ -601,21 +601,21 @@ function HomeContent() {
                 <button
                   onClick={() => { window.location.href = '/'; }}
                   className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }}
+                  style={{ background: '#ffffff', border: '1px solid #f1f5f9', color: '#0f172a' }}
                 >
                   Go to Home
                 </button>
               </div>
 
               {/* Footer links */}
-              <div className="flex items-center justify-center gap-4 mt-8 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                <a href="#contact" className="text-xs font-medium transition-colors" style={{ color: 'rgba(244,63,94,0.70)' }}>Contact Support</a>
-                <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.12)' }} />
-                <a href="#about" className="text-xs font-medium transition-colors" style={{ color: 'rgba(244,63,94,0.70)' }}>About Lyra</a>
+              <div className="flex items-center justify-center gap-4 mt-8 pt-6" style={{ borderTop: '1px solid #f1f5f9' }}>
+                <a href="#contact" className="text-xs font-medium transition-colors" style={{ color: 'rgba(37,99,235,0.70)' }}>Contact Support</a>
+                <div className="w-px h-3" style={{ background: '#f8fafc' }} />
+                <a href="#about" className="text-xs font-medium transition-colors" style={{ color: 'rgba(37,99,235,0.70)' }}>About Lyra</a>
               </div>
             </div>
 
-            <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.18)' }}>
+            <p className="text-center text-xs mt-6" style={{ color: '#94a3b8' }}>
               Secure · Contactless · Instant
             </p>
           </div>
@@ -625,51 +625,51 @@ function HomeContent() {
 
     if (machine?.rfid_enabled) {
       return (
-        <div className="min-h-screen relative flex items-center justify-center px-5" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 50%, #150828 100%)' }}>
+        <div className="min-h-screen relative flex items-center justify-center px-5" style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}>
           <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.28) 0%, transparent 65%)' }} />
-            <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.18) 0%, transparent 65%)', animationDelay: '4s' }} />
+            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.28) 0%, transparent 65%)' }} />
+            <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%)', animationDelay: '4s' }} />
           </div>
           <div className="w-full max-w-md text-center" style={{ position: 'relative', zIndex: 1 }}>
             <div
               className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(167,139,250,0.14)', border: '1px solid rgba(167,139,250,0.30)' }}
+              style={{ background: 'rgba(96,165,250,0.14)', border: '1px solid rgba(96,165,250,0.30)' }}
             >
-              <svg className="w-10 h-10" style={{ color: '#C4B5FD' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-10 h-10" style={{ color: '#93C5FD' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v2M9 16v2a2 2 0 002 2h6a2 2 0 002-2v-6a2 2 0 00-2-2h-1M9 16h6" />
               </svg>
             </div>
-            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#C4B5FD' }}>
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: '#93C5FD' }}>
               {machine?.customer_name}
             </p>
-            <h1 className="text-2xl font-black text-white mb-3">{machine?.name || machineId}</h1>
+            <h1 className="text-2xl font-black text-slate-900 mb-3">{machine?.name || machineId}</h1>
 
             <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
               <div
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold"
                 style={
                   machine?.asset_online
-                    ? { background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.35)', color: '#6EE7B7' }
-                    : { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.50)' }
+                    ? { background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.35)', color: '#047857' }
+                    : { background: '#ffffff', border: '1px solid #e2e8f0', color: '#334155' }
                 }
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'animate-pulse' : ''}`}
-                  style={{ background: machine?.asset_online ? '#34D399' : 'rgba(255,255,255,0.30)' }}
+                  style={{ background: machine?.asset_online ? '#34D399' : '#cbd5e1' }}
                 />
                 {machine?.asset_online ? 'Live & Online' : 'Offline'}
               </div>
               {machine?.firmware_version && (
                 <span
                   className="text-xs font-medium px-3 py-1 rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
+                  style={{ background: '#ffffff', border: '1px solid #f1f5f9', color: '#334155' }}
                 >
                   {machine.firmware_version}
                 </span>
               )}
             </div>
             {machine?.last_ping && (
-              <p className="text-xs mb-6" style={{ color: 'rgba(255,255,255,0.30)' }}>
+              <p className="text-xs mb-6" style={{ color: '#64748b' }}>
                 Last seen {new Date(machine.last_ping).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
@@ -677,9 +677,9 @@ function HomeContent() {
             {machine?.asset_online && (
               <div className="grid grid-cols-2 gap-2 mb-6">
                 {machine?.stock_level != null && (
-                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Stock</p>
-                    <p className="text-sm font-bold" style={{ color: machine.stock_level < 5 ? '#FBBF24' : 'white' }}>
+                  <div className="rounded-2xl p-3 text-left" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Stock</p>
+                    <p className="text-sm font-bold" style={{ color: machine.stock_level < 5 ? '#B45309' : '#0f172a' }}>
                       {machine.stock_level}{machine.max_capacity ? `/${machine.max_capacity}` : ''} unit{machine.stock_level !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -689,7 +689,7 @@ function HomeContent() {
                   const quality = rssi >= -60 ? 'Excellent' : rssi >= -70 ? 'Good' : rssi >= -80 ? 'Fair' : 'Weak';
                   const bars = rssi >= -60 ? 4 : rssi >= -70 ? 3 : rssi >= -80 ? 2 : 1;
                   return (
-                    <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="rounded-2xl p-3 text-left" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
                       <div className="flex items-center gap-1.5 mb-1">
                         <div className="flex items-end gap-0.5 h-3">
                           {[1, 2, 3, 4].map(i => (
@@ -698,34 +698,34 @@ function HomeContent() {
                               className="w-[3px] rounded-sm"
                               style={{
                                 height: `${i * 25}%`,
-                                background: i <= bars ? '#6EE7B7' : 'rgba(255,255,255,0.15)',
+                                background: i <= bars ? '#047857' : '#e2e8f0',
                               }}
                             />
                           ))}
                         </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.40)' }}>WiFi</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#334155' }}>WiFi</span>
                       </div>
-                      <p className="text-sm font-bold text-white">{quality}</p>
-                      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{rssi} dBm</p>
+                      <p className="text-sm font-bold text-slate-900">{quality}</p>
+                      <p className="text-[10px]" style={{ color: '#64748b' }}>{rssi} dBm</p>
                     </div>
                   );
                 })()}
                 {machine?.temperature != null && (
-                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Temperature</p>
-                    <p className="text-sm font-bold text-white">{machine.temperature.toFixed(1)}°C</p>
+                  <div className="rounded-2xl p-3 text-left" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Temperature</p>
+                    <p className="text-sm font-bold text-slate-900">{machine.temperature.toFixed(1)}°C</p>
                   </div>
                 )}
                 {machine?.network_speed != null && (
-                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Network Speed</p>
-                    <p className="text-sm font-bold text-white">{machine.network_speed.toFixed(1)} KB/s</p>
+                  <div className="rounded-2xl p-3 text-left" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Network Speed</p>
+                    <p className="text-sm font-bold text-slate-900">{machine.network_speed.toFixed(1)} KB/s</p>
                   </div>
                 )}
                 {machine?.uptime != null && (
-                  <div className="rounded-2xl p-3 text-left" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'rgba(255,255,255,0.40)' }}>Uptime</p>
-                    <p className="text-sm font-bold text-white">
+                  <div className="rounded-2xl p-3 text-left" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#334155' }}>Uptime</p>
+                    <p className="text-sm font-bold text-slate-900">
                       {(() => {
                         const totalSec = Math.floor(machine.uptime! / 1000);
                         const h = Math.floor(totalSec / 3600);
@@ -738,14 +738,14 @@ function HomeContent() {
               </div>
             )}
 
-            <p className="text-base font-semibold text-white mb-2">This machine doesn&apos;t accept online payment</p>
-            <p className="text-sm mb-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <p className="text-base font-semibold text-slate-900 mb-2">This machine doesn&apos;t accept online payment</p>
+            <p className="text-sm mb-8 leading-relaxed" style={{ color: '#334155' }}>
               Tap your RFID card on the reader to dispense your product. No app or payment needed here.
             </p>
             <button
               onClick={() => { window.location.href = '/'; }}
               className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.65)' }}
+              style={{ background: '#ffffff', border: '1px solid #f1f5f9', color: '#0f172a' }}
             >
               Go to Home
             </button>
@@ -759,49 +759,49 @@ function HomeContent() {
         {/* ═══════════════════════════════════════════
             DARK LUXURY WOMEN-CENTRIC DESIGN
         ═══════════════════════════════════════════ */}
-        <div className="min-h-screen relative" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 50%, #150828 100%)' }}>
+        <div className="min-h-screen relative" style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 50%, #f8fafc 100%)' }}>
 
           {/* Ambient glow blobs — drifting */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.28) 0%, transparent 65%)' }} />
-            <div className="absolute top-1/3 -left-32 w-96 h-96 rounded-full animate-glow-drift-2" style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.22) 0%, transparent 65%)', animationDelay: '2s' }} />
-            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.18) 0%, transparent 65%)', animationDelay: '4s' }} />
+            <div className="absolute -top-40 -right-40 w-[560px] h-[560px] rounded-full animate-glow-drift-1" style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.28) 0%, transparent 65%)' }} />
+            <div className="absolute top-1/3 -left-32 w-96 h-96 rounded-full animate-glow-drift-2" style={{ background: 'radial-gradient(circle, rgba(96,165,250,0.22) 0%, transparent 65%)', animationDelay: '2s' }} />
+            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full animate-glow-drift-3" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%)', animationDelay: '4s' }} />
           </div>
 
           {/* ── HEADER ── */}
-          <header className="fixed top-0 left-0 right-0 z-30" style={{ background: 'rgba(26,8,52,0.88)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: '1px solid rgba(255,255,255,0.10)' }}>
+          <header className="fixed top-0 left-0 right-0 z-30" style={{ background: 'rgba(255,255,255,0.90)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderBottom: '1px solid #e2e8f0' }}>
             <div className="max-w-md mx-auto px-5 h-14 flex items-center justify-between">
               {/* Back button — dark glass pill */}
               <button
                 onClick={() => window.history.back()}
                 className="lyra-icon-btn w-9 h-9 flex items-center justify-center rounded-full"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
               >
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
 
               {/* Brand */}
               <div className="flex flex-col items-center leading-none">
-                <span className="text-sm font-black tracking-wide" style={{ color: 'rgba(255,255,255,0.92)' }}>
-                  Lyra <span style={{ color: '#F472B6' }}>Care</span>
+                <span className="text-sm font-black tracking-wide" style={{ color: '#0f172a' }}>
+                  Lyra <span style={{ color: '#2563EB' }}>Care</span>
                 </span>
-                <span className="text-[9px] font-medium tracking-widest" style={{ color: 'rgba(255,255,255,0.28)' }}>BY LYRA ENTERPRISES</span>
+                <span className="text-[9px] font-medium tracking-widest" style={{ color: '#64748b' }}>BY LYRA ENTERPRISES</span>
               </div>
 
               {/* Cart button — rose glow */}
               <button onClick={() => setShowCart(true)} className="relative">
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 4px 16px rgba(244,63,94,0.45)' }}
+                  style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 4px 16px rgba(37,99,235,0.45)' }}
                 >
                   <ShoppingCart className="w-4 h-4 text-white" />
                 </div>
                 {getTotalItems() > 0 && (
                   <span
                     className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-black rounded-full flex items-center justify-center"
-                    style={{ background: '#1C0930', border: '2px solid #F43F5E' }}
+                    style={{ background: '#2563EB', border: '2px solid #ffffff' }}
                   >
                     {getTotalItems()}
                   </span>
@@ -813,23 +813,23 @@ function HomeContent() {
           {/* ── Hero ── */}
           <div className="relative pt-14 pb-0">
             {/* Bottom separator */}
-            <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(to right, transparent 0%, rgba(244,63,94,0.30) 35%, rgba(167,139,250,0.30) 65%, transparent 100%)' }} />
+            <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(to right, transparent 0%, rgba(37,99,235,0.30) 35%, rgba(96,165,250,0.30) 65%, transparent 100%)' }} />
             <div className="max-w-md mx-auto px-5 pt-10 pb-10" style={{ position: 'relative', zIndex: 1 }}>
               <p
                 className="text-xs font-semibold tracking-widest uppercase mb-2 animate-float-up"
-                style={{ color: '#F472B6', animationDelay: '0.05s' }}
+                style={{ color: '#2563EB', animationDelay: '0.05s' }}
               >
                 {machine?.customer_name}
               </p>
               <h1
-                className="text-3xl sm:text-4xl font-bold leading-snug mb-2 text-white wrap-break-word animate-float-up"
+                className="text-3xl sm:text-4xl font-bold leading-snug mb-2 text-slate-900 wrap-break-word animate-float-up"
                 style={{ animationDelay: '0.15s' }}
               >
                 {machine?.name || machineId}
               </h1>
               <p
                 className="text-sm mb-5 animate-float-up"
-                style={{ color: 'rgba(255,255,255,0.42)', animationDelay: '0.25s' }}
+                style={{ color: '#334155', animationDelay: '0.25s' }}
               >
                 Smart hygiene access, anytime.
               </p>
@@ -838,26 +838,26 @@ function HomeContent() {
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold"
                   style={
                     machine?.asset_online
-                      ? { background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.35)', color: '#6EE7B7' }
-                      : { background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.50)' }
+                      ? { background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.35)', color: '#047857' }
+                      : { background: '#ffffff', border: '1px solid #e2e8f0', color: '#334155' }
                   }
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'animate-pulse' : ''}`}
-                    style={{ background: machine?.asset_online ? '#34D399' : 'rgba(255,255,255,0.30)' }}
+                    style={{ background: machine?.asset_online ? '#34D399' : '#cbd5e1' }}
                   />
                   {machine?.asset_online ? 'Live & Online' : 'Offline'}
                 </div>
                 {machine?.firmware_version && (
                   <span
                     className="text-xs font-medium px-3 py-1 rounded-full"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.45)' }}
+                    style={{ background: '#ffffff', border: '1px solid #f1f5f9', color: '#334155' }}
                   >
                     {machine.firmware_version}
                   </span>
                 )}
                 {machine?.last_ping && (
-                  <span className="text-xs" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                  <span className="text-xs" style={{ color: '#64748b' }}>
                     Last seen {new Date(machine.last_ping).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 )}
@@ -872,9 +872,9 @@ function HomeContent() {
             {!machine?.asset_online && (
               <div className="animate-fade-in space-y-4" style={{ animationDelay: '0.38s' }}>
                 <div className="text-center py-2">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#F472B6' }}>Machine Status</p>
-                  <h2 className="text-xl font-bold text-white mb-1">Your machine is offline</h2>
-                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.40)' }}>Play while you wait for it to come back online</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#2563EB' }}>Machine Status</p>
+                  <h2 className="text-xl font-bold text-slate-900 mb-1">Your machine is offline</h2>
+                  <p className="text-sm" style={{ color: '#334155' }}>Play while you wait for it to come back online</p>
                 </div>
                 <OfflineMachineGame machineName={machine?.name || machineId!} inline />
               </div>
@@ -890,17 +890,17 @@ function HomeContent() {
                   const isXL = n.includes('xl') || n.includes('extra') || n.includes('large');
                   const typeLabel = isNight ? 'Maximum Coverage' : isXL ? 'Extra Protection' : 'Daily Comfort';
                   const tileGrad = isNight
-                    ? 'linear-gradient(145deg, #1E1B4B 0%, #3730A3 50%, #6D28D9 100%)'
+                    ? 'linear-gradient(145deg, #1E3A8A 0%, #1D4ED8 50%, #2563EB 100%)'
                     : isXL
-                    ? 'linear-gradient(145deg, #7F1D1D 0%, #9D174D 50%, #BE185D 100%)'
-                    : 'linear-gradient(145deg, #9D174D 0%, #DB2777 50%, #7C3AED 100%)';
+                    ? 'linear-gradient(145deg, #1E3A8A 0%, #1D4ED8 50%, #0EA5E9 100%)'
+                    : 'linear-gradient(145deg, #1D4ED8 0%, #2563EB 50%, #0EA5E9 100%)';
                   return (
                     <div
                       key={item.id}
                       className="lyra-card lyra-border-breathe rounded-3xl overflow-hidden animate-card-enter"
                       style={{
-                        background: 'rgba(255,255,255,0.07)',
-                        border: '1px solid rgba(255,255,255,0.13)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
                         boxShadow: '0 4px 40px rgba(0,0,0,0.30)',
                         animationDelay: `${0.48 + index * 0.12}s`,
                       }}
@@ -911,8 +911,8 @@ function HomeContent() {
                         style={{ background: tileGrad }}
                       >
                         {/* Decorative orbs */}
-                        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
-                        <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                        <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full" style={{ background: '#f8fafc' }} />
+                        <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full" style={{ background: '#f8fafc' }} />
                         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.40) 0%, transparent 55%)' }} />
 
                         {item.products.image_url ? (
@@ -935,7 +935,7 @@ function HomeContent() {
                         {/* Product type badge */}
                         <div
                           className="absolute bottom-3 left-4 px-3 py-1 rounded-full"
-                          style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.18)' }}
+                          style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.25)' }}
                         >
                           <span className="text-[10px] font-semibold text-white tracking-widest uppercase">{typeLabel}</span>
                         </div>
@@ -955,7 +955,7 @@ function HomeContent() {
                           <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.58)', backdropFilter: 'blur(4px)' }}>
                             <span
                               className="text-white font-semibold text-sm px-5 py-2 rounded-full uppercase tracking-wider"
-                              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)' }}
+                              style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.30)' }}
                             >
                               Out of Stock
                             </span>
@@ -968,11 +968,11 @@ function HomeContent() {
                           className="absolute top-3 right-4 w-9 h-9 rounded-full flex items-center justify-center transition-all"
                           style={
                             favorites.has(item.product_id)
-                              ? { background: '#F43F5E', boxShadow: '0 4px 16px rgba(244,63,94,0.55)' }
-                              : { background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.22)' }
+                              ? { background: '#2563EB', boxShadow: '0 4px 16px rgba(37,99,235,0.55)' }
+                              : { background: '#f8fafc', backdropFilter: 'blur(8px)', border: '1px solid #e2e8f0' }
                           }
                         >
-                          <Heart className="w-4 h-4" style={{ color: 'white', fill: favorites.has(item.product_id) ? 'white' : 'transparent' }} />
+                          <Heart className="w-4 h-4" style={{ color: favorites.has(item.product_id) ? '#ffffff' : '#0f172a', fill: favorites.has(item.product_id) ? 'white' : 'transparent' }} />
                         </button>
                       </div>
 
@@ -981,8 +981,8 @@ function HomeContent() {
                         {/* Name row + stock pill */}
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="min-w-0 flex-1">
-                            <h3 className="text-base font-semibold text-white leading-snug">{item.products.name}</h3>
-                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'rgba(255,255,255,0.40)' }}>
+                            <h3 className="text-base font-semibold text-slate-900 leading-snug">{item.products.name}</h3>
+                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: '#334155' }}>
                               {item.products.description || 'Premium sanitary care product'}
                             </p>
                           </div>
@@ -991,11 +991,11 @@ function HomeContent() {
                             style={
                               item.stock > 0
                                 ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.30)' }
-                                : { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }
+                                : { background: '#ffffff', border: '1px solid #f1f5f9' }
                             }
                           >
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.stock > 0 ? '#34D399' : 'rgba(255,255,255,0.25)' }} />
-                            <span className="text-[10px] font-medium" style={{ color: item.stock > 0 ? '#6EE7B7' : 'rgba(255,255,255,0.35)' }}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.stock > 0 ? '#34D399' : '#cbd5e1' }} />
+                            <span className="text-[10px] font-medium" style={{ color: item.stock > 0 ? '#047857' : '#64748b' }}>
                               {item.stock > 0 ? `${item.stock} left` : 'Sold out'}
                             </span>
                           </div>
@@ -1006,7 +1006,7 @@ function HomeContent() {
                           <span
                             className="text-2xl font-bold"
                             style={{
-                              background: 'linear-gradient(135deg, #FDA4AF, #F43F5E)',
+                              background: 'linear-gradient(135deg, #93C5FD, #2563EB)',
                               WebkitBackgroundClip: 'text',
                               WebkitTextFillColor: 'transparent',
                               backgroundClip: 'text',
@@ -1020,18 +1020,18 @@ function HomeContent() {
                         {cart.has(item.product_id) ? (
                           <div
                             className="rounded-2xl p-1 flex items-center justify-between"
-                            style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.24)' }}
+                            style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.24)' }}
                           >
                             <button
                               onClick={() => updateQuantity(item.product_id, -1)}
                               className="w-11 h-11 rounded-xl flex items-center justify-center transition-all"
-                              style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.13)' }}
+                              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
                             >
-                              <Minus className="w-4 h-4" style={{ color: '#F472B6' }} />
+                              <Minus className="w-4 h-4" style={{ color: '#2563EB' }} />
                             </button>
                             <div className="text-center">
-                              <span className="text-lg font-bold text-white">{cart.get(item.product_id)?.quantity}</span>
-                              <span className="text-xs ml-1.5" style={{ color: 'rgba(255,255,255,0.40)' }}>in cart</span>
+                              <span className="text-lg font-bold text-slate-900">{cart.get(item.product_id)?.quantity}</span>
+                              <span className="text-xs ml-1.5" style={{ color: '#334155' }}>in cart</span>
                             </div>
                             <button
                               onClick={() => updateQuantity(item.product_id, 1)}
@@ -1039,13 +1039,13 @@ function HomeContent() {
                               className="w-11 h-11 rounded-xl flex items-center justify-center transition-all"
                               style={
                                 getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock
-                                  ? { background: 'rgba(255,255,255,0.04)', cursor: 'not-allowed' }
-                                  : { background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.13)' }
+                                  ? { background: '#ffffff', cursor: 'not-allowed' }
+                                  : { background: '#f8fafc', border: '1px solid #e2e8f0' }
                               }
                             >
                               <Plus
                                 className="w-4 h-4"
-                                style={{ color: getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock ? 'rgba(255,255,255,0.20)' : '#F472B6' }}
+                                style={{ color: getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock ? '#94a3b8' : '#2563EB' }}
                               />
                             </button>
                           </div>
@@ -1056,8 +1056,8 @@ function HomeContent() {
                             className={`w-full py-3.5 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] ${item.stock > 0 && item.is_active !== 0 && getTotalItems() < 3 ? 'btn-glow' : ''}`}
                             style={
                               item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3
-                                ? { background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.30)', cursor: 'not-allowed' }
-                                : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white' }
+                                ? { background: '#ffffff', color: '#64748b', cursor: 'not-allowed' }
+                                : { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff' }
                             }
                           >
                             {item.stock === 0 ? 'Out of Stock' : getTotalItems() >= 3 ? 'Cart Full (Max 3)' : '+ Add to Cart'}
@@ -1072,21 +1072,21 @@ function HomeContent() {
               <div className="text-center py-24">
                 <div
                   className="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center"
-                  style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.22)' }}
+                  style={{ background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.22)' }}
                 >
-                  <Package className="w-12 h-12" style={{ color: 'rgba(244,63,94,0.45)' }} />
+                  <Package className="w-12 h-12" style={{ color: 'rgba(37,99,235,0.45)' }} />
                 </div>
-                <p className="text-lg font-semibold text-white mb-2">No products yet</p>
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.38)' }}>This machine has no products assigned</p>
+                <p className="text-lg font-semibold text-slate-900 mb-2">No products yet</p>
+                <p className="text-sm" style={{ color: '#64748b' }}>This machine has no products assigned</p>
               </div>
             )}
 
             {/* ── Machine Status card ── */}
             <div
               className="mt-5 rounded-3xl overflow-hidden lyra-border-breathe animate-fade-in"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', animationDelay: '0.6s' }}
+              style={{ background: '#ffffff', border: '1px solid #f1f5f9', animationDelay: '0.6s' }}
             >
-              <p className="text-xs font-semibold tracking-widest uppercase px-4 pt-4 mb-3" style={{ color: 'rgba(255,255,255,0.40)' }}>
+              <p className="text-xs font-semibold tracking-widest uppercase px-4 pt-4 mb-3" style={{ color: '#334155' }}>
                 Machine Status
               </p>
               <div className="grid grid-cols-3 gap-2 px-4 pb-4">
@@ -1107,10 +1107,10 @@ function HomeContent() {
                   { label: 'Temp', value: machine?.temperature != null ? `${machine.temperature.toFixed(0)}°C` : '—', sub: machine?.temperature != null ? (machine.temperature > 45 ? 'Hot' : 'Normal') : '' },
                 ].map((stat) => (
                   <div key={stat.label} className="rounded-2xl px-3 py-3 text-center"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}>
-                    <p className="text-sm font-semibold text-white leading-tight truncate">{stat.value}</p>
-                    {stat.sub && <p className="text-[10px] font-medium mt-0.5" style={{ color: '#F472B6' }}>{stat.sub}</p>}
-                    <p className="text-[10px] uppercase tracking-wider mt-1" style={{ color: 'rgba(255,255,255,0.40)' }}>{stat.label}</p>
+                    style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+                    <p className="text-sm font-semibold text-slate-900 leading-tight truncate">{stat.value}</p>
+                    {stat.sub && <p className="text-[10px] font-medium mt-0.5" style={{ color: '#2563EB' }}>{stat.sub}</p>}
+                    <p className="text-[10px] uppercase tracking-wider mt-1" style={{ color: '#334155' }}>{stat.label}</p>
                   </div>
                 ))}
               </div>
@@ -1118,14 +1118,14 @@ function HomeContent() {
 
             {/* ── Trust bar ── */}
             <div className="flex items-center justify-center gap-6 mt-5 mb-1 py-3 rounded-2xl animate-fade-in"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', animationDelay: '0.7s' }}>
-              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>Secure</span>
-              <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.15)' }} />
-              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>Contactless</span>
-              <div className="w-px h-3" style={{ background: 'rgba(255,255,255,0.15)' }} />
-              <span className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.50)' }}>Instant</span>
+              style={{ background: '#ffffff', border: '1px solid #f1f5f9', animationDelay: '0.7s' }}>
+              <span className="text-xs font-medium" style={{ color: '#334155' }}>Secure</span>
+              <div className="w-px h-3" style={{ background: '#f8fafc' }} />
+              <span className="text-xs font-medium" style={{ color: '#334155' }}>Contactless</span>
+              <div className="w-px h-3" style={{ background: '#f8fafc' }} />
+              <span className="text-xs font-medium" style={{ color: '#334155' }}>Instant</span>
             </div>
-            <p className="text-center text-[10px] mt-2 mb-4" style={{ color: 'rgba(255,255,255,0.22)' }}>
+            <p className="text-center text-[10px] mt-2 mb-4" style={{ color: '#94a3b8' }}>
               Care without compromise
             </p>
             </>)}
@@ -1135,11 +1135,11 @@ function HomeContent() {
               <div
                 className="fixed bottom-0 left-0 right-0 z-20"
                 style={{
-                  background: 'rgba(17,7,32,0.92)',
+                  background: 'rgba(255,255,255,0.95)',
                   backdropFilter: 'blur(24px)',
                   WebkitBackdropFilter: 'blur(24px)',
-                  borderTop: '1px solid rgba(255,255,255,0.07)',
-                  boxShadow: '0 -8px 40px rgba(244,63,94,0.14)',
+                  borderTop: '1px solid #f1f5f9',
+                  boxShadow: '0 -8px 40px rgba(37,99,235,0.14)',
                 }}
               >
                 <div className="max-w-md mx-auto px-5 py-4">
@@ -1147,26 +1147,26 @@ function HomeContent() {
                     <div className="flex items-center gap-2 shrink-0">
                       <div
                         className="rounded-2xl px-4 py-2 text-center"
-                        style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.20)' }}
+                        style={{ background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.20)' }}
                       >
-                        <p className="text-[10px] font-semibold leading-none mb-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Items</p>
-                        <p className="text-lg font-black leading-none" style={{ color: '#F472B6' }}>
-                          {getTotalItems()}<span className="text-xs font-normal" style={{ color: 'rgba(255,255,255,0.30)' }}>/3</span>
+                        <p className="text-[10px] font-semibold leading-none mb-0.5" style={{ color: '#334155' }}>Items</p>
+                        <p className="text-lg font-black leading-none" style={{ color: '#2563EB' }}>
+                          {getTotalItems()}<span className="text-xs font-normal" style={{ color: '#64748b' }}>/3</span>
                         </p>
                       </div>
                       <div
                         className="rounded-2xl px-4 py-2 text-center"
-                        style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.20)' }}
+                        style={{ background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.20)' }}
                       >
-                        <p className="text-[10px] font-semibold leading-none mb-0.5" style={{ color: 'rgba(255,255,255,0.40)' }}>Total</p>
-                        <p className="text-lg font-black leading-none" style={{ color: '#F472B6' }}>₹{getTotalAmount().toFixed(0)}</p>
+                        <p className="text-[10px] font-semibold leading-none mb-0.5" style={{ color: '#334155' }}>Total</p>
+                        <p className="text-lg font-black leading-none" style={{ color: '#2563EB' }}>₹{getTotalAmount().toFixed(0)}</p>
                       </div>
                     </div>
                     <div className="flex gap-2 flex-1">
                       <button
                         onClick={() => setShowCart(true)}
                         className="hidden sm:flex px-4 py-3 rounded-2xl text-sm font-bold transition-all"
-                        style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.70)' }}
+                        style={{ background: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }}
                       >
                         View Cart
                       </button>
@@ -1176,8 +1176,8 @@ function HomeContent() {
                         className={`flex-1 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-[0.97] ${!isProcessing && razorpayLoaded ? 'btn-glow' : ''}`}
                         style={
                           isProcessing || !razorpayLoaded
-                            ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.30)', cursor: 'not-allowed' }
-                            : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white' }
+                            ? { background: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }
+                            : { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff' }
                         }
                       >
                         {isProcessing ? 'Processing...' : !razorpayLoaded ? 'Loading...' : `Pay Now  ₹${getTotalAmount().toFixed(0)}`}
@@ -1197,39 +1197,39 @@ function HomeContent() {
                 <div
                   className="w-full sm:max-w-lg sm:mx-4 rounded-t-4xl sm:rounded-4xl max-h-[90vh] overflow-hidden"
                   style={{
-                    background: 'linear-gradient(160deg, #200D35 0%, #170922 100%)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: '#ffffff',
+                    border: '1px solid #f1f5f9',
                     boxShadow: '0 -16px 60px rgba(0,0,0,0.50)',
                   }}
                 >
                   {/* Handle bar (mobile) */}
                   <div className="flex justify-center pt-3 pb-1 sm:hidden">
-                    <div className="w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.18)' }} />
+                    <div className="w-10 h-1 rounded-full" style={{ background: '#f8fafc' }} />
                   </div>
 
                   {/* Header */}
                   <div
                     className="flex items-center justify-between px-6 pt-4 pb-4"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+                    style={{ borderBottom: '1px solid #f1f5f9' }}
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                        style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.25)' }}
+                        style={{ background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.25)' }}
                       >
-                        <ShoppingCart className="w-5 h-5" style={{ color: '#F472B6' }} />
+                        <ShoppingCart className="w-5 h-5" style={{ color: '#2563EB' }} />
                       </div>
                       <div>
-                        <h2 className="text-base font-semibold text-white">Your Cart</h2>
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.40)' }}>{getTotalItems()} of 3 items</p>
+                        <h2 className="text-base font-semibold text-slate-900">Your Cart</h2>
+                        <p className="text-xs" style={{ color: '#334155' }}>{getTotalItems()} of 3 items</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowCart(false)}
                       className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.10)' }}
+                      style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}
                     >
-                      <X className="w-4 h-4 text-white" />
+                      <X className="w-4 h-4 text-slate-900" />
                     </button>
                   </div>
 
@@ -1239,12 +1239,12 @@ function HomeContent() {
                       <div className="text-center py-10">
                         <div
                           className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-                          style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.18)' }}
+                          style={{ background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.18)' }}
                         >
-                          <ShoppingCart className="w-8 h-8" style={{ color: 'rgba(244,63,94,0.45)' }} />
+                          <ShoppingCart className="w-8 h-8" style={{ color: 'rgba(37,99,235,0.45)' }} />
                         </div>
-                        <p className="font-bold text-white mb-1">Your cart is empty</p>
-                        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Add up to 3 items to get started</p>
+                        <p className="font-bold text-slate-900 mb-1">Your cart is empty</p>
+                        <p className="text-sm" style={{ color: '#64748b' }}>Add up to 3 items to get started</p>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1252,38 +1252,38 @@ function HomeContent() {
                           <div
                             key={item.product_id}
                             className="flex items-center gap-3 rounded-2xl p-3"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                            style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}
                           >
                             <div
                               className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                              style={{ background: 'linear-gradient(135deg, #BE185D, #9333EA)' }}
+                              style={{ background: 'linear-gradient(135deg, #2563EB, #0EA5E9)' }}
                             >
-                              <Package className="w-6 h-6" style={{ color: 'rgba(255,255,255,0.60)' }} />
+                              <Package className="w-6 h-6" style={{ color: '#ffffff' }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-white truncate">{item.name}</p>
-                              <p className="text-xs font-semibold" style={{ color: '#F472B6' }}>
+                              <p className="text-sm font-bold text-slate-900 truncate">{item.name}</p>
+                              <p className="text-xs font-semibold" style={{ color: '#2563EB' }}>
                                 ₹{parseFloat(item.price).toFixed(0)} × {item.quantity} = ₹{(parseFloat(item.price) * item.quantity).toFixed(0)}
                               </p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <div
                                 className="flex items-center gap-1 rounded-xl px-1 py-1"
-                                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)' }}
+                                style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}
                               >
                                 <button
                                   onClick={() => updateQuantity(item.product_id, -1)}
                                   className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
                                 >
-                                  <Minus className="w-3.5 h-3.5" style={{ color: '#F472B6' }} />
+                                  <Minus className="w-3.5 h-3.5" style={{ color: '#2563EB' }} />
                                 </button>
-                                <span className="text-sm font-semibold text-white min-w-6 text-center">{item.quantity}</span>
+                                <span className="text-sm font-semibold text-slate-900 min-w-6 text-center">{item.quantity}</span>
                                 <button
                                   onClick={() => updateQuantity(item.product_id, 1)}
                                   disabled={getTotalItems() >= 3 || item.quantity >= item.stock}
                                   className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${getTotalItems() >= 3 || item.quantity >= item.stock ? 'opacity-30 cursor-not-allowed' : ''}`}
                                 >
-                                  <Plus className="w-3.5 h-3.5" style={{ color: '#F472B6' }} />
+                                  <Plus className="w-3.5 h-3.5" style={{ color: '#2563EB' }} />
                                 </button>
                               </div>
                               <button
@@ -1291,7 +1291,7 @@ function HomeContent() {
                                 className="w-7 h-7 flex items-center justify-center rounded-xl transition-colors"
                                 style={{ background: 'rgba(239,68,68,0.12)' }}
                               >
-                                <X className="w-3.5 h-3.5" style={{ color: '#FCA5A5' }} />
+                                <X className="w-3.5 h-3.5" style={{ color: '#B91C1C' }} />
                               </button>
                             </div>
                           </div>
@@ -1302,13 +1302,13 @@ function HomeContent() {
 
                   {/* Footer */}
                   {cart.size > 0 && (
-                    <div className="px-6 py-5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div className="px-6 py-5" style={{ borderTop: '1px solid #f1f5f9' }}>
                       <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.45)' }}>Total Amount</span>
+                        <span className="text-sm font-semibold" style={{ color: '#334155' }}>Total Amount</span>
                         <span
                           className="text-xl font-bold"
                           style={{
-                            background: 'linear-gradient(135deg, #FDA4AF, #F43F5E)',
+                            background: 'linear-gradient(135deg, #93C5FD, #2563EB)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
@@ -1323,13 +1323,13 @@ function HomeContent() {
                         className={`w-full py-4 rounded-2xl font-semibold text-sm transition-all active:scale-[0.97] ${!isProcessing ? 'btn-glow' : ''}`}
                         style={
                           isProcessing
-                            ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.30)', cursor: 'not-allowed' }
-                            : { background: 'linear-gradient(135deg, #F43F5E, #EC4899)', color: 'white' }
+                            ? { background: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }
+                            : { background: 'linear-gradient(135deg, #2563EB, #3B82F6)', color: '#ffffff' }
                         }
                       >
                         {isProcessing ? 'Processing...' : `Pay ₹${getTotalAmount().toFixed(0)}`}
                       </button>
-                      <p className="text-center text-xs mt-3" style={{ color: 'rgba(255,255,255,0.25)' }}>Secure payment via Razorpay</p>
+                      <p className="text-center text-xs mt-3" style={{ color: '#64748b' }}>Secure payment via Razorpay</p>
                     </div>
                   )}
                 </div>
@@ -1345,7 +1345,7 @@ function HomeContent() {
 
   // Show landing page if no machine ID
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%)' }}>
       <Header />
       <main>
         <HeroSection />
@@ -1361,18 +1361,18 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #2D1257 0%, #1E0A3C 55%, #150828 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #eff6ff 0%, #ffffff 55%, #f8fafc 100%)' }}>
         <div className="text-center">
           <div className="w-14 h-14 mx-auto mb-5 relative">
-            <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(244,63,94,0.35) 0%, transparent 70%)', animationDuration: '1.5s' }} />
-            <div className="relative w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #F43F5E, #EC4899)', boxShadow: '0 0 32px rgba(244,63,94,0.45)' }}>
+            <div className="absolute inset-0 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.35) 0%, transparent 70%)', animationDuration: '1.5s' }} />
+            <div className="relative w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)', boxShadow: '0 0 32px rgba(37,99,235,0.45)' }}>
               <svg className="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             </div>
           </div>
-          <p className="text-sm font-medium" style={{ color: '#F472B6' }}>Loading...</p>
+          <p className="text-sm font-medium" style={{ color: '#2563EB' }}>Loading...</p>
         </div>
       </div>
     }>

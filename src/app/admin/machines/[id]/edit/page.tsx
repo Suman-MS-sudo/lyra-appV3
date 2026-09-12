@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
@@ -56,8 +56,8 @@ export default async function EditMachinePage({ params }: { params: Promise<{ id
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Edit Machine</h1>
-            <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update machine details and configuration</p>
+            <h1 className="text-2xl font-bold text-slate-900">Edit Machine</h1>
+            <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Update machine details and configuration</p>
           </div>
           <div className="text-sm">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${machineWithOnline.asset_online ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

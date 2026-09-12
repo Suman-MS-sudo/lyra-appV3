@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import Link from 'next/link';
@@ -7,8 +7,8 @@ import EditUserMachines from '@/components/EditUserMachines';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  border: '1px solid rgba(255,255,255,0.10)',
+  background: '#ffffff',
+  border: '1px solid #f1f5f9',
   borderRadius: 20,
 };
 
@@ -57,35 +57,35 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
       <div>
         <Link
           href="/customer/users"
-          className="text-sm transition-colors hover:text-white mb-2 inline-block"
-          style={{ color: 'rgba(255,255,255,0.55)' }}
+          className="text-sm transition-colors hover:text-slate-900 mb-2 inline-block"
+          style={{ color: '#334155' }}
         >
           ← Back to Users
         </Link>
-        <h1 className="text-2xl font-bold text-white">Edit User</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.42)' }}>Update user information and machine assignments</p>
+        <h1 className="text-2xl font-bold text-slate-900">Edit User</h1>
+        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Update user information and machine assignments</p>
       </div>
 
       <div className="rounded-2xl p-6 space-y-6" style={CARD}>
         {/* User Info */}
         <div>
-          <h3 className="text-base font-semibold text-white mb-4">User Information</h3>
-          <div className="space-y-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <h3 className="text-base font-semibold text-slate-900 mb-4">User Information</h3>
+          <div className="space-y-0" style={{ borderTop: '1px solid #f1f5f9' }}>
             {[
               ['Email', userToEdit.email],
               ['Full Name', userToEdit.full_name || 'Not set'],
               ['Phone', userToEdit.phone || 'Not set'],
             ].map(([label, value]) => (
-              <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>{label}</span>
-                <span className="text-sm font-medium text-white">{value}</span>
+              <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <span className="text-sm" style={{ color: '#334155' }}>{label}</span>
+                <span className="text-sm font-medium text-slate-900">{value}</span>
               </div>
             ))}
-            <div className="flex justify-between py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <span className="text-sm" style={{ color: 'rgba(255,255,255,0.50)' }}>Role</span>
+            <div className="flex justify-between py-3" style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <span className="text-sm" style={{ color: '#334155' }}>Role</span>
               <span
                 className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                style={{ background: 'rgba(167,139,250,0.15)', color: '#A78BFA' }}
+                style={{ background: 'rgba(96,165,250,0.15)', color: '#60A5FA' }}
               >
                 {userToEdit.role}
               </span>
@@ -94,9 +94,9 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
         </div>
 
         {/* Machine Assignment */}
-        <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <h3 className="text-base font-semibold text-white mb-1">Machine Management</h3>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.42)' }}>
+        <div className="pt-2" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <h3 className="text-base font-semibold text-slate-900 mb-1">Machine Management</h3>
+          <p className="text-sm mb-4" style={{ color: '#334155' }}>
             Assign specific machines to this user. Assigned machines will be owned and managed by them.
           </p>
           <EditUserMachines
@@ -108,8 +108,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
         </div>
 
         {/* Permissions info */}
-        <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <h4 className="text-sm font-semibold text-white mb-2">Access Permissions</h4>
+        <div className="rounded-xl p-4" style={{ background: '#ffffff', border: '1px solid #f1f5f9' }}>
+          <h4 className="text-sm font-semibold text-slate-900 mb-2">Access Permissions</h4>
           <ul className="space-y-1">
             {[
               ['✓', 'View all machines in the organization'],
@@ -119,8 +119,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
               ['✗', 'Cannot access admin features'],
             ].map(([icon, text]) => (
               <li key={text} className="flex items-center gap-2 text-sm">
-                <span style={{ color: icon === '✓' ? '#34D399' : '#F472B6' }}>{icon}</span>
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>{text}</span>
+                <span style={{ color: icon === '✓' ? '#34D399' : '#2563EB' }}>{icon}</span>
+                <span style={{ color: '#334155' }}>{text}</span>
               </li>
             ))}
           </ul>
