@@ -1,17 +1,24 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
 
-const serviceSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazily created on first use, not at module scope — see admin.ts for why.
+let _serviceSupabase: SupabaseClient<any> | null = null;
+function serviceSupabase() {
+  if (!_serviceSupabase) {
+    _serviceSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _serviceSupabase;
+}
 
 async function sendSetPasswordEmail(email: string) {
-  const { data, error } = await serviceSupabase.auth.admin.generateLink({
+  const { data, error } = await serviceSupabase().auth.admin.generateLink({
     type: 'recovery',
     email,
     options: {
@@ -46,14 +53,14 @@ export async function createSuperCustomer(formData: FormData) {
   const orgAddress = formData.get('org_address') as string;
 
   // Check if user already exists in auth
-  const { data: existingUsers } = await serviceSupabase.auth.admin.listUsers();
+  const { data: existingUsers } = await serviceSupabase().auth.admin.listUsers();
   const existingUser = existingUsers?.users.find(u => u.email === email);
   
   if (existingUser) {
     // User exists in auth, try to recover by creating/updating profile
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    const { data: existingProfile } = await serviceSupabase
+    const { data: existingProfile } = await serviceSupabase()
       .from('profiles')
       .select('id')
       .eq('id', existingUser.id)
@@ -61,7 +68,7 @@ export async function createSuperCustomer(formData: FormData) {
 
     if (!existingProfile) {
       // Create the missing profile
-      const { error: insertError } = await serviceSupabase
+      const { error: insertError } = await serviceSupabase()
         .from('profiles')
         .insert({
           id: existingUser.id,
@@ -76,7 +83,7 @@ export async function createSuperCustomer(formData: FormData) {
       }
     } else {
       // Update existing profile
-      await serviceSupabase
+      await serviceSupabase()
         .from('profiles')
         .update({
           full_name: fullName,
@@ -87,14 +94,14 @@ export async function createSuperCustomer(formData: FormData) {
     }
 
     // Create or update organization
-    const { data: existingOrg } = await serviceSupabase
+    const { data: existingOrg } = await serviceSupabase()
       .from('organizations')
       .select('id')
       .eq('super_customer_id', existingUser.id)
       .single();
 
     if (!existingOrg) {
-      const { error: orgError } = await serviceSupabase
+      const { error: orgError } = await serviceSupabase()
         .from('organizations')
         .insert({
           name: orgName,
@@ -124,7 +131,7 @@ export async function createSuperCustomer(formData: FormData) {
     .substring(0, 16) + 'Aa1!';
 
   // Create auth user with random password
-  const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await serviceSupabase().auth.admin.createUser({
     email,
     password: randomPassword,
     email_confirm: true,
@@ -142,7 +149,7 @@ export async function createSuperCustomer(formData: FormData) {
   // Wait a bit for trigger to create profile, then verify it exists
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  const { data: existingProfile } = await serviceSupabase
+  const { data: existingProfile } = await serviceSupabase()
     .from('profiles')
     .select('id')
     .eq('id', authData.user.id)
@@ -150,7 +157,7 @@ export async function createSuperCustomer(formData: FormData) {
 
   if (!existingProfile) {
     // Profile doesn't exist, create it manually
-    const { error: insertError } = await serviceSupabase
+    const { error: insertError } = await serviceSupabase()
       .from('profiles')
       .insert({
         id: authData.user.id,
@@ -162,12 +169,12 @@ export async function createSuperCustomer(formData: FormData) {
 
     if (insertError) {
       // If profile creation fails, delete the auth user to keep things clean
-      await serviceSupabase.auth.admin.deleteUser(authData.user.id);
+      await serviceSupabase().auth.admin.deleteUser(authData.user.id);
       throw new Error(insertError.message);
     }
   } else {
     // Update existing profile
-    const { error: profileError } = await serviceSupabase
+    const { error: profileError } = await serviceSupabase()
       .from('profiles')
       .update({
         full_name: fullName,
@@ -182,7 +189,7 @@ export async function createSuperCustomer(formData: FormData) {
   }
 
   // Create organization
-  const { error: orgError } = await serviceSupabase
+  const { error: orgError } = await serviceSupabase()
     .from('organizations')
     .insert({
       name: orgName,
@@ -194,7 +201,7 @@ export async function createSuperCustomer(formData: FormData) {
 
   if (orgError) {
     // If organization creation fails, clean up
-    await serviceSupabase.auth.admin.deleteUser(authData.user.id);
+    await serviceSupabase().auth.admin.deleteUser(authData.user.id);
     throw new Error(orgError.message);
   }
 
@@ -218,7 +225,7 @@ export async function createCustomerUser(formData: FormData) {
     .substring(0, 16) + 'Aa1!';
 
   // Create auth user with random password
-  const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
+  const { data: authData, error: authError } = await serviceSupabase().auth.admin.createUser({
     email,
     password: randomPassword,
     email_confirm: true,
@@ -236,7 +243,7 @@ export async function createCustomerUser(formData: FormData) {
   // Wait a bit for trigger to create profile, then verify it exists
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  const { data: existingProfile } = await serviceSupabase
+  const { data: existingProfile } = await serviceSupabase()
     .from('profiles')
     .select('id')
     .eq('id', authData.user.id)
@@ -244,7 +251,7 @@ export async function createCustomerUser(formData: FormData) {
 
   if (!existingProfile) {
     // Profile doesn't exist, create it manually
-    const { error: insertError } = await serviceSupabase
+    const { error: insertError } = await serviceSupabase()
       .from('profiles')
       .insert({
         id: authData.user.id,
@@ -264,7 +271,7 @@ export async function createCustomerUser(formData: FormData) {
     }
   } else {
     // Update profile with organization and permissions
-    const { error: profileError } = await serviceSupabase
+    const { error: profileError } = await serviceSupabase()
       .from('profiles')
       .update({
         full_name: fullName,
@@ -293,7 +300,7 @@ export async function createCustomerUser(formData: FormData) {
 export async function updateCustomerPermissions(userId: string, formData: FormData) {
   const canEdit = formData.get('can_edit') === 'true';
 
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('profiles')
     .update({
       permissions: {
@@ -320,7 +327,7 @@ export async function updateSuperCustomer(formData: FormData) {
   const orgAddress = formData.get('org_address') as string;
 
   // Update profile
-  const { error: profileError } = await serviceSupabase
+  const { error: profileError } = await serviceSupabase()
     .from('profiles')
     .update({
       full_name: fullName
@@ -333,7 +340,7 @@ export async function updateSuperCustomer(formData: FormData) {
 
   // Update organization if it exists
   if (orgId) {
-    const { error: orgError } = await serviceSupabase
+    const { error: orgError } = await serviceSupabase()
       .from('organizations')
       .update({
         name: orgName,
@@ -348,7 +355,7 @@ export async function updateSuperCustomer(formData: FormData) {
     }
   } else {
     // Create organization if it doesn't exist
-    const { error: orgError } = await serviceSupabase
+    const { error: orgError } = await serviceSupabase()
       .from('organizations')
       .insert({
         name: orgName,

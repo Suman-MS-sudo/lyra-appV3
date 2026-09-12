@@ -1,13 +1,23 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-const serviceSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazily created on first use, not at module scope — instantiating it at
+// import time runs during Next's build-time page-data collection, before
+// env vars are guaranteed available, crashing the build with
+// "supabaseUrl is required" for every page that imports this file.
+let _serviceSupabase: SupabaseClient<any> | null = null;
+function serviceSupabase() {
+  if (!_serviceSupabase) {
+    _serviceSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _serviceSupabase;
+}
 
 export async function createVendingMachine(formData: FormData) {
   // Get selected product IDs
@@ -50,7 +60,7 @@ export async function createVendingMachine(formData: FormData) {
     last_sync: new Date().toISOString()
   };
 
-  const { data: machine, error } = await serviceSupabase
+  const { data: machine, error } = await serviceSupabase()
     .from('vending_machines')
     .insert(machineData)
     .select()
@@ -70,7 +80,7 @@ export async function createVendingMachine(formData: FormData) {
       is_active: 1,
     }));
 
-    await serviceSupabase
+    await serviceSupabase()
       .from('machine_products')
       .insert(machineProducts);
   }
@@ -84,7 +94,7 @@ export async function createProduct(formData: FormData) {
   const price = parseFloat(formData.get('price') as string);
   const sku = formData.get('sku') as string;
 
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('products')
     .insert({
       name,
@@ -105,7 +115,7 @@ export async function updateProduct(productId: string, formData: FormData) {
   const price = parseFloat(formData.get('price') as string);
   const stock = parseInt(formData.get('stock') as string);
 
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('products')
     .update({
       name,
@@ -124,7 +134,7 @@ export async function updateProduct(productId: string, formData: FormData) {
 }
 
 export async function deleteProduct(productId: string) {
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('products')
     .delete()
     .eq('id', productId);
@@ -141,7 +151,7 @@ export async function updateMachine(machineId: string, formData: FormData) {
   const location = formData.get('location') as string;
   const status = formData.get('status') as string;
 
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('vending_machines')
     .update({
       name,
@@ -159,7 +169,7 @@ export async function updateMachine(machineId: string, formData: FormData) {
 }
 
 export async function deleteMachine(machineId: string) {
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('vending_machines')
     .delete()
     .eq('id', machineId);
@@ -178,7 +188,7 @@ export async function deleteOrgTransactions(
   rfidIds: string[] = []
 ) {
   if (onlineIds.length > 0) {
-    const { error } = await serviceSupabase
+    const { error } = await serviceSupabase()
       .from('transactions')
       .delete()
       .in('id', onlineIds);
@@ -186,7 +196,7 @@ export async function deleteOrgTransactions(
   }
 
   if (coinIds.length > 0) {
-    const { error } = await serviceSupabase
+    const { error } = await serviceSupabase()
       .from('coin_payments')
       .delete()
       .in('id', coinIds);
@@ -194,7 +204,7 @@ export async function deleteOrgTransactions(
   }
 
   if (rfidIds.length > 0) {
-    const { error } = await serviceSupabase
+    const { error } = await serviceSupabase()
       .from('rfid_payments')
       .delete()
       .in('id', rfidIds);
@@ -205,7 +215,7 @@ export async function deleteOrgTransactions(
 }
 
 export async function deleteOrganization(orgId: string) {
-  const { error } = await serviceSupabase
+  const { error } = await serviceSupabase()
     .from('organizations')
     .delete()
     .eq('id', orgId);
