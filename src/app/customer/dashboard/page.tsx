@@ -456,7 +456,7 @@ export default async function CustomerDashboard() {
           className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
           style={overdueInvoices.length > 0
             ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }
-            : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)', color: '#FDE68A' }
+            : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)', color: '#9a6400' }
           }
         >
           <div className="flex items-center gap-2 text-sm">
@@ -471,7 +471,7 @@ export default async function CustomerDashboard() {
           <Link
             href="/customer/billing"
             className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-opacity hover:opacity-80 whitespace-nowrap"
-            style={{ background: '#e5e5e7', border: '1px solid #e5e5e7', color: 'white' }}
+            style={{ background: '#e5e5e7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
           >
             View &amp; Pay →
           </Link>
@@ -588,7 +588,7 @@ export default async function CustomerDashboard() {
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs" style={{ color: '#86868b' }}>{formatLastSync(m.last_ping)}</span>
                   {m.stock_level !== null && m.stock_level < 5 && (
-                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}>Low</span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>Low</span>
                   )}
                 </div>
               </div>
@@ -644,8 +644,8 @@ export default async function CustomerDashboard() {
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-[#1d1d1f] font-semibold text-xs shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #0071e3, #6e6e73)' }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)' }}
                         >
                           {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
                         </div>
@@ -722,7 +722,7 @@ export default async function CustomerDashboard() {
                         className="px-2 py-0.5 rounded text-xs font-semibold"
                         style={issue === 'Offline'
                           ? { background: 'rgba(200,16,46,0.10)', color: '#c8102e' }
-                          : { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                          : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
                         }
                       >
                         {issue}
@@ -779,7 +779,7 @@ export default async function CustomerDashboard() {
                         className="w-full rounded-t-md transition-all"
                         style={{
                           height: `${Math.max((d.count / max) * 100, d.count > 0 ? 6 : 2)}%`,
-                          background: d.count > 0 ? 'linear-gradient(180deg, #6e6e73, #6e6e73)' : '#f5f5f7',
+                          background: d.count > 0 ? 'linear-gradient(180deg, #3B82F6, #0071e3)' : '#f5f5f7',
                         }}
                       />
                       <span className="text-[9px]" style={{ color: '#86868b' }}>{d.date.split(' ')[1]}</span>
@@ -804,7 +804,7 @@ export default async function CustomerDashboard() {
                           <span
                             className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                             style={i === 0
-                              ? { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                              ? { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
                               : { background: '#f5f5f7', color: '#6e6e73' }}
                           >
                             {i + 1}

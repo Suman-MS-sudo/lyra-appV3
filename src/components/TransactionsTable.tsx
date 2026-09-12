@@ -64,9 +64,9 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
   const rfidCount   = transactions.filter(t => t.type === 'rfid').length;
 
   const tabs: { key: TxType; label: string; count: number; activeStyle: React.CSSProperties }[] = [
-    { key: 'all',    label: 'All',    count: onlineCount + coinCount + rfidCount, activeStyle: { background: '#e5e5e7', color: 'white' } },
+    { key: 'all',    label: 'All',    count: onlineCount + coinCount + rfidCount, activeStyle: { background: '#e5e5e7', color: '#1d1d1f' } },
     { key: 'online', label: 'Online', count: onlineCount,             activeStyle: { background: 'rgba(0,0,0,0.04)',  color: '#0071e3', border: '1px solid rgba(0,0,0,0.04)' } },
-    { key: 'coin',   label: 'Coin',   count: coinCount,               activeStyle: { background: 'rgba(154,100,0,0.12)', color: '#FDE68A', border: '1px solid rgba(154,100,0,0.12)' } },
+    { key: 'coin',   label: 'Coin',   count: coinCount,               activeStyle: { background: 'rgba(154,100,0,0.12)', color: '#9a6400', border: '1px solid rgba(154,100,0,0.12)' } },
     { key: 'rfid',   label: 'RFID',   count: rfidCount,               activeStyle: { background: 'rgba(0,0,0,0.04)', color: '#6e6e73', border: '1px solid rgba(0,0,0,0.04)' } },
   ];
 
@@ -138,7 +138,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
                       ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' }
                       : tx.type === 'rfid'
                       ? { background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }
-                      : { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                      : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
                     }
                   >
                     {tx.type === 'online' ? <CreditCard className="w-3 h-3" /> : tx.type === 'rfid' ? <Nfc className="w-3 h-3" /> : <Coins className="w-3 h-3" />}
@@ -167,7 +167,7 @@ export default function TransactionsTable({ transactions }: { transactions: Tran
                       tx.status === 'paid' || tx.status === 'dispensed'
                         ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
                         : tx.status === 'pending'
-                        ? { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                        ? { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
                         : { background: '#f5f5f7', color: '#6e6e73' }
                     }
                   >

@@ -319,7 +319,7 @@ export default async function TransactionsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>
                       <Coins className="w-3 h-3" />Coin
                     </span>
                   </td>
@@ -336,7 +336,7 @@ export default async function TransactionsPage() {
                 const statusStyle =
                   txn.payment_status === 'paid'    ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
                   : txn.payment_status === 'failed' ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' }
-                  : { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' };
+                  : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' };
                 return (
                   <tr
                     key={`online-${txn.id}`}

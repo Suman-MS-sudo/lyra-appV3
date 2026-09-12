@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  Search, Filter, Download, MapPin, AlertCircle,
+  Search, Filter, Download, AlertCircle,
   CheckCircle, Clock, Edit2, Trash2, ChevronUp, ChevronDown,
   ChevronsUpDown, Building2,
 } from 'lucide-react';
@@ -56,7 +56,7 @@ const CARD: React.CSSProperties = {
 const INPUT_STYLE: React.CSSProperties = {
   background: '#f5f5f7',
   border: '1px solid #e5e5e7',
-  color: 'white',
+  color: '#1d1d1f',
   borderRadius: 12,
   outline: 'none',
 };
@@ -296,12 +296,6 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                 <th className={`${thClass} hidden md:table-cell`} style={thStyle} onClick={() => handleSort('machine_id')}>
                   Machine ID <SortIcon active={sortBy === 'machine_id'} dir={sortDir} />
                 </th>
-                <th className={`${thClass} hidden md:table-cell`} style={thStyle} onClick={() => handleSort('body_type')}>
-                  Motor Type <SortIcon active={sortBy === 'body_type'} dir={sortDir} />
-                </th>
-                <th className={`${thClass} hidden lg:table-cell`} style={thStyle} onClick={() => handleSort('location')}>
-                  Location <SortIcon active={sortBy === 'location'} dir={sortDir} />
-                </th>
                 <th className={`${thClass} hidden lg:table-cell`} style={thStyle} onClick={() => handleSort('customer_name')}>
                   Customer <SortIcon active={sortBy === 'customer_name'} dir={sortDir} />
                 </th>
@@ -322,7 +316,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
             <tbody>
               {page.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center">
+                  <td colSpan={7} className="py-16 text-center">
                     <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: '#e5e5e7' }} />
                     <p className="font-medium" style={{ color: '#6e6e73' }}>No machines match your filters</p>
                   </td>
@@ -339,27 +333,6 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                   <td className="py-3.5 px-4 hidden md:table-cell">
                     <p className="font-mono text-xs text-[#1d1d1f]">{m.machine_id}</p>
                     <p className="font-mono text-xs mt-0.5" style={{ color: '#86868b' }}>{m.mac_id}</p>
-                  </td>
-
-                  {/* Motor Type */}
-                  <td className="py-3.5 px-4 hidden md:table-cell">
-                    <span
-                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
-                      style={m.body_type === 'quad_motor'
-                        ? { background: 'rgba(244,114,182,0.15)', color: '#F9A8D4' }
-                        : { background: '#f5f5f7', color: '#6e6e73' }
-                      }
-                    >
-                      {m.body_type === 'quad_motor' ? 'Quad Motor' : 'Single Motor'}
-                    </span>
-                  </td>
-
-                  {/* Location */}
-                  <td className="py-3.5 px-4 hidden lg:table-cell">
-                    <div className="flex items-center gap-1.5" style={{ color: '#6e6e73' }}>
-                      <MapPin className="w-3.5 h-3.5 shrink-0" />
-                      <span className="text-sm">{m.location}</span>
-                    </div>
                   </td>
 
                   {/* Customer */}
@@ -382,7 +355,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                     {m.status !== 'online' && m.status !== 'offline' && (
                       <span
                         className="ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-medium"
-                        style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}
+                        style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}
                       >
                         {m.status}
                       </span>
@@ -413,14 +386,14 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                       >
                         <span
                           className="font-semibold text-sm"
-                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#9a6400' : 'white' }}
+                          style={{ color: m.stock_level === 0 ? '#EF4444' : m.stock_level < 5 ? '#9a6400' : '#1d1d1f' }}
                         >
                           {m.stock_level}{m.max_capacity ? <span style={{ color: '#86868b', fontWeight: 400 }}>/{m.max_capacity}</span> : null}
                           {m.stock_level === 0 && (
                             <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(200,16,46,0.10)', color: '#c8102e' }}>Empty</span>
                           )}
                           {m.stock_level > 0 && m.stock_level < 5 && (
-                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}>Low</span>
+                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>Low</span>
                           )}
                         </span>
                       </div>

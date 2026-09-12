@@ -2,9 +2,11 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ShoppingCart, Heart, Package, X, Minus, Plus } from 'lucide-react';
+import Image from 'next/image';
+import { ShoppingCart, Heart, Package, X, Minus, Plus, Lock, Zap, Sparkles, Globe, MapPin, Instagram, Linkedin, Activity, Wifi } from 'lucide-react';
 import { Header } from '@/components/landing/header';
 import { HeroSection } from '@/components/landing/hero-section';
+import { HowItWorksSection } from '@/components/landing/how-it-works-section';
 import { AboutSection } from '@/components/landing/about-section';
 import { FeaturesSection } from '@/components/landing/features-section';
 import { ContactSection } from '@/components/landing/contact-section';
@@ -65,6 +67,58 @@ interface CartItem {
   stock: number;
 }
 
+const SOCIAL_LINKS = [
+  { label: 'Website', href: 'https://lyraenterprise.co.in', Icon: Globe },
+  { label: 'Location', href: 'https://www.google.com/maps/search/?api=1&query=10%2F21%2C+Vasuki+Street%2C+Cholapuram%2C+Ambattur%2C+Chennai+-+600053', Icon: MapPin },
+  { label: 'Instagram', href: 'https://www.instagram.com/lyraenterprises_/', Icon: Instagram },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/company/lyra-enterprises/', Icon: Linkedin },
+] as const;
+
+// A short, human phrase for "how long ago" instead of a raw timestamp.
+function timeAgo(iso: string): string {
+  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (sec < 20) return 'just now';
+  if (sec < 60) return '1m ago';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return 'yesterday';
+  return `${day}d ago`;
+}
+
+// Turns a raw machine/device id like "lyra_SNVM_003" into "Lyra SNVM 003" —
+// underscores and dashes read as clutter in a large display headline.
+function formatDisplayName(raw: string): string {
+  return raw
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((w) => (w === w.toUpperCase() && w.length <= 5 ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(' ');
+}
+
+// Small heartbeat indicator — a live pulse instead of a plain "Last seen <timestamp>" line.
+function HeartbeatPill({ lastPing, online }: { lastPing: string; online?: boolean }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-[#86868b]">
+      <span className="relative flex h-2 w-2">
+        {online && (
+          <span className="absolute inline-flex h-full w-full rounded-full bg-[#1d7a3c] opacity-60 animate-ping motion-reduce:animate-none" />
+        )}
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${online ? 'bg-[#1d7a3c]' : 'bg-[#a1a1a6]'}`} />
+      </span>
+      {timeAgo(lastPing)}
+    </span>
+  );
+}
+
 function HomeContent() {
   const searchParams = useSearchParams();
   const machineId = searchParams.get('value');
@@ -77,6 +131,7 @@ function HomeContent() {
   const [showCart, setShowCart] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [error, setError] = useState<{ type: string; message: string } | null>(null);
 
   useEffect(() => {
@@ -471,9 +526,16 @@ function HomeContent() {
   if (machineId) {
     if (loading) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-          <div className="flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[#1d1d1f] mb-8">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-white relative overflow-hidden">
+          <div
+            className="absolute w-96 h-96 rounded-full pointer-events-none animate-glow-breathe"
+            style={{ background: 'radial-gradient(closest-side, rgba(0,113,227,0.08), transparent)' }}
+          />
+          <div className="relative flex flex-col items-center text-center">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mb-8"
+              style={{ background: 'linear-gradient(135deg, #2d2d2f, #1d1d1f)', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}
+            >
               <svg className="w-8 h-8" viewBox="0 0 40 40" fill="none">
                 <ellipse cx="20" cy="22" rx="13" ry="9" fill="rgba(255,255,255,0.30)" />
                 <ellipse cx="20" cy="22" rx="8" ry="5" fill="rgba(255,255,255,0.25)" />
@@ -501,11 +563,22 @@ function HomeContent() {
     // Show error page if there's an error
     if (error) {
       return (
-        <div className="min-h-screen flex items-center justify-center px-5 bg-white">
-          <div className="max-w-md w-full">
-            <div className="rounded-2xl p-8 sm:p-10 text-center border border-[#d2d2d7]">
+        <div className="min-h-screen flex items-center justify-center px-5 bg-white relative overflow-hidden">
+          <div
+            className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full pointer-events-none animate-glow-breathe"
+            style={{ background: 'radial-gradient(closest-side, rgba(0,113,227,0.08), transparent)' }}
+          />
+          <div className="relative max-w-md w-full">
+            <div className="rounded-[28px] p-8 sm:p-10 text-center bg-white" style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.04), 0 16px 40px rgba(0,17,40,0.10)' }}>
               <div className="mb-7">
-                <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-[#f5f5f7]">
+                <div
+                  className="w-16 h-16 mx-auto rounded-full flex items-center justify-center"
+                  style={{
+                    background: error.type === 'error'
+                      ? 'linear-gradient(135deg, rgba(200,16,46,0.14), rgba(200,16,46,0.06))'
+                      : 'linear-gradient(135deg, rgba(154,100,0,0.14), rgba(154,100,0,0.06))',
+                  }}
+                >
                   {error.type === 'not_found' ? (
                     <svg className="w-8 h-8 text-[#9a6400]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -537,22 +610,23 @@ function HomeContent() {
                 {(error.type === 'network_error' || error.type === 'server_error' || error.type === 'error') && (
                   <button
                     onClick={() => fetchMachineAndProducts()}
-                    className="w-full py-3.5 min-h-11 rounded-xl font-semibold text-[15px] text-white bg-[#1d1d1f] transition-transform active:scale-[0.98]"
+                    className="w-full py-3.5 min-h-11 rounded-full font-semibold text-[15px] text-white transition-all active:scale-[0.98]"
+                    style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)', boxShadow: '0 8px 20px rgba(0,113,227,0.30)' }}
                   >
                     Try Again
                   </button>
                 )}
                 <button
                   onClick={() => { window.location.href = '/'; }}
-                  className="w-full py-3.5 min-h-11 rounded-xl font-semibold text-[15px] border border-[#d2d2d7] text-[#1d1d1f] transition-transform active:scale-[0.98]"
+                  className="w-full py-3.5 min-h-11 rounded-full font-semibold text-[15px] bg-[#f5f5f7] text-[#1d1d1f] transition-all active:scale-[0.98]"
                 >
                   Go to Home
                 </button>
               </div>
 
-              <div className="flex items-center justify-center gap-4 mt-8 pt-6 border-t border-[#d2d2d7]">
+              <div className="flex items-center justify-center gap-4 mt-8 pt-6 border-t border-[#f0f0f2]">
                 <a href="#contact" className="text-xs font-medium text-[#0071e3] hover:underline">Contact Support</a>
-                <div className="w-px h-3 bg-[#d2d2d7]" />
+                <div className="w-px h-3 bg-[#e5e5e7]" />
                 <a href="#about" className="text-xs font-medium text-[#0071e3] hover:underline">About Lyra</a>
               </div>
             </div>
@@ -567,17 +641,24 @@ function HomeContent() {
 
     if (machine?.rfid_enabled) {
       return (
-        <div className="min-h-screen flex items-center justify-center px-5 bg-white">
-          <div className="w-full max-w-md text-center">
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center bg-[#f5f5f7]">
-              <svg className="w-8 h-8 text-[#1d1d1f]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="min-h-screen flex items-center justify-center px-5 bg-white relative overflow-hidden">
+          <div
+            className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full pointer-events-none animate-glow-breathe"
+            style={{ background: 'radial-gradient(closest-side, rgba(0,113,227,0.08), transparent)' }}
+          />
+          <div className="relative w-full max-w-md text-center">
+            <div
+              className="relative w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)', boxShadow: '0 8px 24px rgba(0,113,227,0.30)' }}
+            >
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h12a2 2 0 012 2v2M9 16v2a2 2 0 002 2h6a2 2 0 002-2v-6a2 2 0 00-2-2h-1M9 16h6" />
               </svg>
             </div>
             <p className="text-xs font-semibold tracking-widest uppercase mb-2 text-[#6e6e73]">
               {machine?.customer_name}
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#1d1d1f] mb-3">{machine?.name || machineId}</h1>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.01em] text-[#1d1d1f] mb-3 text-balance">{formatDisplayName(machine?.name || machineId || '')}</h1>
 
             <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
               <div
@@ -588,76 +669,20 @@ function HomeContent() {
                 <span className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'bg-[#1d7a3c]' : 'bg-[#a1a1a6]'}`} />
                 {machine?.asset_online ? 'Live & Online' : 'Offline'}
               </div>
-              {machine?.firmware_version && (
-                <span className="text-xs font-medium px-3 py-1 rounded-full border border-[#d2d2d7] text-[#6e6e73]">
-                  {machine.firmware_version}
-                </span>
-              )}
             </div>
             {machine?.last_ping && (
-              <p className="text-xs mb-6 text-[#86868b]">
-                Last seen {new Date(machine.last_ping).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              <p className="mb-6">
+                <HeartbeatPill lastPing={machine.last_ping} online={machine?.asset_online} />
               </p>
             )}
 
-            {machine?.asset_online && (
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {machine?.stock_level != null && (
-                  <div className="rounded-2xl p-3 text-left border border-[#e5e5e7]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1 text-[#86868b]">Stock</p>
-                    <p className={`text-sm font-semibold ${machine.stock_level < 5 ? 'text-[#9a6400]' : 'text-[#1d1d1f]'}`}>
-                      {machine.stock_level}{machine.max_capacity ? `/${machine.max_capacity}` : ''} unit{machine.stock_level !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                )}
-                {machine?.wifi_rssi != null && (() => {
-                  const rssi = machine.wifi_rssi!;
-                  const quality = rssi >= -60 ? 'Excellent' : rssi >= -70 ? 'Good' : rssi >= -80 ? 'Fair' : 'Weak';
-                  const bars = rssi >= -60 ? 4 : rssi >= -70 ? 3 : rssi >= -80 ? 2 : 1;
-                  return (
-                    <div className="rounded-2xl p-3 text-left border border-[#e5e5e7]">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className="flex items-end gap-0.5 h-3">
-                          {[1, 2, 3, 4].map(i => (
-                            <span
-                              key={i}
-                              className={`w-[3px] rounded-sm ${i <= bars ? 'bg-[#1d1d1f]' : 'bg-[#d2d2d7]'}`}
-                              style={{ height: `${i * 25}%` }}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[#86868b]">WiFi</span>
-                      </div>
-                      <p className="text-sm font-semibold text-[#1d1d1f]">{quality}</p>
-                      <p className="text-[10px] text-[#86868b]">{rssi} dBm</p>
-                    </div>
-                  );
-                })()}
-                {machine?.temperature != null && (
-                  <div className="rounded-2xl p-3 text-left border border-[#e5e5e7]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1 text-[#86868b]">Temperature</p>
-                    <p className="text-sm font-semibold text-[#1d1d1f]">{machine.temperature.toFixed(1)}°C</p>
-                  </div>
-                )}
-                {machine?.network_speed != null && (
-                  <div className="rounded-2xl p-3 text-left border border-[#e5e5e7]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1 text-[#86868b]">Network Speed</p>
-                    <p className="text-sm font-semibold text-[#1d1d1f]">{machine.network_speed.toFixed(1)} KB/s</p>
-                  </div>
-                )}
-                {machine?.uptime != null && (
-                  <div className="rounded-2xl p-3 text-left border border-[#e5e5e7]">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide mb-1 text-[#86868b]">Uptime</p>
-                    <p className="text-sm font-semibold text-[#1d1d1f]">
-                      {(() => {
-                        const totalSec = Math.floor(machine.uptime! / 1000);
-                        const h = Math.floor(totalSec / 3600);
-                        const m = Math.floor((totalSec % 3600) / 60);
-                        return h > 0 ? `${h}h ${m}m` : `${m}m`;
-                      })()}
-                    </p>
-                  </div>
-                )}
+            {machine?.asset_online && machine?.stock_level != null && (
+              <div
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold mb-6"
+                style={machine.stock_level < 5 ? { background: 'rgba(154,100,0,0.10)', color: '#9a6400' } : { background: 'rgba(29,122,60,0.10)', color: '#1d7a3c' }}
+              >
+                <Package className="w-3.5 h-3.5" />
+                {machine.stock_level}{machine.max_capacity ? `/${machine.max_capacity}` : ''} unit{machine.stock_level !== 1 ? 's' : ''} in stock
               </div>
             )}
 
@@ -667,7 +692,7 @@ function HomeContent() {
             </p>
             <button
               onClick={() => { window.location.href = '/'; }}
-              className="w-full py-3.5 min-h-11 rounded-xl font-semibold text-[15px] border border-[#d2d2d7] text-[#1d1d1f] transition-transform active:scale-[0.98]"
+              className="w-full py-3.5 min-h-11 rounded-full font-semibold text-[15px] bg-[#f5f5f7] text-[#1d1d1f] transition-all active:scale-[0.98]"
             >
               Go to Home
             </button>
@@ -681,15 +706,37 @@ function HomeContent() {
         {/* ═══════════════════════════════════════════
             Purchase flow — Apple-style monochrome
         ═══════════════════════════════════════════ */}
-        <div className="min-h-screen bg-white">
+        <div
+          className="min-h-screen relative"
+          style={{ background: 'linear-gradient(180deg, #f2f7fe 0%, #ffffff 22%, #ffffff 100%)' }}
+        >
 
-          {/* ── HEADER ── */}
-          <header className="fixed top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-xl border-b border-[#e5e5e7]">
-            <div className="max-w-md mx-auto px-5 h-14 flex items-center justify-between">
+          {/* ── Ambient background texture (fixed, decorative) ── */}
+          <div className="fixed inset-0 pointer-events-none bg-dot-grid" style={{ maskImage: 'linear-gradient(to bottom, black, transparent 85%)' }} />
+          <div
+            className="fixed -top-32 -right-32 w-120 h-120 rounded-full pointer-events-none animate-glow-breathe"
+            style={{ background: 'radial-gradient(closest-side, rgba(0,113,227,0.14), transparent)' }}
+          />
+          <div
+            className="fixed top-[55vh] -left-40 w-96 h-96 rounded-full pointer-events-none animate-glow-breathe"
+            style={{ background: 'radial-gradient(closest-side, rgba(0,113,227,0.08), transparent)', animationDelay: '2s' }}
+          />
+          <div
+            className="fixed -bottom-32 -right-24 w-104 h-104 rounded-full pointer-events-none animate-glow-breathe"
+            style={{ background: 'radial-gradient(closest-side, rgba(0,113,227,0.10), transparent)', animationDelay: '1s' }}
+          />
+
+          {/* ── HEADER — floating detached pill, not an edge-to-edge bar ── */}
+          <header className="fixed top-3 left-3 right-3 z-30">
+            <div
+              className="max-w-md mx-auto px-3 h-14 flex items-center justify-between rounded-full bg-white/85 backdrop-blur-xl"
+              style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.04)', border: '1px solid rgba(255,255,255,0.6)' }}
+            >
               {/* Back button */}
               <button
                 onClick={() => window.history.back()}
-                className="lyra-icon-btn w-9 h-9 flex items-center justify-center rounded-full border border-[#e5e5e7]"
+                className="lyra-icon-btn w-9 h-9 flex items-center justify-center rounded-full bg-white transition-all active:scale-90"
+                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
               >
                 <svg className="w-4 h-4 text-[#1d1d1f]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
@@ -703,12 +750,19 @@ function HomeContent() {
               </div>
 
               {/* Cart button */}
-              <button onClick={() => setShowCart(true)} className="relative">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center bg-[#1d1d1f]">
+              <button onClick={() => setShowCart(true)} className="relative transition-all active:scale-90">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)', boxShadow: '0 3px 10px rgba(0,113,227,0.35)' }}
+                >
                   <ShoppingCart className="w-4 h-4 text-white" />
                 </div>
                 {getTotalItems() > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-bold rounded-full flex items-center justify-center bg-[#0071e3] border-2 border-white">
+                  <span
+                    key={getTotalItems()}
+                    className="absolute -top-1 -right-1 w-5 h-5 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-badge-bump"
+                    style={{ background: '#0071e3', boxShadow: '0 2px 6px rgba(0,113,227,0.5)' }}
+                  >
                     {getTotalItems()}
                   </span>
                 )}
@@ -716,56 +770,147 @@ function HomeContent() {
             </div>
           </header>
 
-          {/* ── Hero ── */}
-          <div className="relative pt-14 pb-0 border-b border-[#e5e5e7]">
-            <div className="max-w-md mx-auto px-5 pt-10 pb-10">
+          {/* ── Hero — full-bleed dark gradient banner, matching the product panels ── */}
+          <div
+            className="relative pt-18 pb-0 overflow-hidden rounded-b-[32px] grain-overlay"
+            style={{ background: 'linear-gradient(155deg, #0c1a33 0%, #10305e 55%, #0071e3 140%)' }}
+          >
+            {/* Glowing spotlight */}
+            <div
+              className="absolute -top-24 left-1/2 -translate-x-1/2 w-[520px] h-80 rounded-full pointer-events-none animate-glow-breathe"
+              style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.18), transparent)' }}
+            />
+
+            {/* Abstract decorative composition */}
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox="0 0 400 280"
+              preserveAspectRatio="xMidYMid slice"
+              fill="none"
+            >
+              <defs>
+                <radialGradient id="heroBlob" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.16)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                </radialGradient>
+                <linearGradient id="heroRingFade" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
+                </linearGradient>
+                <radialGradient id="dotFade" cx="0%" cy="100%" r="75%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                </radialGradient>
+              </defs>
+
+              {/* Soft organic blob, top-right, bleeding off-canvas */}
+              <path
+                d="M330 -40 C400 -10 420 70 385 120 C350 170 280 165 250 120 C220 75 240 5 280 -20 C300 -33 315 -46 330 -40 Z"
+                fill="url(#heroBlob)"
+              />
+
+              {/* Concentric rings, off-center, gradient stroke for depth */}
+              <circle cx="352" cy="46" r="70" stroke="url(#heroRingFade)" strokeWidth="1.5" />
+              <circle cx="352" cy="46" r="104" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+              <circle cx="352" cy="46" r="138" stroke="rgba(255,255,255,0.045)" strokeWidth="1" />
+
+              {/* Fine accent ring, bottom-left */}
+              <circle cx="8" cy="248" r="46" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+
+              {/* Fading dot grid, bottom-left corner */}
+              {Array.from({ length: 4 }).flatMap((_, row) =>
+                Array.from({ length: 5 }).map((_, col) => (
+                  <circle
+                    key={`${row}-${col}`}
+                    cx={14 + col * 13}
+                    cy={196 + row * 13}
+                    r={1.4}
+                    fill="url(#dotFade)"
+                  />
+                ))
+              )}
+
+              {/* Thin sweeping accent line */}
+              <path
+                d="M -20 76 Q 70 40 150 78 T 300 58"
+                stroke="rgba(255,255,255,0.10)"
+                strokeWidth="1.25"
+                strokeDasharray="1 7"
+                strokeLinecap="round"
+              />
+
+              {/* A single small solid accent — the "signature" dot */}
+              <circle cx="300" cy="58" r="3" fill="rgba(255,255,255,0.55)" />
+            </svg>
+
+            <div className="relative max-w-md mx-auto px-5 pt-6 pb-7">
+              {/* Quick links to Lyra's own pages — same set as the footer, up top for easy access */}
+              <div className="flex items-center gap-2 mb-4 animate-float-up" style={{ animationDelay: '0s' }}>
+                {SOCIAL_LINKS.map(({ label, href, Icon }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="w-8 h-8 rounded-full flex items-center justify-center bg-white/12 backdrop-blur-md transition-all active:scale-90 hover:bg-white/20"
+                    style={{ border: '1px solid rgba(255,255,255,0.18)' }}
+                  >
+                    <Icon className="w-3.5 h-3.5 text-white" strokeWidth={1.75} />
+                  </a>
+                ))}
+              </div>
               <p
-                className="text-xs font-semibold tracking-widest uppercase mb-2 animate-float-up text-[#6e6e73]"
+                className="text-xs font-semibold tracking-widest uppercase mb-2 animate-float-up text-white/55"
                 style={{ animationDelay: '0.05s' }}
               >
                 {machine?.customer_name}
               </p>
               <h1
-                className="text-4xl sm:text-5xl font-semibold leading-[1.05] tracking-tight mb-3 text-[#1d1d1f] wrap-break-word animate-float-up"
-                style={{ animationDelay: '0.15s' }}
+                className="text-2xl sm:text-3xl font-semibold leading-snug tracking-[-0.01em] mb-3 text-white text-balance animate-float-up"
+                style={{ animationDelay: '0.15s', textShadow: '0 4px 24px rgba(0,0,0,0.25)' }}
               >
-                {machine?.name || machineId}
+                {formatDisplayName(machine?.name || machineId || '')}
               </h1>
               <p
-                className="text-[15px] mb-5 animate-float-up text-[#6e6e73]"
+                className="text-[15px] mb-5 animate-float-up text-white/65"
                 style={{ animationDelay: '0.25s' }}
               >
                 Smart hygiene access, anytime.
               </p>
-              <div className="flex flex-wrap items-center gap-2 animate-float-up" style={{ animationDelay: '0.35s' }}>
+              <div className="animate-float-up" style={{ animationDelay: '0.35s' }}>
                 <div
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold ${
-                    machine?.asset_online ? 'bg-[#e8f5ea] text-[#1d7a3c]' : 'bg-[#f5f5f7] text-[#6e6e73]'
-                  }`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-white backdrop-blur-md`}
+                  style={{
+                    background: machine?.asset_online ? 'rgba(29,122,60,0.35)' : 'rgba(255,255,255,0.12)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                  }}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'bg-[#1d7a3c]' : 'bg-[#a1a1a6]'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${machine?.asset_online ? 'bg-[#4ade80] animate-pulse' : 'bg-white/50'}`} />
                   {machine?.asset_online ? 'Live & Online' : 'Offline'}
+                  {machine?.last_ping && (
+                    <>
+                      <span className="opacity-40">·</span>
+                      {timeAgo(machine.last_ping)}
+                    </>
+                  )}
                 </div>
-                {machine?.firmware_version && (
-                  <span className="text-xs font-medium px-3 py-1 rounded-full border border-[#d2d2d7] text-[#6e6e73]">
-                    {machine.firmware_version}
-                  </span>
-                )}
-                {machine?.last_ping && (
-                  <span className="text-xs text-[#86868b]">
-                    Last seen {new Date(machine.last_ping).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
           {/* ── Main scrollable content ── */}
-          <main className="max-w-md mx-auto px-5 pb-40">
+          <main className={`max-w-md mx-auto px-5 pt-6 ${cart.size > 0 ? 'pb-40' : 'pb-6'}`}>
 
-            {/* Offline: show game instead of products */}
+            {/* Offline state */}
             {!machine?.asset_online && (
-              <div className="animate-fade-in space-y-4 text-center py-16" style={{ animationDelay: '0.38s' }}>
+              <div className="animate-fade-in text-center py-16" style={{ animationDelay: '0.38s' }}>
+                <div
+                  className="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center"
+                  style={{ background: '#f5f5f7' }}
+                >
+                  <Wifi className="w-7 h-7 text-[#a1a1a6]" strokeWidth={1.75} />
+                </div>
                 <p className="text-xs font-semibold uppercase tracking-widest mb-1 text-[#6e6e73]">Machine Status</p>
                 <h2 className="text-xl font-semibold text-[#1d1d1f] mb-1">Your machine is offline</h2>
                 <p className="text-[15px] text-[#6e6e73]">Please try again once it comes back online.</p>
@@ -773,66 +918,98 @@ function HomeContent() {
             )}
 
             {machine?.asset_online && (<>
-            {/* Product cards */}
+            {/* Product cards — horizontal snap-scroll carousel */}
             {products.length > 0 ? (
-              <div className="space-y-4">
+              <div
+                className="flex overflow-x-auto -mx-5 px-14 pb-2 gap-4 snap-x snap-mandatory scroll-smooth no-scrollbar justify-center"
+                style={{ scrollbarWidth: 'none' }}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const cardWidth = el.scrollWidth / products.length;
+                  const idx = Math.round(el.scrollLeft / cardWidth);
+                  setActiveProductIndex(Math.max(0, Math.min(products.length - 1, idx)));
+                }}
+              >
                 {products.map((item, index) => {
                   const n = item.products.name.toLowerCase();
                   const isNight = n.includes('overnight') || n.includes('night');
                   const isXL = n.includes('xl') || n.includes('extra') || n.includes('large');
                   const typeLabel = isNight ? 'Maximum Coverage' : isXL ? 'Extra Protection' : 'Daily Comfort';
+                  // Deep, saturated gradient per product type — same blue family, different depth —
+                  // instead of a pastel wash, for a bolder full-bleed hero panel.
+                  const panel = isNight
+                    ? 'linear-gradient(155deg, #0b1220 0%, #131c2e 55%, #0071e3 140%)'
+                    : isXL
+                    ? 'linear-gradient(155deg, #0a1830 0%, #0e2a52 55%, #0071e3 140%)'
+                    : 'linear-gradient(155deg, #0c1a33 0%, #10305e 55%, #0071e3 140%)';
+                  const inCart = cart.has(item.product_id);
+                  const qty = cart.get(item.product_id)?.quantity ?? 0;
+                  const hasRealPhoto = !!item.products.image_url;
+
                   return (
                     <div
                       key={item.id}
-                      className="lyra-card rounded-2xl overflow-hidden animate-card-enter border border-[#e5e5e7]"
-                      style={{ animationDelay: `${0.48 + index * 0.12}s` }}
+                      className="lyra-card rounded-[32px] overflow-hidden animate-card-enter bg-white shrink-0 snap-center"
+                      style={{
+                        width: '78%',
+                        maxWidth: '320px',
+                        animationDelay: `${0.48 + index * 0.12}s`,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05), 0 16px 36px rgba(0,17,40,0.14)',
+                      }}
                     >
-                      {/* ── Image tile ── */}
-                      <div className="relative h-48 flex items-center justify-center overflow-hidden bg-[#f5f5f7]">
-                        {item.products.image_url ? (
-                          <img src={item.products.image_url} alt={item.products.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="relative z-10 select-none pointer-events-none">
-                            <svg viewBox="0 0 120 68" className="w-36 h-auto" fill="none">
-                              <path d="M22 34 C14 28 6 22 8 15 C10 9 18 9 24 18" fill="rgba(0,0,0,0.10)" />
-                              <path d="M98 34 C106 28 114 22 112 15 C110 9 102 9 96 18" fill="rgba(0,0,0,0.10)" />
-                              <rect x="22" y="10" width="76" height="48" rx="24" fill="rgba(0,0,0,0.16)" />
-                              <rect x="34" y="20" width="52" height="28" rx="14" fill="rgba(0,0,0,0.12)" />
-                              <line x1="47" y1="27" x2="47" y2="41" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" strokeLinecap="round" />
-                              <line x1="60" y1="25" x2="60" y2="43" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" strokeLinecap="round" />
-                              <line x1="73" y1="27" x2="73" y2="41" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" strokeLinecap="round" />
-                              {isNight && <path d="M91 13 C88 10 88 6 91 4 A8 8 0 1 0 99 17 A8 8 0 0 1 91 13Z" fill="rgba(0,0,0,0.28)" />}
-                            </svg>
+                      {/* ── Hero panel — full-bleed dark gradient with glowing spotlight ── */}
+                      <div className="relative h-52 flex items-center justify-center overflow-hidden grain-overlay" style={{ background: panel }}>
+                        <div
+                          className="absolute w-56 h-56 rounded-full pointer-events-none animate-glow-breathe"
+                          style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.22), transparent)' }}
+                        />
+
+                        {/* Price only — name moved to the info strip below */}
+                        <div className="absolute top-0 right-0 p-5 z-10">
+                          <div
+                            className="shrink-0 px-3.5 py-2 rounded-2xl text-right bg-white/12 backdrop-blur-md"
+                            style={{ border: '1px solid rgba(255,255,255,0.18)' }}
+                          >
+                            <span className="text-lg font-extrabold tracking-tight text-white">₹{parseFloat(item.price).toFixed(0)}</span>
                           </div>
+                        </div>
+
+                        {hasRealPhoto ? (
+                          <img src={item.products.image_url} alt={item.products.name} className="relative z-0 w-full h-full object-cover" />
+                        ) : (
+                          <Image
+                            src="/icons/Gemini_Generated_Image_mypgjumypgjumypg-removebg-preview.png"
+                            alt={item.products.name}
+                            width={677}
+                            height={369}
+                            className="relative z-0 w-64 h-auto select-none pointer-events-none"
+                            style={{ filter: 'drop-shadow(0 14px 20px rgba(0,0,0,0.35))' }}
+                          />
                         )}
 
-                        {/* Product type badge */}
-                        <div className="absolute bottom-3 left-4 px-3 py-1 rounded-full bg-white/85 backdrop-blur">
-                          <span className="text-[10px] font-semibold text-[#1d1d1f] tracking-widest uppercase">{typeLabel}</span>
-                        </div>
+                        {item.stock === 0 && (
+                          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 backdrop-blur-[1px]">
+                            <span className="text-xs font-bold text-[#1d1d1f] uppercase tracking-widest px-4 py-1.5 rounded-full bg-white" style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }}>Sold out</span>
+                          </div>
+                        )}
 
                         {/* Low stock */}
                         {item.stock > 0 && item.stock < 5 && (
-                          <div className="absolute top-3 left-4 px-3 py-1 rounded-full text-white text-xs font-semibold bg-[#9a6400]">
+                          <div
+                            className="absolute z-20 bottom-3.5 left-4 px-3 py-1.5 rounded-full text-white text-xs font-semibold"
+                            style={{ background: 'linear-gradient(135deg, #d99a1f, #b8790a)', boxShadow: '0 2px 10px rgba(0,0,0,0.25)' }}
+                          >
                             Only {item.stock} left!
-                          </div>
-                        )}
-
-                        {/* Out of stock */}
-                        {item.stock === 0 && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-                            <span className="text-[#1d1d1f] font-semibold text-sm px-5 py-2 rounded-full uppercase tracking-wider border border-[#d2d2d7] bg-white">
-                              Out of Stock
-                            </span>
                           </div>
                         )}
 
                         {/* Favourite */}
                         <button
                           onClick={() => toggleFavorite(item.product_id)}
-                          className={`absolute top-3 right-4 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                            favorites.has(item.product_id) ? 'bg-[#1d1d1f]' : 'bg-white/85 backdrop-blur border border-[#e5e5e7]'
+                          className={`absolute z-20 bottom-3.5 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                            favorites.has(item.product_id) ? 'bg-[#1d1d1f]' : 'bg-white'
                           }`}
+                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
                         >
                           <Heart
                             className="w-4 h-4"
@@ -842,65 +1019,64 @@ function HomeContent() {
                         </button>
                       </div>
 
-                      {/* ── Details ── */}
+                      {/* ── Info strip ── */}
                       <div className="px-5 pt-4 pb-5">
-                        {/* Name row + stock pill */}
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-base font-semibold text-[#1d1d1f] leading-snug">{item.products.name}</h3>
-                            <p className="text-xs mt-0.5 line-clamp-1 text-[#86868b]">
-                              {item.products.description || 'Premium sanitary care product'}
-                            </p>
-                          </div>
-                          <div
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full shrink-0 mt-0.5 ${
-                              item.stock > 0 ? 'bg-[#e8f5ea]' : 'bg-[#f5f5f7]'
-                            }`}
+                        <div className="mb-3">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#86868b] mb-1">{typeLabel}</p>
+                          <h3 className="text-[17px] font-medium tracking-[-0.01em] text-[#1d1d1f] leading-snug mb-2">{formatDisplayName(item.products.name)}</h3>
+                          <span
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold"
+                            style={item.stock > 0 ? { background: 'rgba(29,122,60,0.10)', color: '#1d7a3c' } : { background: '#f5f5f7', color: '#86868b' }}
                           >
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.stock > 0 ? 'bg-[#1d7a3c]' : 'bg-[#a1a1a6]'}`} />
-                            <span className={`text-[10px] font-medium ${item.stock > 0 ? 'text-[#1d7a3c]' : 'text-[#86868b]'}`}>
-                              {item.stock > 0 ? `${item.stock} left` : 'Sold out'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Price — signature oversized display */}
-                        <div className="mb-4">
-                          <span className="text-3xl font-semibold tracking-tight text-[#1d1d1f]">
-                            ₹{parseFloat(item.price).toFixed(0)}
+                            <span className={`w-1.5 h-1.5 rounded-full ${item.stock > 0 ? 'bg-[#1d7a3c]' : 'bg-[#a1a1a6]'}`} />
+                            {item.stock > 0 ? `${item.stock} in stock` : 'Sold out'}
                           </span>
                         </div>
 
-                        {/* Qty controls or Add button */}
-                        {cart.has(item.product_id) ? (
-                          <div className="rounded-xl p-1 flex items-center justify-between border border-[#d2d2d7] bg-[#f5f5f7]">
-                            <button
-                              onClick={() => updateQuantity(item.product_id, -1)}
-                              className="w-11 h-11 rounded-lg flex items-center justify-center transition-colors bg-white border border-[#e5e5e7]"
-                            >
-                              <Minus className="w-4 h-4 text-[#1d1d1f]" />
-                            </button>
-                            <div className="text-center">
-                              <span className="text-lg font-semibold text-[#1d1d1f]">{cart.get(item.product_id)?.quantity}</span>
-                              <span className="text-xs ml-1.5 text-[#6e6e73]">in cart</span>
+                        <div className="mt-1">
+                          {inCart ? (
+                            <div className="rounded-2xl p-1.5 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)' }}>
+                              <button
+                                onClick={() => updateQuantity(item.product_id, -1)}
+                                className="w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-90 bg-white/15 backdrop-blur-sm"
+                              >
+                                <Minus className="w-4 h-4 text-white" />
+                              </button>
+                              <span className="text-[15px] font-bold text-white">
+                                {qty} {qty === 1 ? 'item' : 'items'} added
+                              </span>
+                              <button
+                                onClick={() => updateQuantity(item.product_id, 1)}
+                                disabled={getTotalItems() >= 3 || qty >= item.stock}
+                                className="w-11 h-11 rounded-xl flex items-center justify-center transition-all active:scale-90 bg-white/15 backdrop-blur-sm disabled:opacity-30"
+                              >
+                                <Plus className="w-4 h-4 text-white" />
+                              </button>
                             </div>
+                          ) : (
                             <button
-                              onClick={() => updateQuantity(item.product_id, 1)}
-                              disabled={getTotalItems() >= 3 || (cart.get(item.product_id)?.quantity || 0) >= item.stock}
-                              className="w-11 h-11 rounded-lg flex items-center justify-center transition-colors bg-white border border-[#e5e5e7] disabled:opacity-30"
+                              onClick={() => addToCart(item)}
+                              disabled={item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3}
+                              className="w-full py-3.5 min-h-11 rounded-2xl text-[15px] font-bold tracking-tight transition-all active:scale-[0.97] disabled:cursor-not-allowed text-white disabled:bg-[#e5e5e7] disabled:text-[#a1a1a6] disabled:shadow-none flex items-center justify-center gap-2"
+                              style={
+                                item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3
+                                  ? undefined
+                                  : { background: 'linear-gradient(135deg, #0071e3, #0058b0)', boxShadow: '0 8px 20px rgba(0,113,227,0.32)' }
+                              }
                             >
-                              <Plus className="w-4 h-4 text-[#1d1d1f]" />
+                              {item.stock === 0 ? (
+                                'Out of Stock'
+                              ) : getTotalItems() >= 3 ? (
+                                'Cart Full (Max 3)'
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4" />
+                                  Add to Cart
+                                </>
+                              )}
                             </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => addToCart(item)}
-                            disabled={item.stock === 0 || item.is_active === 0 || getTotalItems() >= 3}
-                            className="w-full py-3.5 min-h-11 rounded-xl text-[15px] font-semibold transition-transform active:scale-[0.97] disabled:cursor-not-allowed bg-[#1d1d1f] text-white disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6]"
-                          >
-                            {item.stock === 0 ? 'Out of Stock' : getTotalItems() >= 3 ? 'Cart Full (Max 3)' : '+ Add to Cart'}
-                          </button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -916,58 +1092,108 @@ function HomeContent() {
               </div>
             )}
 
-            {/* ── Machine Status card ── */}
-            <div
-              className="mt-5 rounded-2xl overflow-hidden animate-fade-in border border-[#e5e5e7]"
-              style={{ animationDelay: '0.6s' }}
-            >
-              <p className="text-xs font-semibold tracking-widest uppercase px-4 pt-4 mb-3 text-[#86868b]">
-                Machine Status
-              </p>
-              <div className="grid grid-cols-3 gap-2 px-4 pb-4">
-                {[
-                  {
-                    label: machine?.wifi_rssi == null ? 'Network' : 'Signal',
-                    value: machine?.wifi_rssi != null ? `${machine.wifi_rssi} dBm` : 'Ethernet',
-                    sub: machine?.wifi_rssi != null ? (machine.wifi_rssi > -50 ? 'Excellent' : machine.wifi_rssi > -70 ? 'Good' : 'Weak') : 'Connected',
-                  },
-                  { label: 'Stock', value: `${products.reduce((s, p) => s + p.stock, 0)}`, sub: 'units' },
-                  {
-                    label: 'Uptime',
-                    value: machine?.uptime != null ? (() => { const h = Math.floor(machine.uptime / 3600000); const d = Math.floor(h / 24); if (d > 0) return `${d}d ${h % 24}h`; if (h > 0) return `${h}h`; return `${Math.floor(machine.uptime / 60000)}m`; })() : '—',
-                    sub: '',
-                  },
-                  { label: 'Memory', value: machine?.free_heap != null ? `${(machine.free_heap / 1024).toFixed(0)} KB` : '—', sub: machine?.free_heap != null ? (machine.free_heap > 100000 ? 'Healthy' : 'Normal') : '' },
-                  { label: 'Speed', value: machine?.network_speed != null ? `${machine.network_speed.toFixed(0)} KB/s` : '—', sub: machine?.network_speed != null ? (machine.network_speed > 50 ? 'Fast' : 'Slow') : '' },
-                  { label: 'Temp', value: machine?.temperature != null ? `${machine.temperature.toFixed(0)}°C` : '—', sub: machine?.temperature != null ? (machine.temperature > 45 ? 'Hot' : 'Normal') : '' },
-                ].map((stat) => (
-                  <div key={stat.label} className="rounded-xl px-3 py-3 text-center border border-[#e5e5e7]">
-                    <p className="text-sm font-semibold text-[#1d1d1f] leading-tight truncate">{stat.value}</p>
-                    {stat.sub && <p className="text-[10px] font-medium mt-0.5 text-[#0071e3]">{stat.sub}</p>}
-                    <p className="text-[10px] uppercase tracking-wider mt-1 text-[#86868b]">{stat.label}</p>
-                  </div>
+            {/* Dot pagination for the carousel */}
+            {products.length > 1 && (
+              <div className="flex items-center justify-center gap-1.5 mt-4">
+                {products.map((_, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full transition-all duration-300"
+                    style={{
+                      width: i === activeProductIndex ? 18 : 6,
+                      height: 6,
+                      background: i === activeProductIndex ? '#0071e3' : '#d2d2d7',
+                    }}
+                  />
                 ))}
               </div>
-            </div>
+            )}
+
+            {/* ── Machine health card ── */}
+            {(() => {
+              const totalStock = products.reduce((s, p) => s + p.stock, 0);
+              const stockState =
+                totalStock === 0 ? { label: 'Empty', color: '#c8102e' } :
+                totalStock < 5 ? { label: `${totalStock} left`, color: '#9a6400' } :
+                { label: `${totalStock} units`, color: '#1d7a3c' };
+
+              const signalState = (() => {
+                if (machine?.wifi_rssi == null) return { label: 'Connected', color: '#1d7a3c' };
+                if (machine.wifi_rssi >= -60) return { label: 'Excellent', color: '#1d7a3c' };
+                if (machine.wifi_rssi >= -75) return { label: 'Good', color: '#1d7a3c' };
+                return { label: 'Weak', color: '#9a6400' };
+              })();
+
+              const wellnessState = (() => {
+                if (machine?.temperature != null && machine.temperature > 45) return { label: 'Warm', color: '#9a6400' };
+                if (machine?.last_error) return { label: 'Attention', color: '#9a6400' };
+                return { label: 'Optimal', color: '#1d7a3c' };
+              })();
+
+              return (
+                <div
+                  className="flex items-center justify-center gap-6 mt-5 py-4 rounded-2xl animate-fade-in bg-white"
+                  style={{ animationDelay: '0.55s', boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 6px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.04)' }}
+                >
+                  {[
+                    { icon: Activity, label: 'Health', value: wellnessState },
+                    { icon: Wifi, label: 'Signal', value: signalState },
+                    { icon: Package, label: 'Stock', value: stockState },
+                  ].map(({ icon: Icon, label, value }, i) => (
+                    <div key={label} className="flex items-center gap-6">
+                      {i > 0 && <div className="w-px h-8 bg-[#f0f0f2]" />}
+                      <div className="flex flex-col items-center gap-1.5">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center"
+                          style={{ background: `${value.color}18` }}
+                        >
+                          <Icon className="w-4 h-4" style={{ color: value.color }} strokeWidth={2} />
+                        </div>
+                        <span className="text-xs font-bold" style={{ color: value.color }}>{value.label}</span>
+                        <span className="text-[9px] font-medium uppercase tracking-wide text-[#a1a1a6]">{label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* ── Trust bar ── */}
-            <div className="flex items-center justify-center gap-6 mt-5 mb-1 py-3 rounded-xl animate-fade-in bg-[#f5f5f7]"
-              style={{ animationDelay: '0.7s' }}>
-              <span className="text-xs font-medium text-[#6e6e73]">Secure</span>
-              <div className="w-px h-3 bg-[#d2d2d7]" />
-              <span className="text-xs font-medium text-[#6e6e73]">Contactless</span>
-              <div className="w-px h-3 bg-[#d2d2d7]" />
-              <span className="text-xs font-medium text-[#6e6e73]">Instant</span>
+            <div
+              className="flex items-center justify-center gap-6 mt-6 mb-1 py-4 rounded-2xl animate-fade-in bg-white"
+              style={{ animationDelay: '0.6s', boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 6px 20px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.04)' }}
+            >
+              {[
+                { icon: Lock, label: 'Secure' },
+                { icon: Zap, label: 'Contactless' },
+                { icon: Sparkles, label: 'Instant' },
+              ].map(({ icon: Icon, label }, i) => (
+                <div key={label} className="flex items-center gap-6">
+                  {i > 0 && <div className="w-px h-8 bg-[#f0f0f2]" />}
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)' }}
+                    >
+                      <Icon className="w-4 h-4 text-white" strokeWidth={2} />
+                    </div>
+                    <span className="text-[10px] font-semibold text-[#6e6e73]">{label}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="text-center text-[10px] mt-2 mb-4 text-[#a1a1a6]">
+            <p className="text-center text-[10px] mt-3 mb-4 text-[#a1a1a6] tracking-wide">
               Care without compromise
             </p>
             </>)}
 
-            {/* ── Sticky Pay Now bar ── */}
+            {/* ── Sticky Pay Now bar — floating pill, detached from the edges ── */}
             {cart.size > 0 && (
-              <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur-xl border-t border-[#e5e5e7]">
-                <div className="max-w-md mx-auto px-5 py-4">
+              <div className="fixed bottom-4 left-4 right-4 z-20">
+                <div
+                  className="max-w-md mx-auto rounded-[28px] px-4 py-3.5 bg-white/95 backdrop-blur-xl"
+                  style={{ boxShadow: '0 20px 48px rgba(0,0,0,0.16), 0 1px 2px rgba(0,0,0,0.04)', border: '1px solid rgba(255,255,255,0.6)' }}
+                >
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="rounded-xl px-4 py-2 text-center bg-[#f5f5f7]">
@@ -978,20 +1204,25 @@ function HomeContent() {
                       </div>
                       <div className="rounded-xl px-4 py-2 text-center bg-[#f5f5f7]">
                         <p className="text-[10px] font-semibold leading-none mb-0.5 text-[#6e6e73]">Total</p>
-                        <p className="text-lg font-semibold leading-none text-[#1d1d1f]">₹{getTotalAmount().toFixed(0)}</p>
+                        <p key={getTotalAmount()} className="text-lg font-semibold leading-none text-[#1d1d1f] animate-badge-bump inline-block">₹{getTotalAmount().toFixed(0)}</p>
                       </div>
                     </div>
                     <div className="flex gap-2 flex-1">
                       <button
                         onClick={() => setShowCart(true)}
-                        className="hidden sm:flex px-4 py-3 min-h-11 rounded-xl text-sm font-semibold transition-colors border border-[#d2d2d7] text-[#1d1d1f]"
+                        className="hidden sm:flex px-4 py-3 min-h-11 rounded-full text-sm font-semibold transition-colors border border-[#d2d2d7] text-[#1d1d1f]"
                       >
                         View Cart
                       </button>
                       <button
                         onClick={handleCheckout}
                         disabled={isProcessing || !razorpayLoaded}
-                        className="flex-1 py-3 min-h-11 rounded-xl text-[15px] font-semibold transition-transform active:scale-[0.97] disabled:cursor-not-allowed bg-[#1d1d1f] text-white disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6]"
+                        className="flex-1 py-3 min-h-11 rounded-full text-[15px] font-semibold transition-all active:scale-[0.97] disabled:cursor-not-allowed text-white disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6] disabled:shadow-none"
+                        style={
+                          isProcessing || !razorpayLoaded
+                            ? undefined
+                            : { background: 'linear-gradient(135deg, #0071e3, #0058b0)', boxShadow: '0 6px 16px rgba(0,113,227,0.35)' }
+                        }
                       >
                         {isProcessing ? 'Processing...' : !razorpayLoaded ? 'Loading...' : `Pay Now  ₹${getTotalAmount().toFixed(0)}`}
                       </button>
@@ -1004,7 +1235,10 @@ function HomeContent() {
             {/* ── Cart Modal (dark bottom sheet) ── */}
             {showCart && (
               <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 bg-black/40 backdrop-blur-sm">
-                <div className="w-full sm:max-w-lg sm:mx-4 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden bg-white border border-[#e5e5e7] shadow-2xl">
+                <div
+                  className="w-full sm:max-w-lg sm:mx-4 rounded-t-[28px] sm:rounded-[28px] max-h-[90vh] overflow-hidden bg-white"
+                  style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.18), 0 24px 64px rgba(0,0,0,0.18)' }}
+                >
                   {/* Handle bar (mobile) */}
                   <div className="flex justify-center pt-3 pb-1 sm:hidden">
                     <div className="w-10 h-1 rounded-full bg-[#d2d2d7]" />
@@ -1042,38 +1276,45 @@ function HomeContent() {
                     ) : (
                       <div className="space-y-3">
                         {Array.from(cart.values()).map((item) => (
-                          <div key={item.product_id} className="flex items-center gap-3 rounded-xl p-3 border border-[#e5e5e7]">
-                            <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-[#f5f5f7]">
-                              <Package className="w-6 h-6 text-[#86868b]" />
+                          <div key={item.product_id} className="flex items-center gap-3.5 py-2">
+                            <div
+                              className="relative w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden"
+                              style={{ background: 'linear-gradient(155deg, #0c1a33, #10305e 60%, #0071e3 140%)' }}
+                            >
+                              <div
+                                className="absolute w-16 h-16 rounded-full pointer-events-none"
+                                style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.22), transparent)' }}
+                              />
+                              <Image
+                                src="/icons/Gemini_Generated_Image_mypgjumypgjumypg-removebg-preview.png"
+                                alt=""
+                                width={677}
+                                height={369}
+                                className="relative z-10 w-11 h-auto"
+                                style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}
+                              />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-[#1d1d1f] truncate">{item.name}</p>
-                              <p className="text-xs font-medium text-[#6e6e73]">
-                                ₹{parseFloat(item.price).toFixed(0)} × {item.quantity} = ₹{(parseFloat(item.price) * item.quantity).toFixed(0)}
-                              </p>
+                              <p className="text-[15px] font-bold text-[#1d1d1f] truncate">{item.name}</p>
+                              <p className="text-xs text-[#86868b] mb-1">Sanitary napkin</p>
+                              <p className="text-base font-bold text-[#1d1d1f]">₹{parseFloat(item.price).toFixed(0)}</p>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <div className="flex items-center gap-1 rounded-lg px-1 py-1 border border-[#d2d2d7]">
-                                <button
-                                  onClick={() => updateQuantity(item.product_id, -1)}
-                                  className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                                >
-                                  <Minus className="w-3.5 h-3.5 text-[#1d1d1f]" />
-                                </button>
-                                <span className="text-sm font-semibold text-[#1d1d1f] min-w-6 text-center">{item.quantity}</span>
-                                <button
-                                  onClick={() => updateQuantity(item.product_id, 1)}
-                                  disabled={getTotalItems() >= 3 || item.quantity >= item.stock}
-                                  className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${getTotalItems() >= 3 || item.quantity >= item.stock ? 'opacity-30 cursor-not-allowed' : ''}`}
-                                >
-                                  <Plus className="w-3.5 h-3.5 text-[#1d1d1f]" />
-                                </button>
-                              </div>
+                            <div className="flex items-center gap-2.5 shrink-0">
                               <button
-                                onClick={() => removeFromCart(item.product_id)}
-                                className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors bg-[#fbe9e9]"
+                                onClick={() => updateQuantity(item.product_id, -1)}
+                                className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 bg-white"
+                                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
                               >
-                                <X className="w-3.5 h-3.5 text-[#c8102e]" />
+                                <Minus className="w-3.5 h-3.5 text-[#1d1d1f]" />
+                              </button>
+                              <span className="text-sm font-semibold text-[#1d1d1f] min-w-4 text-center">{item.quantity}</span>
+                              <button
+                                onClick={() => updateQuantity(item.product_id, 1)}
+                                disabled={getTotalItems() >= 3 || item.quantity >= item.stock}
+                                className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 bg-white disabled:opacity-30"
+                                style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+                              >
+                                <Plus className="w-3.5 h-3.5 text-[#1d1d1f]" />
                               </button>
                             </div>
                           </div>
@@ -1094,7 +1335,8 @@ function HomeContent() {
                       <button
                         onClick={handleCheckout}
                         disabled={isProcessing}
-                        className="w-full py-4 min-h-11 rounded-xl font-semibold text-[15px] transition-transform active:scale-[0.97] disabled:cursor-not-allowed bg-[#1d1d1f] text-white disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6]"
+                        className="w-full py-4 min-h-11 rounded-2xl font-semibold text-[15px] transition-all active:scale-[0.97] disabled:cursor-not-allowed text-white disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6] disabled:shadow-none"
+                        style={isProcessing ? undefined : { background: 'linear-gradient(135deg, #0071e3, #0058b0)', boxShadow: '0 8px 20px rgba(0,113,227,0.35)' }}
                       >
                         {isProcessing ? 'Processing...' : `Pay ₹${getTotalAmount().toFixed(0)}`}
                       </button>
@@ -1106,7 +1348,31 @@ function HomeContent() {
             )}
           </main>
 
-          <Footer />
+          {/* ── Minimal checkout footer (not the marketing footer) ── */}
+          <footer className={`max-w-md mx-auto px-5 pt-2 text-center ${cart.size > 0 ? 'pb-32' : 'pb-10'}`}>
+            <p className="text-xs font-medium text-[#86868b] mb-3">Lyra Enterprises</p>
+
+            {/* Social / contact icon row */}
+            <div className="flex items-center justify-center gap-2.5 mb-4">
+              {SOCIAL_LINKS.map(({ label, href, Icon }) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="w-9 h-9 rounded-full flex items-center justify-center bg-white transition-all active:scale-90 hover:-translate-y-0.5"
+                  style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+                >
+                  <Icon className="w-4 h-4 text-[#1d1d1f]" strokeWidth={1.75} />
+                </a>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-[#a1a1a6]">
+              Need help? <a href="mailto:support@lyraenterprise.co.in" className="text-[#0071e3] hover:underline">support@lyraenterprise.co.in</a>
+            </p>
+          </footer>
         </div>
       </>
     );
@@ -1118,6 +1384,7 @@ function HomeContent() {
       <Header />
       <main>
         <HeroSection />
+        <HowItWorksSection />
         <AboutSection />
         <FeaturesSection />
         <ContactSection />

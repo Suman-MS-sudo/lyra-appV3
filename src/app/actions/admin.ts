@@ -217,28 +217,3 @@ export async function deleteOrganization(orgId: string) {
   revalidatePath('/admin/organizations');
 }
 
-export async function updateCustomer(formData: FormData) {
-  const userId = formData.get('user_id') as string;
-  const fullName = formData.get('full_name') as string;
-  const organizationId = formData.get('organization_id') as string;
-  const canEdit = formData.get('can_edit') === 'on';
-
-  const { error } = await serviceSupabase
-    .from('profiles')
-    .update({
-      full_name: fullName,
-      organization_id: organizationId || null,
-      permissions: {
-        can_edit: canEdit,
-        can_view: true
-      }
-    })
-    .eq('id', userId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  revalidatePath('/admin/customers');
-  redirect('/admin/customers');
-}

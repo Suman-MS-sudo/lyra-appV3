@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Package, Users, Activity,
-  CreditCard, TrendingUp, UserCog, LogOut, UserCheck, Menu, X, Nfc
+  CreditCard, TrendingUp, UserCog, LogOut, Menu, X, Nfc
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -14,7 +14,6 @@ const navItems = [
   { href: '/admin/products',        label: 'Products',     icon: Package         },
   { href: '/admin/rfid-cards',      label: 'RFID Cards',   icon: Nfc             },
   { href: '/admin/organizations',   label: 'Orgs',         icon: UserCog         },
-  { href: '/admin/customers',       label: 'Customers',    icon: UserCheck       },
   { href: '/admin/users',           label: 'Users',        icon: Users           },
   { href: '/admin/transactions',    label: 'Transactions', icon: Activity        },
   { href: '/admin/billing',         label: 'Billing',      icon: CreditCard      },

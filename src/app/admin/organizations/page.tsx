@@ -58,8 +58,8 @@ export default async function OrganizationsPage() {
             >
               <div className="flex items-start gap-3 mb-4">
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-[#1d1d1f] font-bold text-lg shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #6e6e73, #6e6e73)' }}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)' }}
                 >
                   {org.name.charAt(0).toUpperCase()}
                 </div>

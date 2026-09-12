@@ -392,7 +392,7 @@ export default async function AnalyticsPage() {
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(0,113,227,0.10)', color: '#0071e3' }}>{org.onlineCount}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }}>{org.coinCount}</span>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>{org.coinCount}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }}>{org.rfidCount}</span>
@@ -472,7 +472,7 @@ export default async function AnalyticsPage() {
                           ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
                           : tx.payment_status === 'failed'
                           ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' }
-                          : { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                          : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
                       }
                     >
                       {tx.payment_status}

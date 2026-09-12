@@ -170,16 +170,73 @@ body {
 .animate-glow-drift-3,
 .lyra-border-breathe,
 .btn-glow { animation: none; }
-.tile-shimmer::after { display: none; }
+
+/* Subtle grain overlay for dark gradient panels — the "grainy gradient"
+   look, kept faint so it reads as texture, not noise-as-decoration */
+.grain-overlay {
+  position: relative;
+}
+.grain-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Hide scrollbar on the horizontal product carousel (WebKit) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Soft dot-grid texture — a faint pattern instead of flat white, kept low
+   contrast so it reads as material, not noise */
+.bg-dot-grid {
+  background-image: radial-gradient(rgba(0,0,0,0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Slow ambient glow breathe — very subtle, used behind hero/loading orbs */
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.08); }
+}
+.animate-glow-breathe { animation: glow-breathe 5s ease-in-out infinite; }
+
+/* Thumbnail shimmer sweep — a single soft pass, not an infinite loop */
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-120%) skewX(-12deg); }
+  100% { transform: translateX(220%) skewX(-12deg); }
+}
+.tile-shimmer { position: relative; overflow: hidden; }
+.tile-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+  animation: shimmer-sweep 1.8s ease-out 1;
+  pointer-events: none;
+}
+
+/* Cart badge bump — plays once whenever the count changes (remount via key) */
+@keyframes badge-bump {
+  0%   { transform: scale(0.6); }
+  60%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.animate-badge-bump { animation: badge-bump 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-float-up,
   .animate-fade-in,
-  .animate-card-enter {
+  .animate-card-enter,
+  .animate-glow-breathe,
+  .animate-badge-bump {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
   }
+  .tile-shimmer::after { display: none; }
   .lyra-card:hover { transform: none; }
   * {
     scroll-behavior: auto !important;

@@ -60,7 +60,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase();
   const style =
     s === 'paid'    ? { background: 'rgba(29,122,60,0.12)',  color: '#1d7a3c' } :
-    s === 'pending' ? { background: 'rgba(154,100,0,0.12)',  color: '#FDE68A' } :
+    s === 'pending' ? { background: 'rgba(154,100,0,0.12)',  color: '#9a6400' } :
     s === 'overdue' ? { background: 'rgba(200,16,46,0.10)',   color: '#c8102e' } :
                       { background: '#f5f5f7', color: '#6e6e73' };
   const Icon = s === 'paid' ? CheckCircle : s === 'pending' ? Clock : AlertCircle;
@@ -156,7 +156,7 @@ export function BillingTablesClient({
                   <td className="py-3.5 px-4 text-right font-semibold" style={{ color: '#1d7a3c' }}>
                     ₹{fmt(s.totalCollected)}
                   </td>
-                  <td className="py-3.5 px-4 text-right hidden sm:table-cell font-medium" style={{ color: s.totalPending > 0 ? '#FDE68A' : '#86868b' }}>
+                  <td className="py-3.5 px-4 text-right hidden sm:table-cell font-medium" style={{ color: s.totalPending > 0 ? '#9a6400' : '#86868b' }}>
                     {s.totalPending > 0 ? `₹${fmt(s.totalPending)}` : '—'}
                   </td>
                   <td className="py-3.5 px-4 text-right hidden sm:table-cell font-medium" style={{ color: s.totalOverdue > 0 ? '#c8102e' : '#86868b' }}>
@@ -271,7 +271,7 @@ export function BillingTablesClient({
                   <td className="py-3.5 px-4 text-right">
                     <p className="font-semibold text-[#1d1d1f]">₹{fmt(inv.total_amount_paisa)}</p>
                     {inv.amount_due_paisa > 0 && inv.status !== 'paid' && (
-                      <p className="text-xs mt-0.5" style={{ color: '#FDE68A' }}>Due ₹{fmt(inv.amount_due_paisa)}</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#9a6400' }}>Due ₹{fmt(inv.amount_due_paisa)}</p>
                     )}
                   </td>
                   <td className="py-3.5 px-4 text-center">

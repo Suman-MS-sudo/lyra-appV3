@@ -80,7 +80,7 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
                 className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full"
                 style={isPaid
                   ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
-                  : { background: 'rgba(154,100,0,0.12)', color: '#FDE68A' }
+                  : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
                 }
               >
                 {invoice.total_amount_paisa === 0 ? 'Nil' : invoice.status}

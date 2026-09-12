@@ -63,7 +63,7 @@ export default async function UsersPage() {
 
   const avatarStyle = (accountType: string): React.CSSProperties => {
     if (accountType === 'admin')          return { background: 'linear-gradient(135deg, #1d7a3c, #059669)' };
-    if (accountType === 'super_customer') return { background: 'linear-gradient(135deg, #6e6e73, #6e6e73)' };
+    if (accountType === 'super_customer') return { background: 'linear-gradient(135deg, #6e6e73, #52525b)' };
     return { background: 'linear-gradient(135deg, #0071e3, #3B82F6)' };
   };
 
@@ -146,7 +146,7 @@ export default async function UsersPage() {
                     <td className="py-3.5 px-5">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-[#1d1d1f] shrink-0"
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0"
                           style={avatarStyle(u.account_type)}
                         >
                           {u.account_type === 'admin' ? (

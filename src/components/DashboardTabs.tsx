@@ -25,7 +25,7 @@ export default function DashboardTabs({ overview, rfid }: { overview: ReactNode;
           onClick={() => setTab('rfid')}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
           style={tab === 'rfid'
-            ? { background: 'linear-gradient(135deg, #6e6e73, #6e6e73)', color: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }
+            ? { background: 'linear-gradient(135deg, #0071e3, #0058b0)', color: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }
             : { color: '#6e6e73' }}
         >
           <Nfc className="w-3.5 h-3.5" />
