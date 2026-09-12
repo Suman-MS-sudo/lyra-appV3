@@ -17,7 +17,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PROXY_PORT: 8080,
-        UPSTREAM_HOST: 'lyra-app-v3.vercel.app',
+        UPSTREAM_HOST: 'lyra-app-v3-chi.vercel.app',
         NODE_OPTIONS: '--max-old-space-size=300',
       },
       error_file: './logs/relay-error.log',
