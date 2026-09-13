@@ -24,7 +24,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PROXY_PORT: 8080,
-        UPSTREAM_HOST: 'lyra-app-v3-geegd7zfn-suman-ms-sudos-projects.vercel.app',
+        UPSTREAM_HOST: 'lyra-app-v3-chi.vercel.app',
         NODE_OPTIONS: '--max-old-space-size=300',
       },
       error_file: './logs/relay-error.log',
@@ -46,7 +46,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         TLS_PORT: 443,
-        UPSTREAM_HOST: 'lyra-app-v3-geegd7zfn-suman-ms-sudos-projects.vercel.app',
+        UPSTREAM_HOST: 'lyra-app-v3-chi.vercel.app',
         NODE_OPTIONS: '--max-old-space-size=200',
       },
       error_file: './logs/tls-error.log',

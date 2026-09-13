@@ -26,7 +26,7 @@
 import net from 'net';
 
 const LISTEN_PORT = process.env.TLS_PORT || 443;
-const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-geegd7zfn-suman-ms-sudos-projects.vercel.app';
+const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-chi.vercel.app';
 const UPSTREAM_PORT = 443;
 
 const server = net.createServer((clientSocket) => {
