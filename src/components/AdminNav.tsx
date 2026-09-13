@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Package, Users, Activity,
-  CreditCard, TrendingUp, UserCog, LogOut, Menu, X, Nfc
+  CreditCard, TrendingUp, UserCog, LogOut, Menu, X, Nfc, Cpu
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,6 +18,7 @@ const navItems = [
   { href: '/admin/transactions',    label: 'Transactions', icon: Activity        },
   { href: '/admin/billing',         label: 'Billing',      icon: CreditCard      },
   { href: '/admin/analytics',       label: 'Analytics',    icon: TrendingUp      },
+  { href: '/admin/firmware',        label: 'Firmware',     icon: Cpu             },
 ];
 
 export default function AdminNav() {

@@ -91,6 +91,37 @@ export async function POST(request: NextRequest) {
       if (updateError) {
         console.error('Error updating machine ping:', updateError);
       }
+
+      // Firmware OTA: if there's a pending deployment for this machine, tell
+      // it to fetch the binary from our own /api/firmware-download endpoint
+      // (not a direct Supabase Storage URL -- the ESP32's Ethernet stack has
+      // no TLS support at all, so it can only ever talk to our own domain,
+      // same as every other device call). Status transitions
+      // (downloading/applied/failed) are reported back by the device itself
+      // via /api/machine-firmware-status, not flipped here.
+      const { data: pendingDeployment } = await supabase
+        .from('firmware_deployments')
+        .select('id, firmware_versions(version, sha256)')
+        .eq('machine_id', resolvedId)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (pendingDeployment?.firmware_versions) {
+        const fw = Array.isArray(pendingDeployment.firmware_versions)
+          ? pendingDeployment.firmware_versions[0]
+          : pendingDeployment.firmware_versions;
+
+        return NextResponse.json({
+          success: true,
+          message: 'Ping received',
+          reboot: false,
+          reset_stock: false,
+          update_available: true,
+          deployment_id: pendingDeployment.id,
+          firmware_version: fw.version,
+          firmware_sha256: fw.sha256,
+        });
+      }
     }
 
     // You can return commands to the machine here

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const { data: machines, error } = await supabase
       .from('vending_machines')
-      .select('id, machine_id, name, mac_id, updated_at')
+      .select('id, machine_id, name, mac_id, device_secret, updated_at')
       .order('updated_at', { ascending: false });
 
     const machine = machines?.find(
@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
     console.log('✅ Returning machine UUID:', machine.id, 'Machine ID:', machine.machine_id);
     return successResponse({
       machine_id: machine.id, // Return UUID, not machine_id string
-      machine_name: machine.name
+      machine_name: machine.name,
+      device_secret: machine.device_secret, // Used to authenticate OTA status-report calls
     });
   } catch (error) {
     console.error('❌ Error fetching machine info:', error);

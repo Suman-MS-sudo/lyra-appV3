@@ -14,7 +14,15 @@
 #include <WebServer.h>
 #include <esp_wifi.h>
 #include <ArduinoJson.h>
-#include <ArduinoOTA.h>
+#include <Update.h>
+#include <Preferences.h>
+#include "esp_ota_ops.h"
+#include "mbedtls/sha256.h"
+// OTA checksum verification below uses the _ret-suffixed mbedtls sha256 API
+// (mbedtls_sha256_starts_ret etc). This matches ESP32 Arduino core 2.x
+// (mbedtls 2.x); on core 3.x (mbedtls 3.x) these are deprecated aliases and
+// should still compile, but if your exact toolchain removed them, drop the
+// _ret suffix from those three call sites in performOTAUpdate().
 #include <SPI.h>
 #include <esp_task_wdt.h>
 
@@ -82,6 +90,41 @@ unsigned long lastPingTime = 0;
 unsigned long lastWiFiCheck = 0;
 unsigned long wifiReconnectAttempts = 0;
 
+// ==================== OTA FIRMWARE UPDATE ====================
+// Persisted in NVS (Preferences), not raw EEPROM -- the existing EEPROM
+// layout below is already tightly packed (see the offline transaction queue
+// comment) and this is new state unrelated to it, so it gets its own
+// collision-free storage instead of squeezing into that layout.
+Preferences otaPrefs;
+String deviceSecret = "";     // Authenticates OTA status-report/download calls; learned once from get-machine-id-from-mac
+bool otaBootValidated = false; // Set after first successful ping post-boot; see markOtaBootValidIfNeeded()
+
+void loadDeviceSecret() {
+    otaPrefs.begin("lyra_ota", false);
+    deviceSecret = otaPrefs.getString("dev_secret", "");
+    otaPrefs.end();
+}
+
+void saveDeviceSecret(const String& secret) {
+    if (secret.length() == 0 || secret == deviceSecret) return;
+    deviceSecret = secret;
+    otaPrefs.begin("lyra_ota", false);
+    otaPrefs.putString("dev_secret", deviceSecret);
+    otaPrefs.end();
+    Serial.println("🔑 Device secret saved");
+}
+
+// The bootloader auto-rolls back to the previous working partition if this
+// is never called before the next reboot -- that's the safety net for a bad
+// OTA flash. Only call it once the new firmware has proven it can actually
+// reach the server (a successful ping), not immediately at boot.
+void markOtaBootValidIfNeeded() {
+    if (otaBootValidated) return;
+    esp_ota_mark_app_valid_cancel_rollback();
+    otaBootValidated = true;
+    Serial.println("✅ OTA partition marked valid (rollback cancelled)");
+}
+
 // Server configuration
 String SERVER_BASE = "https://lyra-app.co.in";  // Production HTTPS server
 String ETHERNET_SERVER_BASE = "http://lyra-app.co.in:8080";  // Production HTTP proxy for Ethernet
@@ -115,6 +158,11 @@ void initializeWatchdog();
 void feedWatchdog();
 void maintainWiFiConnection();
 void ensureWiFiStability();
+void loadDeviceSecret();
+void saveDeviceSecret(const String& secret);
+void markOtaBootValidIfNeeded();
+void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage = "");
+void performOTAUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256);
 
 // Offline queue functions
 void saveOfflineTransaction(int amountPaisa);
@@ -794,7 +842,7 @@ String fetchMachineInfoFromBackend(const String& mac) {
     int code = makeHTTPRequest(url, "GET", "", &responseBody);
     
     if (code == 200 && responseBody.length() > 0) {
-        DynamicJsonDocument doc(512);
+        DynamicJsonDocument doc(640);
         DeserializationError err = deserializeJson(doc, responseBody);
         if (!err) {
             // Check if response has 'data' wrapper (new API format)
@@ -803,6 +851,9 @@ String fetchMachineInfoFromBackend(const String& mac) {
                 machineName = doc["data"]["machine_name"].as<String>();
                 Serial.println("✅ Machine ID: " + machineId);
                 Serial.println("✅ Machine Name: " + machineName);
+                if (doc["data"].containsKey("device_secret")) {
+                    saveDeviceSecret(doc["data"]["device_secret"].as<String>());
+                }
             }
             // Fallback to old format (direct fields)
             else if (doc.containsKey("machine_id")) {
@@ -866,33 +917,54 @@ float getESP32Temperature() {
 
 float measureNetworkSpeed() {
     if (!isNetworkConnected()) return 0.0;
-    
+
     // Measure download speed with a lightweight test endpoint
     // Use GET to fetch machine info (doesn't create side effects)
     String testUrl = SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(deviceMacAddress);
-    
+
 #ifdef USE_ETHERNET
     if (useEthernet && ethernetConnected) {
         testUrl = ETHERNET_SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(deviceMacAddress);
     }
 #endif
-    
+
     unsigned long startTime = millis();
     String responseBody = "";
     int code = makeHTTPRequest(testUrl, "GET", "", &responseBody);
     unsigned long endTime = millis();
-    
+
     if (code <= 0 || responseBody.length() == 0) return 0.0;
-    
+
+    // This endpoint's response also resolves machineId -- if the one-shot
+    // resolution at boot never succeeded, machineId gets stuck at "UNKNOWN"
+    // forever (nothing else retries it), which makes the server silently
+    // drop this machine's status pings, including stock_count. Since we're
+    // already making this call every ping cycle anyway, piggyback the
+    // resolution here at no extra network cost instead of discarding the body.
+    if (machineId == "UNKNOWN" || machineId.length() == 0) {
+        DynamicJsonDocument doc(640);
+        if (!deserializeJson(doc, responseBody)) {
+            if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
+                machineId = doc["data"]["machine_id"].as<String>();
+                machineName = doc["data"]["machine_name"].as<String>();
+                Serial.println("✅ Resolved machineId via speed-test response: " + machineId);
+                if (doc["data"].containsKey("device_secret")) {
+                    saveDeviceSecret(doc["data"]["device_secret"].as<String>());
+                }
+                fetchMachineProducts();
+            }
+        }
+    }
+
     // Calculate speed: bytes / time(s) / 1024 = KB/s
     float timeMs = (float)(endTime - startTime);
     if (timeMs == 0) timeMs = 1.0;
-    
+
     float speedKBps = (responseBody.length() / (timeMs / 1000.0)) / 1024.0;
-    
-    Serial.printf("📊 Network speed: %.2f KB/s (%d bytes in %d ms)\n", 
+
+    Serial.printf("📊 Network speed: %.2f KB/s (%d bytes in %d ms)\n",
                  speedKBps, responseBody.length(), (int)timeMs);
-    
+
     return speedKBps; // Returns KB/s
 }
 
@@ -933,13 +1005,339 @@ void sendMachineStatusPing() {
     }
 #endif
 
-    int code = makeHTTPRequest(url, "POST", payload);
-    
+    String responseBody = "";
+    int code = makeHTTPRequest(url, "POST", payload, &responseBody);
+
     if (code == 200) {
         Serial.printf("✅ Machine ping successful (Stock: %d)\n", currentStock);
+
+        // A successful ping proves this boot's firmware can actually reach
+        // the server -- safe to cancel the OTA rollback now. If this line
+        // is never reached (bad flash crash-looping before it gets here),
+        // the bootloader auto-reverts to the previous partition on its own.
+        markOtaBootValidIfNeeded();
+
+        if (responseBody.length() > 0) {
+            DynamicJsonDocument doc(768);
+            if (!deserializeJson(doc, responseBody) && doc["update_available"] == true) {
+                String deploymentId = doc["deployment_id"].as<String>();
+                String firmwareVersion = doc["firmware_version"].as<String>();
+                String firmwareSha256 = doc["firmware_sha256"].as<String>();
+
+                if (deviceSecret.length() == 0) {
+                    Serial.println("⚠ Update available but no device_secret yet -- skipping until next ping");
+                } else if (deploymentId.length() > 0 && firmwareSha256.length() > 0) {
+                    performOTAUpdate(deploymentId, firmwareVersion, firmwareSha256);
+                }
+            }
+        }
     } else {
         Serial.printf("⚠ Machine ping failed: %d\n", code);
     }
+}
+
+// ==================== OTA FIRMWARE UPDATE ====================
+
+void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage) {
+    String payload = "{\"deployment_id\":\"" + deploymentId + "\",";
+    payload += "\"device_secret\":\"" + deviceSecret + "\",";
+    payload += "\"status\":\"" + status + "\"";
+    if (errorMessage.length() > 0) {
+        payload += ",\"error_message\":\"" + errorMessage + "\"";
+    }
+    payload += "}";
+
+    String url = SERVER_BASE + "/api/machine-firmware-status";
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        url = ETHERNET_SERVER_BASE + "/api/machine-firmware-status";
+    }
+#endif
+
+    int code = makeHTTPRequest(url, "POST", payload);
+    if (code == 200) {
+        Serial.println("📡 Firmware status reported: " + status);
+    } else {
+        Serial.printf("⚠ Failed to report firmware status (%s): %d\n", status.c_str(), code);
+    }
+}
+
+// Streams the firmware binary over real HTTPS (WiFi machines only) straight
+// into the OTA partition via Update.write(), hashing as it goes -- never
+// buffers the whole file in RAM, unlike makeHTTPRequest's String-based body.
+bool performOTAUpdateHTTPS(const String& url, mbedtls_sha256_context* shaCtx) {
+    WiFiClientSecure client;
+    client.setInsecure();
+    client.setTimeout(45000);
+
+    HTTPClient http;
+    http.setTimeout(30000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
+    if (!http.begin(client, url)) {
+        Serial.println("❌ OTA: failed to begin HTTPS connection");
+        return false;
+    }
+
+    int httpCode = http.GET();
+    if (httpCode != 200) {
+        Serial.printf("❌ OTA: HTTP GET failed, code %d\n", httpCode);
+        http.end();
+        return false;
+    }
+
+    int contentLength = http.getSize();
+    if (contentLength <= 0) {
+        Serial.println("❌ OTA: invalid content length");
+        http.end();
+        return false;
+    }
+
+    if (!Update.begin(contentLength)) {
+        Serial.printf("❌ OTA: Update.begin failed: %s\n", Update.errorString());
+        http.end();
+        return false;
+    }
+
+    WiFiClient* stream = http.getStreamPtr();
+    uint8_t buf[1024];
+    int written = 0;
+    unsigned long lastFeed = millis();
+
+    while (http.connected() && written < contentLength) {
+        size_t avail = stream->available();
+        if (avail > 0) {
+            size_t toRead = (avail < sizeof(buf)) ? avail : sizeof(buf);
+            int readBytes = stream->readBytes(buf, toRead);
+            if (readBytes > 0) {
+                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                if (Update.write(buf, readBytes) != (size_t)readBytes) {
+                    Serial.println("❌ OTA: Update.write mismatch");
+                    Update.abort();
+                    http.end();
+                    return false;
+                }
+                written += readBytes;
+            }
+        }
+        if (millis() - lastFeed > 2000) {
+            feedWatchdog();
+            lastFeed = millis();
+        }
+        delay(1);
+    }
+
+    http.end();
+
+    if (written != contentLength) {
+        Serial.printf("❌ OTA: incomplete download (%d/%d bytes)\n", written, contentLength);
+        Update.abort();
+        return false;
+    }
+
+    return true;
+}
+
+#ifdef USE_ETHERNET
+// Plain-HTTP equivalent for Ethernet machines (their stack has no TLS at
+// all), reusing the same raw-socket approach as makeEthernetHTTPRequest but
+// streaming straight into Update.write() instead of buffering into a String
+// -- a multi-hundred-KB binary can't fit that way, and line-based String
+// reads would corrupt binary data at any embedded newline byte anyway.
+bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx) {
+    String u = url;
+    if (u.startsWith("http://")) {
+        u = u.substring(7);
+    } else {
+        Serial.println("❌ OTA: HTTPS not supported over Ethernet");
+        return false;
+    }
+
+    int slashIdx = u.indexOf('/');
+    String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
+    String path = (slashIdx >= 0) ? u.substring(slashIdx) : "/";
+
+    int colonIdx = host.indexOf(':');
+    int port = 80;
+    if (colonIdx >= 0) {
+        port = host.substring(colonIdx + 1).toInt();
+        host = host.substring(0, colonIdx);
+    }
+
+    if (!ethClient.connect(host.c_str(), port)) {
+        Serial.println("❌ OTA: Ethernet connect failed");
+        return false;
+    }
+
+    String req = "GET " + path + " HTTP/1.1\r\n";
+    req += "Host: " + host + "\r\n";
+    req += "Connection: close\r\n\r\n";
+    ethClient.print(req);
+
+    unsigned long connectTimeout = millis() + 10000;
+    while (ethClient.available() == 0) {
+        if (millis() > connectTimeout) {
+            Serial.println("❌ OTA: Ethernet response timeout");
+            ethClient.stop();
+            return false;
+        }
+        feedWatchdog();
+    }
+
+    String statusLine = ethClient.readStringUntil('\n');
+    statusLine.trim();
+    int httpCode = -1;
+    int firstSpace = statusLine.indexOf(' ');
+    if (firstSpace > 0) {
+        int secondSpace = statusLine.indexOf(' ', firstSpace + 1);
+        String codeStr = (secondSpace > firstSpace)
+            ? statusLine.substring(firstSpace + 1, secondSpace)
+            : statusLine.substring(firstSpace + 1);
+        httpCode = codeStr.toInt();
+    }
+    if (httpCode != 200) {
+        Serial.printf("❌ OTA: Ethernet GET failed, code %d\n", httpCode);
+        ethClient.stop();
+        return false;
+    }
+
+    long contentLength = -1;
+    while (true) {
+        String line = ethClient.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) break; // blank line = end of headers
+        String lower = line;
+        lower.toLowerCase();
+        if (lower.startsWith("content-length:")) {
+            contentLength = line.substring(line.indexOf(':') + 1).toInt();
+        }
+    }
+
+    if (contentLength <= 0) {
+        Serial.println("❌ OTA: missing/invalid Content-Length");
+        ethClient.stop();
+        return false;
+    }
+
+    if (!Update.begin(contentLength)) {
+        Serial.printf("❌ OTA: Update.begin failed: %s\n", Update.errorString());
+        ethClient.stop();
+        return false;
+    }
+
+    uint8_t buf[512];
+    long written = 0;
+    unsigned long lastFeed = millis();
+    unsigned long lastData = millis();
+
+    while (written < contentLength) {
+        int avail = ethClient.available();
+        if (avail > 0) {
+            int toRead = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
+            int readBytes = ethClient.read(buf, toRead);
+            if (readBytes > 0) {
+                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                if (Update.write(buf, readBytes) != (size_t)readBytes) {
+                    Serial.println("❌ OTA: Update.write mismatch");
+                    Update.abort();
+                    ethClient.stop();
+                    return false;
+                }
+                written += readBytes;
+                lastData = millis();
+            }
+        } else {
+            if (millis() - lastData > 15000) {
+                Serial.println("❌ OTA: Ethernet stall timeout");
+                Update.abort();
+                ethClient.stop();
+                return false;
+            }
+            delay(2);
+        }
+        if (millis() - lastFeed > 2000) {
+            feedWatchdog();
+            lastFeed = millis();
+        }
+    }
+
+    ethClient.stop();
+
+    if (written != contentLength) {
+        Serial.printf("❌ OTA: incomplete download (%ld/%ld bytes)\n", written, contentLength);
+        Update.abort();
+        return false;
+    }
+
+    return true;
+}
+#endif
+
+void performOTAUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256) {
+    Serial.println("\n🚀 OTA update available: " + firmwareVersion);
+    reportFirmwareStatus(deploymentId, "downloading");
+
+    String url = SERVER_BASE + "/api/firmware-download?deployment_id=" + urlEncode(deploymentId) +
+                 "&device_secret=" + urlEncode(deviceSecret);
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        url = ETHERNET_SERVER_BASE + "/api/firmware-download?deployment_id=" + urlEncode(deploymentId) +
+              "&device_secret=" + urlEncode(deviceSecret);
+    }
+#endif
+
+    mbedtls_sha256_context shaCtx;
+    mbedtls_sha256_init(&shaCtx);
+    mbedtls_sha256_starts_ret(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
+
+    bool ok;
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        ok = performOTAUpdateEthernet(url, &shaCtx);
+    } else {
+        ok = performOTAUpdateHTTPS(url, &shaCtx);
+    }
+#else
+    ok = performOTAUpdateHTTPS(url, &shaCtx);
+#endif
+
+    if (!ok) {
+        mbedtls_sha256_free(&shaCtx);
+        reportFirmwareStatus(deploymentId, "failed", "download_failed");
+        return;
+    }
+
+    unsigned char hash[32];
+    mbedtls_sha256_finish_ret(&shaCtx, hash);
+    mbedtls_sha256_free(&shaCtx);
+
+    char hashHex[65];
+    for (int i = 0; i < 32; i++) sprintf(hashHex + i * 2, "%02x", hash[i]);
+    hashHex[64] = '\0';
+
+    String computedSha256 = String(hashHex);
+    String expectedLower = expectedSha256;
+    expectedLower.toLowerCase();
+
+    if (computedSha256 != expectedLower) {
+        Serial.println("❌ OTA: checksum mismatch");
+        Serial.println("   Expected: " + expectedLower);
+        Serial.println("   Computed: " + computedSha256);
+        Update.abort();
+        reportFirmwareStatus(deploymentId, "failed", "checksum_mismatch");
+        return;
+    }
+
+    if (!Update.end(true)) {
+        Serial.printf("❌ OTA: Update.end failed: %s\n", Update.errorString());
+        reportFirmwareStatus(deploymentId, "failed", "flash_finalize_failed");
+        return;
+    }
+
+    Serial.println("✅ OTA: firmware verified and flashed, rebooting...");
+    reportFirmwareStatus(deploymentId, "applied");
+    delay(1000);
+    ESP.restart();
 }
 
 void notifyProductStockUpdate(const String& machine_id, const String& product_id, int quantity, String mode) {
@@ -1466,7 +1864,10 @@ void setup() {
     EEPROM.begin(EEPROM_SIZE);
     Serial2.print("0");
     delay(2000);
-    
+
+    loadDeviceSecret();
+
+
     getMACAddress();
     
     // Try Ethernet first
@@ -1480,6 +1881,7 @@ void setup() {
         fetchMachineInfoFromBackend(deviceMacAddress);
         fetchMachineProducts();  // Get product_id for coin payments
         feedWatchdog();
+
         sendMachineStatusPing();
         lastPingTime = millis();
         sendStockAwareStatus();  // Show QR code on display
@@ -1516,11 +1918,7 @@ void setup() {
             // Sync offline transactions on startup
             delay(2000);  // Give server time to be ready
             syncOfflineTransactions();
-            
-            ArduinoOTA.setHostname(("Lyra-" + machineName).c_str());
-            ArduinoOTA.setPassword("lyra2024");
-            ArduinoOTA.begin();
-            
+
             sendMachineStatusPing();
             lastPingTime = millis();
             sendStockAwareStatus();
@@ -1541,8 +1939,7 @@ void setup() {
 void loop() {
     // Feed watchdog timer to prevent auto-reboot
     feedWatchdog();
-    
-    ArduinoOTA.handle();
+
     server.handleClient();
     
 #ifdef USE_ETHERNET
