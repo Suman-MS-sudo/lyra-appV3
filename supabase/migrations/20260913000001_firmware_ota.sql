@@ -37,6 +37,14 @@ CREATE UNIQUE INDEX firmware_deployments_one_pending_per_machine
 CREATE INDEX firmware_deployments_machine_id_idx ON firmware_deployments (machine_id);
 CREATE INDEX firmware_deployments_firmware_version_id_idx ON firmware_deployments (firmware_version_id);
 
+-- Every access to these tables goes through API routes using the service-role
+-- client (createAdminClient), which bypasses RLS entirely -- no anon or
+-- authenticated-user policy is needed or wanted here. Enable RLS with zero
+-- policies so it defaults to deny-all for any non-service-role key, same
+-- posture as the firmware Storage bucket below.
+ALTER TABLE firmware_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE firmware_deployments ENABLE ROW LEVEL SECURITY;
+
 -- device_secret already exists on vending_machines (added in
 -- 20231207000007_extend_vending_machines.sql) but was never populated or
 -- used. Backfill it now so every machine has a stable per-device secret the
