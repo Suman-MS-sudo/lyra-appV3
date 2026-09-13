@@ -740,14 +740,31 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
 
     bool headersEnded = false;
     String body = "";
-    while (ethClient.available()) {
-        String line = ethClient.readStringUntil('\n');
-        if (!headersEnded) {
-            if (line == "\r" || line.length() == 0) {
-                headersEnded = true;
+    // A plain `while (ethClient.available())` exits the instant there's a
+    // momentary gap with no buffered bytes yet -- over a real network
+    // (especially this SPI-based ENC28J60 module clocked down to 4MHz) the
+    // response can legitimately arrive in bursts with gaps between them,
+    // and that naive loop silently truncates the body mid-response even
+    // though the server sent a complete reply. Wait out a short grace
+    // period of continued silence (not just one empty check) before
+    // concluding the response is actually finished, but still exit
+    // immediately once the server has closed the connection with nothing
+    // left buffered.
+    unsigned long lastByteTime = millis();
+    const unsigned long READ_IDLE_TIMEOUT_MS = 1000;
+    while (millis() - lastByteTime < READ_IDLE_TIMEOUT_MS) {
+        if (ethClient.available()) {
+            String line = ethClient.readStringUntil('\n');
+            lastByteTime = millis();
+            if (!headersEnded) {
+                if (line == "\r" || line.length() == 0) {
+                    headersEnded = true;
+                }
+            } else {
+                body += line;
             }
-        } else {
-            body += line;
+        } else if (!ethClient.connected()) {
+            break; // Server closed the connection and nothing left buffered
         }
     }
 
