@@ -54,12 +54,24 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    // NOTE: We do NOT update last_ping here - only /api/machine-ping updates machine status
-    // This prevents the machine from appearing "online" when it's actually offline
-
     if (machineError || !machine) {
       console.log(`Machine not found for MAC: ${macAddress}`);
       return noPendingPaymentResponse('Machine not registered');
+    }
+
+    // Payment polling is also proof that the machine is reachable. Refresh the
+    // dashboard heartbeat here because the payment response may be served from
+    // cache between polls, while keeping the ESP firmware unchanged.
+    const { error: heartbeatError } = await supabase
+      .from('vending_machines')
+      .update({
+        asset_online: true,
+        last_ping: new Date().toISOString(),
+      })
+      .eq('id', machine.id);
+
+    if (heartbeatError) {
+      console.error('Payment poll heartbeat update failed:', heartbeatError.message);
     }
 
     // Step 2: Find pending payment (paid but not dispensed)
