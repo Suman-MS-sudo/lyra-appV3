@@ -2017,11 +2017,17 @@ void setup() {
         bool productsOk = (defaultProductId.length() > 0);
         feedWatchdog();
 
+        // Ethernet never ran this at boot before -- only the WiFi path did
+        // (see maintainWiFiConnection() for its reconnect-triggered sync
+        // too). Any transaction queued while a machine was Ethernet-down
+        // sat there until someone manually ran the "sync" serial command.
+        syncOfflineTransactions();
+
         bool pingOk = sendMachineStatusPing();
         lastPingTime = millis();
         sendStockAwareStatus();  // Show QR code on display
 
-        printStartupSummary(true, "Ethernet", machineIdOk, productsOk, false, pingOk);
+        printStartupSummary(true, "Ethernet", machineIdOk, productsOk, true, pingOk);
         return;
     }
     Serial.println("⚠️ Ethernet not available, falling back to WiFi");
@@ -2238,7 +2244,26 @@ void loop() {
         }
         lastPingTime = millis();
     }
-    
+
+#ifdef USE_ETHERNET
+    // Ethernet has no distinct "just reconnected" event the way WiFi does
+    // (maintainWiFiConnection() triggers a sync right after a successful
+    // reconnect) -- checkEthernetLinkStatus() only detects losing the link
+    // and falls back to WiFi, it never detects recovering back to Ethernet.
+    // A periodic retry is the equivalent safety net: anything queued while
+    // offline eventually gets synced without needing the "sync" serial
+    // command run by hand.
+    static unsigned long lastOfflineSyncRetry = 0;
+    if (useEthernet && ethernetConnected && millis() - lastOfflineSyncRetry > 300000) {
+        if (getQueuedTransactionCount() > 0 && isNetworkConnected()) {
+            Serial.println("\n⏰ [Offline Sync Retry] Attempting to sync queued transactions...");
+            syncOfflineTransactions();
+        }
+        lastOfflineSyncRetry = millis();
+    }
+#endif
+
+
     // Coin detection
     static bool lastCoinState = HIGH;
     bool coinState = digitalRead(COIN_PIN);
