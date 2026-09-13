@@ -2,6 +2,21 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
 
+function noPendingPaymentResponse(message?: string) {
+  const response = successResponse({
+    status: 'No pending payments',
+    ...(message ? { message } : {}),
+  });
+
+  // ESP32 polls every four seconds. A short cache reduces duplicate empty
+  // polls while keeping payment delivery latency bounded.
+  response.headers.set(
+    'Cache-Control',
+    'public, s-maxage=5, stale-while-revalidate=5'
+  );
+  return response;
+}
+
 /**
  * Payment Success API for ESP32 Vending Machines
  * 
@@ -46,10 +61,7 @@ export async function GET(request: NextRequest) {
 
     if (machineError || !machine) {
       console.log(`Machine not found for MAC: ${macAddress}`);
-      return successResponse({
-        status: 'No pending payments',
-        message: 'Machine not registered',
-      });
+      return noPendingPaymentResponse('Machine not registered');
     }
 
     // Step 2: Find pending payment (paid but not dispensed)
@@ -83,9 +95,7 @@ export async function GET(request: NextRequest) {
     if (paymentError || !pendingPayment) {
       // No pending payments - default response
       console.log('No pending payment found for machine:', machine.machine_id);
-      return successResponse({
-        status: 'No pending payments',
-      });
+      return noPendingPaymentResponse();
     }
 
     // Step 3: Format products for ESP32 from items JSONB
@@ -146,7 +156,9 @@ export async function GET(request: NextRequest) {
 
     console.log('💰 Returning payment to ESP32:', JSON.stringify(responseData, null, 2));
     
-    return successResponse(responseData);
+    const response = successResponse(responseData);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
 
   } catch (error: any) {
     console.error('Payment success error:', error);
