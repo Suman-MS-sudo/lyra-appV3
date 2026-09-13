@@ -29,10 +29,18 @@ export default async function FirmwarePage() {
     .select('id, version, filename, sha256, size_bytes, notes, created_at')
     .order('created_at', { ascending: false });
 
-  const { data: machines } = await serviceSupabase
+  const { data: rawMachines } = await serviceSupabase
     .from('vending_machines')
-    .select('id, name, machine_id, firmware_version')
+    .select('id, name, machine_id, customer_name, body_type, last_ping, firmware_version, last_firmware_update')
     .order('name', { ascending: true });
+
+  // Same 10-minute freshness rule MachinesTable uses -- a raw asset_online
+  // column can stay stuck true forever once ever set, so derive it here too
+  // rather than trusting the stored flag directly.
+  const machines = (rawMachines || []).map((m) => ({
+    ...m,
+    asset_online: m.last_ping ? (Date.now() - new Date(m.last_ping).getTime()) < 10 * 60 * 1000 : false,
+  }));
 
   const { data: deployments } = await serviceSupabase
     .from('firmware_deployments')
