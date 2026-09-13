@@ -57,7 +57,15 @@ const server = http.createServer((req, res) => {
   const proxyReq = https.request(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
 
-    if (cacheable && proxyRes.statusCode === 200) {
+    // Only the "No pending payments" response sets Cache-Control: s-maxage=15;
+    // the real payment-success response sets no-store. Caching a success
+    // response would replay the same dispense instruction to the machine on
+    // every poll for up to 15s, risking a double dispense -- so only cache
+    // when the upstream itself marked the response cacheable.
+    const cacheControl = proxyRes.headers['cache-control'] || '';
+    const upstreamAllowsCache = cacheable && proxyRes.statusCode === 200 && cacheControl.includes('s-maxage');
+
+    if (upstreamAllowsCache) {
       const chunks = [];
       proxyRes.on('data', (chunk) => {
         chunks.push(chunk);
