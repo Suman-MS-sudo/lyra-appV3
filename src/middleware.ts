@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user } = await updateSession(request);
+  const { supabaseResponse, supabase, user } = await updateSession(request);
 
   // Protected routes
   const protectedRoutes = ['/admin', '/customer'];
@@ -20,12 +19,7 @@ export async function middleware(request: NextRequest) {
 
   // Role-based route protection
   if (user && isProtectedRoute) {
-    const serviceSupabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: profile } = await serviceSupabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('role, account_type')
       .eq('id', user.id)
