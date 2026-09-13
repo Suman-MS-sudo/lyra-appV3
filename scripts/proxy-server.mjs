@@ -19,7 +19,7 @@ import http from 'http';
 import https from 'https';
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
-const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-chi.vercel.app';
+const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-geegd7zfn-suman-ms-sudos-projects.vercel.app';
 
 const server = http.createServer((req, res) => {
   console.log(`[Relay] ${req.method} ${req.url} -> https://${UPSTREAM_HOST}`);
