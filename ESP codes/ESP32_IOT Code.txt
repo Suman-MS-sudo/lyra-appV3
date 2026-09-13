@@ -160,7 +160,7 @@ String fetchMachineInfoFromBackend(const String& mac);
 void fetchMachineProducts();
 void dispenseProductByMotor(String productId = "");
 void listenForOnlinePayment();
-void sendMachineStatusPing();
+bool sendMachineStatusPing();
 bool isHTTPS(const String& url);
 HTTPClient* getHTTPClient(const String& url);
 bool isNetworkConnected();
@@ -180,6 +180,8 @@ void saveDeviceSecret(const String& secret);
 void markOtaBootValidIfNeeded();
 void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage = "");
 void performOTAUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256);
+void printStartupSummary(bool networkOk, const String& networkType, bool machineIdOk,
+                          bool productsOk, bool offlineSyncAttempted, bool pingOk);
 
 // Offline queue functions
 void saveOfflineTransaction(int amountPaisa);
@@ -897,33 +899,48 @@ String fetchMachineInfoFromBackend(const String& mac) {
     }
 #endif
     
+    Serial.println("🔍 Resolving machine identity from MAC: " + mac);
     String responseBody = "";
     int code = makeHTTPRequest(url, "GET", "", &responseBody);
-    
-    if (code == 200 && responseBody.length() > 0) {
-        DynamicJsonDocument doc(640);
-        DeserializationError err = deserializeJson(doc, responseBody);
-        if (!err) {
-            // Check if response has 'data' wrapper (new API format)
-            if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
-                machineId = doc["data"]["machine_id"].as<String>();
-                machineName = doc["data"]["machine_name"].as<String>();
-                Serial.println("✅ Machine ID: " + machineId);
-                Serial.println("✅ Machine Name: " + machineName);
-                if (doc["data"].containsKey("device_secret")) {
-                    saveDeviceSecret(doc["data"]["device_secret"].as<String>());
-                }
-            }
-            // Fallback to old format (direct fields)
-            else if (doc.containsKey("machine_id")) {
-                machineId = doc["machine_id"].as<String>();
-                machineName = doc["machine_name"].as<String>();
-                Serial.println("✅ Machine ID: " + machineId);
-                Serial.println("✅ Machine Name: " + machineName);
-            }
+
+    if (code != 200) {
+        Serial.printf("❌ Machine identity lookup FAILED: HTTP code %d (server unreachable, timed out, or returned an error)\n", code);
+        return machineId;
+    }
+    if (responseBody.length() == 0) {
+        Serial.println("❌ Machine identity lookup FAILED: server returned 200 but an empty body");
+        return machineId;
+    }
+
+    DynamicJsonDocument doc(640);
+    DeserializationError err = deserializeJson(doc, responseBody);
+    if (err) {
+        Serial.printf("❌ Machine identity lookup FAILED: JSON parse error (%s)\n", err.c_str());
+        Serial.println("   Raw response (" + String(responseBody.length()) + " bytes): " + responseBody);
+        return machineId;
+    }
+
+    // Check if response has 'data' wrapper (new API format)
+    if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
+        machineId = doc["data"]["machine_id"].as<String>();
+        machineName = doc["data"]["machine_name"].as<String>();
+        Serial.println("✅ Machine ID: " + machineId);
+        Serial.println("✅ Machine Name: " + machineName);
+        if (doc["data"].containsKey("device_secret")) {
+            saveDeviceSecret(doc["data"]["device_secret"].as<String>());
         }
     }
-    
+    // Fallback to old format (direct fields)
+    else if (doc.containsKey("machine_id")) {
+        machineId = doc["machine_id"].as<String>();
+        machineName = doc["machine_name"].as<String>();
+        Serial.println("✅ Machine ID: " + machineId);
+        Serial.println("✅ Machine Name: " + machineName);
+    } else {
+        Serial.println("❌ Machine identity lookup FAILED: response parsed but had no machine_id field");
+        Serial.println("   Raw response: " + responseBody);
+    }
+
     return machineId;
 }
 
@@ -1002,16 +1019,19 @@ float measureNetworkSpeed() {
     // resolution here at no extra network cost instead of discarding the body.
     if (machineId == "UNKNOWN" || machineId.length() == 0) {
         DynamicJsonDocument doc(640);
-        if (!deserializeJson(doc, responseBody)) {
-            if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
-                machineId = doc["data"]["machine_id"].as<String>();
-                machineName = doc["data"]["machine_name"].as<String>();
-                Serial.println("✅ Resolved machineId via speed-test response: " + machineId);
-                if (doc["data"].containsKey("device_secret")) {
-                    saveDeviceSecret(doc["data"]["device_secret"].as<String>());
-                }
-                fetchMachineProducts();
+        DeserializationError err = deserializeJson(doc, responseBody);
+        if (err) {
+            Serial.printf("⚠ Self-heal machineId resolution FAILED: JSON parse error (%s), will retry next ping cycle\n", err.c_str());
+        } else if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
+            machineId = doc["data"]["machine_id"].as<String>();
+            machineName = doc["data"]["machine_name"].as<String>();
+            Serial.println("✅ Resolved machineId via speed-test response: " + machineId);
+            if (doc["data"].containsKey("device_secret")) {
+                saveDeviceSecret(doc["data"]["device_secret"].as<String>());
             }
+            fetchMachineProducts();
+        } else {
+            Serial.println("⚠ Self-heal machineId resolution FAILED: response had no machine_id field, will retry next ping cycle");
         }
     }
 
@@ -1027,7 +1047,7 @@ float measureNetworkSpeed() {
     return speedKBps; // Returns KB/s
 }
 
-void sendMachineStatusPing() {
+bool sendMachineStatusPing() {
     // Measure network speed and temperature
     float networkSpeed = measureNetworkSpeed();
     float temperature = getESP32Temperature();
@@ -1092,8 +1112,10 @@ void sendMachineStatusPing() {
                 }
             }
         }
+        return true;
     } else {
         Serial.printf("⚠ Machine ping failed: %d\n", code);
+        return false;
     }
 }
 
@@ -1875,6 +1897,54 @@ void startProvisioning() {
 
 // ==================== SETUP ====================
 
+// One line per check, ✅/❌/⚠ so a glance at the serial monitor tells you
+// exactly what did and didn't come up cleanly at boot, instead of having to
+// scroll back through the interleaved connection/fetch logs above it.
+void printStartupSummary(bool networkOk, const String& networkType, bool machineIdOk,
+                          bool productsOk, bool offlineSyncAttempted, bool pingOk) {
+    Serial.println("\n🏁 ===== STARTUP SUMMARY =====");
+
+    Serial.println(String("EEPROM & GPIO init:     ") + "✅ OK");
+
+    Serial.print("Device secret:          ");
+    Serial.println(deviceSecret.length() > 0
+        ? "✅ Loaded from NVS"
+        : "⚠ Not yet known (will be learned once machine identity resolves)");
+
+    Serial.print("MAC address:            ");
+    Serial.println(deviceMacAddress.length() > 0 ? "✅ " + deviceMacAddress : "❌ FAILED to read");
+
+    Serial.print("Network connection:     ");
+    Serial.println(networkOk ? "✅ " + networkType : "❌ FAILED (" + networkType + ")");
+
+    Serial.print("Machine identity:       ");
+    if (machineIdOk) {
+        Serial.println("✅ " + machineId + " (\"" + machineName + "\")");
+    } else {
+        Serial.println("❌ FAILED -- still UNKNOWN, server will silently drop this machine's pings until resolved");
+    }
+
+    Serial.print("Default product:        ");
+    Serial.println(productsOk ? "✅ " + defaultProductId : "❌ FAILED or skipped (needs machine identity first)");
+
+    Serial.print("Offline queue sync:      ");
+    Serial.println(offlineSyncAttempted
+        ? "✅ Attempted -- see log above for per-transaction results"
+        : "⏭ Not attempted on this boot path (Ethernet startup doesn't run it -- see syncOfflineTransactions callers)");
+
+    Serial.print("First status ping:      ");
+    Serial.println(pingOk ? "✅ Success" : "❌ FAILED -- server has no fresh stock/online data for this machine yet");
+
+    Serial.printf("Motor stock (EEPROM):    %d\n", readMotorStockFromEEPROM());
+    Serial.printf("Free heap after boot:    %d bytes (%.1f KB)\n", ESP.getFreeHeap(), ESP.getFreeHeap() / 1024.0);
+
+    bool allCriticalOk = networkOk && machineIdOk && pingOk;
+    Serial.println(allCriticalOk
+        ? "✅ Startup complete -- all critical checks passed"
+        : "⚠ Startup complete WITH FAILURES -- see ❌ lines above");
+    Serial.println("================================\n");
+}
+
 void setup() {
     Serial.begin(115200);
     Serial2.begin(9600, SERIAL_8N1, 16, 17);  // UNO SoftwareSerial on pins 2/3
@@ -1942,12 +2012,16 @@ void setup() {
         SERVER_BASE = ETHERNET_SERVER_BASE;
         feedWatchdog();  // Feed after Ethernet init
         fetchMachineInfoFromBackend(deviceMacAddress);
+        bool machineIdOk = (machineId != "UNKNOWN" && machineId.length() > 0);
         fetchMachineProducts();  // Get product_id for coin payments
+        bool productsOk = (defaultProductId.length() > 0);
         feedWatchdog();
 
-        sendMachineStatusPing();
+        bool pingOk = sendMachineStatusPing();
         lastPingTime = millis();
         sendStockAwareStatus();  // Show QR code on display
+
+        printStartupSummary(true, "Ethernet", machineIdOk, productsOk, false, pingOk);
         return;
     }
     Serial.println("⚠️ Ethernet not available, falling back to WiFi");
@@ -1974,25 +2048,31 @@ void setup() {
             Serial.println("✅ WiFi Connected");
             ensureWiFiStability();  // Apply WiFi stability optimizations
             digitalWrite(BLUE_LED_PIN, HIGH);
-            
+
             fetchMachineInfoFromBackend(deviceMacAddress);
+            bool machineIdOk = (machineId != "UNKNOWN" && machineId.length() > 0);
             fetchMachineProducts();  // Get product_id for coin payments
-            
+            bool productsOk = (defaultProductId.length() > 0);
+
             // Sync offline transactions on startup
             delay(2000);  // Give server time to be ready
             syncOfflineTransactions();
 
-            sendMachineStatusPing();
+            bool pingOk = sendMachineStatusPing();
             lastPingTime = millis();
             sendStockAwareStatus();
+
+            printStartupSummary(true, "WiFi", machineIdOk, productsOk, true, pingOk);
         } else {
             Serial.println("❌ WiFi connection failed");
             sendStockAwareErrorStatus();  // Show "No Internet" on display
+            printStartupSummary(false, "WiFi connect failed after 20 attempts", false, false, false, false);
             startProvisioning();
         }
     } else {
         Serial.println("❌ No WiFi credentials saved");
         sendStockAwareErrorStatus();  // Show "No Internet" on display
+        printStartupSummary(false, "No WiFi credentials saved and Ethernet unavailable", false, false, false, false);
         startProvisioning();
     }
 }
