@@ -21,7 +21,26 @@ import https from 'https';
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-chi.vercel.app';
 
+// Ethernet machines poll /api/payment_success every 4s. Caching per-URL here
+// (mirroring the jumphost nginx cache used for WiFi machines) means only 1 in
+// ~4 polls reaches Vercel, keeping free-plan usage down without touching
+// firmware or payment-detection latency.
+const PAYMENT_CACHE_TTL_MS = 15000;
+const paymentCache = new Map(); // url -> { status, headers, body, expiresAt }
+
 const server = http.createServer((req, res) => {
+  const cacheable = req.method === 'GET' && req.url.startsWith('/api/payment_success');
+
+  if (cacheable) {
+    const cached = paymentCache.get(req.url);
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`[Relay] ${req.method} ${req.url} -> cache HIT`);
+      res.writeHead(cached.status, cached.headers);
+      res.end(cached.body);
+      return;
+    }
+  }
+
   console.log(`[Relay] ${req.method} ${req.url} -> https://${UPSTREAM_HOST}`);
 
   const options = {
@@ -37,7 +56,25 @@ const server = http.createServer((req, res) => {
 
   const proxyReq = https.request(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res);
+
+    if (cacheable && proxyRes.statusCode === 200) {
+      const chunks = [];
+      proxyRes.on('data', (chunk) => {
+        chunks.push(chunk);
+        res.write(chunk);
+      });
+      proxyRes.on('end', () => {
+        paymentCache.set(req.url, {
+          status: proxyRes.statusCode,
+          headers: proxyRes.headers,
+          body: Buffer.concat(chunks),
+          expiresAt: Date.now() + PAYMENT_CACHE_TTL_MS,
+        });
+        res.end();
+      });
+    } else {
+      proxyRes.pipe(res);
+    }
   });
 
   proxyReq.on('error', (err) => {
