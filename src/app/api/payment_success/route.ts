@@ -59,6 +59,8 @@ export async function GET(request: NextRequest) {
       return noPendingPaymentResponse('Machine not registered');
     }
 
+    console.log(`💓 Payment poll: mac=${macAddress} machineId=${machine.machine_id} name="${machine.name}"`);
+
     // Payment polling is also proof that the machine is reachable. Refresh the
     // dashboard heartbeat here because the payment response may be served from
     // cache between polls, while keeping the ESP firmware unchanged.
