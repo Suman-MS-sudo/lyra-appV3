@@ -1,7 +1,7 @@
 # SSL Certificate Renewal Guide
 
 ## Current Certificate Info
-- **Domain**: lyra-app.co.in
+- **Domains**: lyra-app.co.in, www.lyra-app.co.in
 - **Issuer**: Let's Encrypt (E7)
 - **Expired On**: March 12, 2026
 - **Certificate ID**: 1e77f3b5c531cdb674aac90c27796b1d1f9728ca6971de1c97b38a020a025a93
@@ -24,7 +24,7 @@ sudo certbot certificates
 sudo certbot renew
 
 # OR manual renewal for specific domain
-sudo certbot certonly --nginx -d lyra-app.co.in
+sudo certbot certonly --nginx -d lyra-app.co.in -d www.lyra-app.co.in
 ```
 
 ### 4. Restart services
@@ -35,7 +35,7 @@ pm2 restart all
 
 ### 5. Verify new certificate
 ```bash
-echo | openssl s_client -servername lyra-app.co.in -connect lyra-app.co.in:443 2>/dev/null | openssl x509 -noout -enddate
+echo | openssl s_client -servername www.lyra-app.co.in -connect www.lyra-app.co.in:443 2>/dev/null | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
 ```
 
 ## Automatic Renewal Setup
