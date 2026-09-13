@@ -53,7 +53,18 @@
 #define COIN_PIN 27
 #define BLUE_LED_PIN 2
 #define RESET_PIN 21
-#define MOTOR1_ADDR 64
+// MOTOR1_ADDR used to be 64, which sits inside the WiFi password's storage
+// footprint (eepromWriteString(32, password, 64) can write as far as byte
+// 96) -- a password of 33+ characters gets its 33rd byte silently clobbered
+// by the very next motor dispense, corrupting the stored password for the
+// *next* reboot. Bytes 97-99 are the only ones genuinely untouched by SSID
+// (max reach: byte 32), Password (max reach: byte 96), and the transaction
+// queue (starts at byte 100) -- see readMotorStockFromEEPROM() for the
+// one-time migration that carries an already-deployed machine's real stock
+// count over from the old address instead of losing it.
+#define MOTOR1_ADDR 97
+#define MOTOR1_ADDR_LEGACY 64
+#define MOTOR1_MIGRATED_ADDR 98
 
 // Ethernet Module Pins - HARDWIRED ON PCB
 // Module: HANRUN HR911105A (ENC28J60 based)
@@ -65,8 +76,14 @@
 #define SPI_MOSI 23        // Master Out Slave In (SI on HR911105A)
 
 // ==================== OFFLINE TRANSACTION QUEUE ====================
-// EEPROM Layout: [0-31: SSID] [32-95: Password] [64: Motor Stock]
-//                [100: Queue Count] [101-255: Transaction Queue (15 slots)]
+// EEPROM Layout: [0-32: SSID] [32-96: Password] [97: Motor Stock]
+//                [98: Motor Stock Migrated Flag] [100: Queue Count]
+//                [101-255: Transaction Queue (15 slots)]
+// SSID and Password's ranges touch at byte 32 (SSID's redundant null
+// terminator can land there), but Password is always written immediately
+// after SSID in saveWiFiCredentials() so it's harmless in practice -- the
+// one thing to never do is write Password alone without also rewriting SSID
+// in the same call.
 #define QUEUE_COUNT_ADDR 100
 #define QUEUE_START_ADDR 101
 #define QUEUE_MAX_SIZE 15
@@ -290,6 +307,20 @@ void saveMotorStockToEEPROM(int count, String productId = "") {
 
 int readMotorStockFromEEPROM() {
     EEPROM.begin(EEPROM_SIZE);
+
+    if (EEPROM.read(MOTOR1_MIGRATED_ADDR) != 0xAA) {
+        // One-time migration off the old collision-prone address (see the
+        // #define comments above) -- carry over whatever real stock count
+        // is already stored there instead of losing it to a fresh, empty
+        // byte at the new address.
+        int legacyCount = EEPROM.read(MOTOR1_ADDR_LEGACY);
+        if (legacyCount < 0 || legacyCount > 25) legacyCount = 25;
+        EEPROM.write(MOTOR1_ADDR, legacyCount);
+        EEPROM.write(MOTOR1_MIGRATED_ADDR, 0xAA);
+        EEPROM.commit();
+        Serial.printf("🔧 Migrated motor stock off legacy EEPROM address: %d\n", legacyCount);
+    }
+
     int count = EEPROM.read(MOTOR1_ADDR);
     if (count < 0 || count > 25) count = 25;
     return count;
@@ -405,7 +436,9 @@ void syncOfflineTransactions() {
         }
         
         // Send coin payment to server
-        String payload = "{";
+        String payload;
+        payload.reserve(160);
+        payload += "{";
         payload += "\"machine_id\":\"" + machineId + "\",";
         payload += "\"product_id\":\"" + defaultProductId + "\",";
         payload += "\"amount_in_paisa\":" + String(tx.amountPaisa) + ",";
@@ -702,12 +735,20 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
         return -1;
     }
 
-    String req = String(method) + " " + path + " HTTP/1.1\r\n";
+    // This request builder runs on every single API call over Ethernet --
+    // payment polling alone calls it every 4s, forever. Arduino String's
+    // += reallocates and copies on nearly every append; reserving the
+    // expected size upfront turns that into a single allocation instead of
+    // several, which meaningfully cuts down on the heap fragmentation that
+    // otherwise builds up over days/weeks of uptime.
+    String req;
+    req.reserve(96 + host.length() + path.length() + machineId.length() + payload.length());
+    req = String(method) + " " + path + " HTTP/1.1\r\n";
     req += "Host: " + host + "\r\n";
     req += "Connection: close\r\n";
     req += "X-Machine-ID: " + machineId + "\r\n";
     req += "X-Firmware-Version: " + String(CURRENT_FIRMWARE_VERSION) + "\r\n";
-    
+
     if (method == "POST") {
         req += "Content-Type: application/json\r\n";
         req += "Content-Length: " + String(payload.length()) + "\r\n\r\n";
@@ -739,7 +780,8 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
     }
 
     bool headersEnded = false;
-    String body = "";
+    String body;
+    body.reserve(512); // Most responses here are small JSON; avoids repeated regrows via +=
     // A plain `while (ethClient.available())` exits the instant there's a
     // momentary gap with no buffered bytes yet -- over a real network
     // (especially this SPI-based ENC28J60 module clocked down to 4MHz) the
@@ -993,7 +1035,9 @@ void sendMachineStatusPing() {
     // Read current stock from EEPROM (source of truth)
     int currentStock = readMotorStockFromEEPROM();
     
-    String payload = "{";
+    String payload;
+    payload.reserve(224); // Called every ping cycle, forever -- avoid repeated regrows
+    payload += "{";
     payload += "\"machine_id\":\"" + machineId + "\",";
     payload += "\"firmware_version\":\"" + String(CURRENT_FIRMWARE_VERSION) + "\",";
     
@@ -1358,7 +1402,9 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
 }
 
 void notifyProductStockUpdate(const String& machine_id, const String& product_id, int quantity, String mode) {
-    String payload = "{";
+    String payload;
+    payload.reserve(128);
+    payload += "{";
     payload += "\"machine_id\":\"" + machine_id + "\",";
     payload += "\"product_id\":\"" + product_id + "\",";
     payload += "\"quantity\":" + String(quantity);
