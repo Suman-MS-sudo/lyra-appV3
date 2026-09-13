@@ -8,11 +8,11 @@ function noPendingPaymentResponse(message?: string) {
     ...(message ? { message } : {}),
   });
 
-  // ESP32 polls every four seconds. A short cache reduces duplicate empty
-  // polls while keeping payment delivery latency bounded.
+  // ESP32 polls every four seconds. Cache empty polls for at most 15 seconds
+  // to reduce origin work without exceeding the payment latency limit.
   response.headers.set(
     'Cache-Control',
-    'public, s-maxage=5, stale-while-revalidate=5'
+    'public, s-maxage=15, stale-while-revalidate=0'
   );
   return response;
 }
@@ -54,8 +54,6 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    console.log('MAC lookup:', { macAddress, machine, error: machineError?.message });
-
     // NOTE: We do NOT update last_ping here - only /api/machine-ping updates machine status
     // This prevents the machine from appearing "online" when it's actually offline
 
@@ -87,14 +85,8 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    console.log('Payment query result:', { 
-      pendingPayment: pendingPayment ? { id: pendingPayment.id, items: pendingPayment.items } : null, 
-      error: paymentError?.message 
-    });
-
     if (paymentError || !pendingPayment) {
       // No pending payments - default response
-      console.log('No pending payment found for machine:', machine.machine_id);
       return noPendingPaymentResponse();
     }
 
