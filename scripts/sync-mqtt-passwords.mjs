@@ -52,15 +52,16 @@ if (error) {
 console.log(`Syncing MQTT credentials for ${machines.length} machine(s)...`);
 
 // mosquitto_passwd -c (create/truncate) on the first entry, -b (batch, no
-// prompt) on every entry including the first.
-let first = !existsSync(PASSWORD_FILE);
+// prompt) on every entry including the first. -c and -b must be passed as
+// separate flags -- this build doesn't accept them combined as "-cb".
+const first = !existsSync(PASSWORD_FILE);
 execFileSync('mosquitto_passwd', [
-  first ? '-cb' : '-b',
+  ...(first ? ['-c'] : []),
+  '-b',
   PASSWORD_FILE,
   MQTT_SERVER_USERNAME,
   MQTT_SERVER_PASSWORD,
 ]);
-first = false;
 
 for (const m of machines) {
   execFileSync('mosquitto_passwd', ['-b', PASSWORD_FILE, m.id, m.device_secret]);
