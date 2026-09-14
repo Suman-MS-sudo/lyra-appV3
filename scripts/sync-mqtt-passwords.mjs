@@ -80,5 +80,17 @@ for (const m of machines) {
 
 writeFileSync(ACL_FILE, aclLines.join('\n'));
 
+// mosquitto_passwd (run as root, since only root can write into
+// /etc/mosquitto/) creates the password file as root:root -- the
+// mosquitto daemon itself runs as the unprivileged "mosquitto" user and
+// can't read a root-only file, so the broker fails to start until this is
+// fixed. Same reasoning for the ACL file we just wrote directly.
+try {
+  execFileSync('chown', ['mosquitto:mosquitto', PASSWORD_FILE, ACL_FILE]);
+  execFileSync('chmod', ['640', PASSWORD_FILE, ACL_FILE]);
+} catch {
+  console.warn(`⚠ Could not chown/chmod ${PASSWORD_FILE}/${ACL_FILE} for the mosquitto user -- run this script as root, or fix ownership manually: sudo chown mosquitto:mosquitto ${PASSWORD_FILE} ${ACL_FILE}`);
+}
+
 console.log(`Wrote ${PASSWORD_FILE} and ${ACL_FILE}.`);
-console.log('Reload Mosquitto for the ACL change to take effect: sudo systemctl reload mosquitto');
+console.log('Reload Mosquitto for the change to take effect: sudo systemctl reload mosquitto');
