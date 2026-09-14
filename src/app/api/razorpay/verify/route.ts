@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import Razorpay from 'razorpay';
+import { publishPaymentSuccess } from '@/lib/mqtt-publish';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     // Get machine details
     const { data: machine, error: machineError } = await serviceSupabase
       .from('vending_machines')
-      .select('id, customer_id, machine_id')
+      .select('id, customer_id, machine_id, name, mac_id, mqtt_payment_push')
       .eq('machine_id', machineId)
       .single();
 
@@ -118,6 +119,41 @@ export async function POST(request: NextRequest) {
         p_product_id: product.product_id,
         p_quantity: product.quantity,
       });
+    }
+
+    // Machines on the new MQTT-push firmware don't poll payment_success at
+    // all, so they'd never otherwise see this transaction -- push it, then
+    // mark dispensed here ourselves since no poll will come along to do it.
+    // Old machines (mqtt_payment_push=false, the default) are completely
+    // unaffected: dispensed stays false and the existing polling flow in
+    // /api/payment_success handles it exactly as it always has.
+    if (machine.mqtt_payment_push) {
+      try {
+        await publishPaymentSuccess(machine.id, {
+          status: 'success',
+          mac: machine.mac_id,
+          machineId: machine.id,
+          machineName: machine.name,
+          transactionId: transaction.id,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          amount: totalAmount,
+          products,
+          timestamp: transaction.created_at,
+        });
+
+        await serviceSupabase
+          .from('transactions')
+          .update({ dispensed: true, dispensed_at: new Date().toISOString() })
+          .eq('id', transaction.id);
+      } catch (mqttError) {
+        // Known gap: if the push itself fails (broker unreachable, device
+        // offline with no queued session, etc.) there's no polling fallback
+        // for an MQTT-only machine in this first pass -- the transaction
+        // stays dispensed=false with nothing to pick it up. Worth a retry/
+        // outbox mechanism if this turns out to happen in practice.
+        console.error('MQTT payment push failed:', mqttError);
+      }
     }
 
     return NextResponse.json({
