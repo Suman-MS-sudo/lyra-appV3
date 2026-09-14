@@ -31,6 +31,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
     product_type: machine.product_type || '',
     customer_id: machine.customer_id || '',
     rfid_enabled: !!machine.rfid_enabled,
+    mqtt_payment_push: !!machine.mqtt_payment_push,
     body_type: machine.body_type || 'single_motor',
   });
 
@@ -245,6 +246,19 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
             <span className="text-sm font-medium text-gray-700">Enable RFID card payments on this machine</span>
           </label>
           <p className="mt-1 ml-7 text-xs text-gray-500">Machine firmware must also be flashed with RFID-enabled firmware.</p>
+
+          <label className="flex items-center gap-3 pt-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formData.mqtt_payment_push}
+              onChange={(e) => setFormData({ ...formData, mqtt_payment_push: e.target.checked })}
+              className="w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
+            />
+            <span className="text-sm font-medium text-gray-700">Enable MQTT payment push on this machine</span>
+          </label>
+          <p className="mt-1 ml-7 text-xs text-gray-500">
+            Machine must be flashed with ESP32_IOT Code_MQTT.ino. When enabled, payments are pushed to the machine over MQTT instead of the machine polling for them — do not enable this for a machine still running the legacy polling firmware, it will stop receiving payments entirely.
+          </p>
         </div>
 
         {/* Body Type */}

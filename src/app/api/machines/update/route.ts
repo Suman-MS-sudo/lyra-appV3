@@ -23,6 +23,7 @@ export async function PUT(request: NextRequest) {
       product_type,
       customer_id,
       rfid_enabled,
+      mqtt_payment_push,
       body_type
     } = body;
 
@@ -88,6 +89,10 @@ export async function PUT(request: NextRequest) {
 
     if (rfid_enabled !== undefined) {
       updateData.rfid_enabled = !!rfid_enabled;
+    }
+
+    if (mqtt_payment_push !== undefined) {
+      updateData.mqtt_payment_push = !!mqtt_payment_push;
     }
 
     if (body_type !== undefined) {
