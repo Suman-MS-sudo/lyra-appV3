@@ -18,11 +18,10 @@
 #include <Preferences.h>
 #include "esp_ota_ops.h"
 #include "mbedtls/sha256.h"
-// OTA checksum verification below uses the _ret-suffixed mbedtls sha256 API
-// (mbedtls_sha256_starts_ret etc). This matches ESP32 Arduino core 2.x
-// (mbedtls 2.x); on core 3.x (mbedtls 3.x) these are deprecated aliases and
-// should still compile, but if your exact toolchain removed them, drop the
-// _ret suffix from those three call sites in performOTAUpdate().
+// OTA checksum verification below uses the plain (non-_ret-suffixed)
+// mbedtls sha256 API. ESP32 core 2.x (mbedtls 2.x) exposes both names via
+// a _ret-suffixed compatibility alias; core 3.x (mbedtls 3.x) has dropped
+// that alias, so the plain names are the ones that compile on both.
 #include <SPI.h>
 #include <esp_task_wdt.h>
 
@@ -65,7 +64,7 @@
 // transport, which is every real machine in this fleet today; add a WiFi
 // PubSubClient instance later if that ever changes.
 #define USE_MQTT_PAYMENT_PUSH
-#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+#if defined(USE_MQTT_PAYMENT_PUSH)
   #include <PubSubClient.h>
   #define MQTT_BROKER_HOST "lyra-app.co.in"
   #define MQTT_BROKER_PORT 1883
@@ -178,14 +177,25 @@ void markOtaBootValidIfNeeded() {
 // sits earlier in the file than that definition.
 void handlePaymentDocument(JsonObject doc);
 
-#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+#if defined(USE_MQTT_PAYMENT_PUSH)
 // ==================== MQTT PAYMENT PUSH ====================
-// Separate EthernetClient from the one HTTP polling uses (ethClient) --
-// MQTT needs a long-lived, exclusively-owned connection, and sharing a
-// socket between that and the short, one-off HTTP requests would corrupt
-// both. ENC28J60 has few concurrent sockets but two is well within budget.
+// This machine can end up running over either transport -- Ethernet is
+// preferred (see setup()), but falls back to WiFi whenever the Ethernet
+// module isn't detected/wired, same as the HTTP polling path always could.
+// PubSubClient needs a concrete Client& to wrap, so we keep one dedicated
+// instance per transport (separate from ethClient/HTTP's own WiFiClientSecure
+// -- MQTT needs a long-lived, exclusively-owned connection, and sharing a
+// socket with short one-off HTTP requests would corrupt both) and switch
+// which one mqttClient is bound to via setClient() based on whichever
+// transport actually came up this boot.
+extern bool useEthernet;
+extern bool ethernetConnected;
+
+#ifdef USE_ETHERNET
 EthernetClient mqttEthClient;
-PubSubClient mqttClient(mqttEthClient);
+#endif
+WiFiClient mqttWifiClient;
+PubSubClient mqttClient(mqttWifiClient); // rebound to the right transport in maintainMqttConnection()
 unsigned long lastMqttReconnectAttempt = 0;
 
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
@@ -215,6 +225,16 @@ void maintainMqttConnection() {
 
     if (millis() - lastMqttReconnectAttempt < 5000) return; // backoff between attempts
     lastMqttReconnectAttempt = millis();
+
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        mqttClient.setClient(mqttEthClient);
+    } else {
+        mqttClient.setClient(mqttWifiClient);
+    }
+#else
+    mqttClient.setClient(mqttWifiClient);
+#endif
 
     mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
     mqttClient.setCallback(onMqttMessage);
@@ -1301,7 +1321,7 @@ bool performOTAUpdateHTTPS(const String& url, mbedtls_sha256_context* shaCtx) {
             size_t toRead = (avail < sizeof(buf)) ? avail : sizeof(buf);
             int readBytes = stream->readBytes(buf, toRead);
             if (readBytes > 0) {
-                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
@@ -1427,7 +1447,7 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
             int toRead = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
             int readBytes = ethClient.read(buf, toRead);
             if (readBytes > 0) {
-                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
@@ -1479,7 +1499,7 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
 
     mbedtls_sha256_context shaCtx;
     mbedtls_sha256_init(&shaCtx);
-    mbedtls_sha256_starts_ret(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
+    mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
 
     bool ok;
 #ifdef USE_ETHERNET
@@ -1499,7 +1519,7 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
     }
 
     unsigned char hash[32];
-    mbedtls_sha256_finish_ret(&shaCtx, hash);
+    mbedtls_sha256_finish(&shaCtx, hash);
     mbedtls_sha256_free(&shaCtx);
 
     char hashHex[65];
@@ -2330,9 +2350,10 @@ void loop() {
         ESP.restart();
     }
     
-#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+#if defined(USE_MQTT_PAYMENT_PUSH)
     // Payments arrive via MQTT push instead -- no polling at all for a
-    // machine built with this flag on.
+    // machine built with this flag on. maintainMqttConnection() picks
+    // whichever transport (Ethernet or WiFi) is actually up this boot.
     maintainMqttConnection();
 #else
     // Payment polling every 4 seconds

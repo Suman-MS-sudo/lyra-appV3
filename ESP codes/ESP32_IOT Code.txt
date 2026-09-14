@@ -18,11 +18,10 @@
 #include <Preferences.h>
 #include "esp_ota_ops.h"
 #include "mbedtls/sha256.h"
-// OTA checksum verification below uses the _ret-suffixed mbedtls sha256 API
-// (mbedtls_sha256_starts_ret etc). This matches ESP32 Arduino core 2.x
-// (mbedtls 2.x); on core 3.x (mbedtls 3.x) these are deprecated aliases and
-// should still compile, but if your exact toolchain removed them, drop the
-// _ret suffix from those three call sites in performOTAUpdate().
+// OTA checksum verification below uses the plain (non-_ret-suffixed)
+// mbedtls sha256 API. ESP32 core 2.x (mbedtls 2.x) exposes both names via
+// a _ret-suffixed compatibility alias; core 3.x (mbedtls 3.x) has dropped
+// that alias, so the plain names are the ones that compile on both.
 #include <SPI.h>
 #include <esp_task_wdt.h>
 
@@ -1192,7 +1191,7 @@ bool performOTAUpdateHTTPS(const String& url, mbedtls_sha256_context* shaCtx) {
             size_t toRead = (avail < sizeof(buf)) ? avail : sizeof(buf);
             int readBytes = stream->readBytes(buf, toRead);
             if (readBytes > 0) {
-                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
@@ -1318,7 +1317,7 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
             int toRead = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
             int readBytes = ethClient.read(buf, toRead);
             if (readBytes > 0) {
-                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
@@ -1370,7 +1369,7 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
 
     mbedtls_sha256_context shaCtx;
     mbedtls_sha256_init(&shaCtx);
-    mbedtls_sha256_starts_ret(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
+    mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
 
     bool ok;
 #ifdef USE_ETHERNET
@@ -1390,7 +1389,7 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
     }
 
     unsigned char hash[32];
-    mbedtls_sha256_finish_ret(&shaCtx, hash);
+    mbedtls_sha256_finish(&shaCtx, hash);
     mbedtls_sha256_free(&shaCtx);
 
     char hashHex[65];

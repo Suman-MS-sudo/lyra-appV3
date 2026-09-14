@@ -129,6 +129,21 @@ export async function POST(request: NextRequest) {
     // /api/payment_success handles it exactly as it always has.
     if (machine.mqtt_payment_push) {
       try {
+        // Firmware's handlePaymentDocument() reads each item as
+        // item["product"]["id"]/["name"] -- the raw `products` from the
+        // request body is flat (product_id/name/price/quantity), so it has
+        // to be remapped into that nested shape before publishing, same as
+        // /api/payment_success already does for the HTTP-polling path.
+        const productsForFirmware = products.map((p: any) => ({
+          product: {
+            id: p.product_id || 0,
+            name: p.name || 'Unknown Product',
+            description: p.description || '',
+          },
+          quantity: p.quantity || 1,
+          price: parseFloat(p.price || 0),
+        }));
+
         await publishPaymentSuccess(machine.id, {
           status: 'success',
           mac: machine.mac_id,
@@ -138,7 +153,7 @@ export async function POST(request: NextRequest) {
           razorpayOrderId: razorpay_order_id,
           razorpayPaymentId: razorpay_payment_id,
           amount: totalAmount,
-          products,
+          products: productsForFirmware,
           timestamp: transaction.created_at,
         });
 
