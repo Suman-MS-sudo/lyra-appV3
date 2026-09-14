@@ -26,6 +26,25 @@
 #include <SPI.h>
 #include <esp_task_wdt.h>
 
+// ============================================================================
+// ESP32_IOT Code_MQTT.ino
+//
+// MQTT-based variant of the Lyra vending machine firmware. Payments are
+// PUSHED to this machine over MQTT the instant they succeed, instead of
+// this machine polling /api/payment_success every few seconds like the
+// original ESP32_IOT Code.txt does. Everything else (dispensing, stock
+// sync, OTA, offline queue, provisioning) is identical to that file --
+// this only replaces the payment-detection mechanism.
+//
+// Requires: the DB row for this machine has vending_machines.mqtt_payment_push
+// set to true (see /api/razorpay/verify), and the "PubSubClient" library
+// (Nick O'Leary) installed via Arduino Library Manager.
+//
+// Do NOT flash this onto a machine whose DB row still has
+// mqtt_payment_push = false -- it would stop polling for payments with no
+// push arriving either, silently never dispensing anything paid for.
+// ============================================================================
+
 // Ethernet library selection
 // Comment out to disable Ethernet support
 #define USE_ETHERNET
@@ -38,6 +57,18 @@
   #else
     #include <Ethernet.h>
   #endif
+#endif
+
+// ==================== MQTT PAYMENT PUSH ====================
+// Always on in this file (unlike ESP32_IOT Code.txt, where this same code
+// exists behind a flag that defaults off). Scoped to the Ethernet
+// transport, which is every real machine in this fleet today; add a WiFi
+// PubSubClient instance later if that ever changes.
+#define USE_MQTT_PAYMENT_PUSH
+#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+  #include <PubSubClient.h>
+  #define MQTT_BROKER_HOST "lyra-app.co.in"
+  #define MQTT_BROKER_PORT 1883
 #endif
 
 // ==================== FIRMWARE VERSION ====================
@@ -141,6 +172,75 @@ void markOtaBootValidIfNeeded() {
     otaBootValidated = true;
     Serial.println("✅ OTA partition marked valid (rollback cancelled)");
 }
+
+// Defined much later in the file (with the rest of the payment-handling
+// code); declared here because the MQTT block below needs to call it and
+// sits earlier in the file than that definition.
+void handlePaymentDocument(JsonObject doc);
+
+#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+// ==================== MQTT PAYMENT PUSH ====================
+// Separate EthernetClient from the one HTTP polling uses (ethClient) --
+// MQTT needs a long-lived, exclusively-owned connection, and sharing a
+// socket between that and the short, one-off HTTP requests would corrupt
+// both. ENC28J60 has few concurrent sockets but two is well within budget.
+EthernetClient mqttEthClient;
+PubSubClient mqttClient(mqttEthClient);
+unsigned long lastMqttReconnectAttempt = 0;
+
+void onMqttMessage(char* topic, byte* payload, unsigned int length) {
+    Serial.printf("📩 MQTT message on %s (%u bytes)\n", topic, length);
+
+    DynamicJsonDocument doc(2048); // same size budget as listenForOnlinePayment's HTTP parse
+    DeserializationError err = deserializeJson(doc, payload, length);
+    if (err) {
+        Serial.printf("❌ MQTT payload parse error: %s\n", err.c_str());
+        return;
+    }
+
+    // Reuses the exact same handler the HTTP polling path feeds --
+    // identical payload shape, so dispensing logic isn't duplicated.
+    handlePaymentDocument(doc.as<JsonObject>());
+}
+
+void maintainMqttConnection() {
+    if (deviceSecret.length() == 0 || machineId == "UNKNOWN" || machineId.length() == 0) {
+        return; // Nothing to authenticate with yet -- resolved during identity lookup
+    }
+
+    if (mqttClient.connected()) {
+        mqttClient.loop();
+        return;
+    }
+
+    if (millis() - lastMqttReconnectAttempt < 5000) return; // backoff between attempts
+    lastMqttReconnectAttempt = millis();
+
+    mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
+    mqttClient.setCallback(onMqttMessage);
+
+    Serial.println("🔌 Connecting to MQTT broker...");
+    // Persistent session (cleanSession=false, the final `false` below) so
+    // QoS-1 messages published while this device was briefly disconnected
+    // get queued at the broker and redelivered on reconnect, instead of
+    // silently lost.
+    bool ok = mqttClient.connect(
+        machineId.c_str(),        // client ID
+        machineId.c_str(),        // username
+        deviceSecret.c_str(),     // password
+        nullptr, 0, false, nullptr, // no LWT
+        false                      // cleanSession
+    );
+
+    if (ok) {
+        String topic = "lyra/machines/" + machineId + "/payment";
+        mqttClient.subscribe(topic.c_str(), 1); // QoS 1
+        Serial.println("✅ MQTT connected, subscribed to " + topic);
+    } else {
+        Serial.printf("⚠ MQTT connect failed, rc=%d (will retry)\n", mqttClient.state());
+    }
+}
+#endif
 
 // Server configuration
 String SERVER_BASE = "https://lyra-app.co.in";  // Production HTTPS server
@@ -2221,6 +2321,11 @@ void loop() {
         ESP.restart();
     }
     
+#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+    // Payments arrive via MQTT push instead -- no polling at all for a
+    // machine built with this flag on.
+    maintainMqttConnection();
+#else
     // Payment polling every 4 seconds
     static unsigned long lastPaymentCheck = 0;
     if (millis() - lastPaymentCheck > 4000) {
@@ -2232,6 +2337,7 @@ void loop() {
         }
         lastPaymentCheck = millis();
     }
+#endif
     
     // Status ping every 2 minutes
     if (millis() - lastPingTime > 120000) {
