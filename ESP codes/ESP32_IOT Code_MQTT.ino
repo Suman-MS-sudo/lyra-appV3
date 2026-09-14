@@ -218,6 +218,15 @@ void maintainMqttConnection() {
 
     mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
     mqttClient.setCallback(onMqttMessage);
+    // PubSubClient's default MQTT_MAX_PACKET_SIZE is 256 bytes -- our
+    // payment payload mirrors the full payment_success response
+    // (transaction/order/payment IDs, machine name, a products array with
+    // names/prices/quantities), which any multi-item order can easily
+    // exceed. Over that limit the library silently fails to buffer/deliver
+    // the message. Match the size of the JsonDocument onMqttMessage parses
+    // into, so nothing we could receive gets dropped before it even
+    // reaches JSON parsing.
+    mqttClient.setBufferSize(2048);
 
     Serial.println("🔌 Connecting to MQTT broker...");
     // Persistent session (cleanSession=false, the final `false` below) so
