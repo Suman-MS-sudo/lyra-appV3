@@ -26,7 +26,7 @@ export default async function FirmwarePage() {
 
   const { data: versions } = await serviceSupabase
     .from('firmware_versions')
-    .select('id, version, filename, sha256, size_bytes, notes, created_at')
+    .select('id, version, filename, sha256, size_bytes, notes, created_at, archived_at, compatible_body_type')
     .order('created_at', { ascending: false });
 
   const { data: rawMachines } = await serviceSupabase

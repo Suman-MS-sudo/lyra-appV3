@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
+import { createOrReplacePendingDeployments } from '@/lib/firmware-deploy';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -18,7 +19,11 @@ export async function POST(request: NextRequest) {
   if (profile?.role !== 'admin') return errorResponse('Admin access required', 'FORBIDDEN', 403);
 
   const body = await request.json();
-  const { firmware_version_id, machine_ids } = body as { firmware_version_id?: string; machine_ids?: string[] };
+  const { firmware_version_id, machine_ids, force } = body as {
+    firmware_version_id?: string;
+    machine_ids?: string[];
+    force?: boolean;
+  };
 
   if (!firmware_version_id) return errorResponse('firmware_version_id is required', 'MISSING_FIRMWARE_VERSION', 400);
   if (!Array.isArray(machine_ids) || machine_ids.length === 0) {
@@ -27,65 +32,40 @@ export async function POST(request: NextRequest) {
 
   const { data: firmwareVersion } = await service
     .from('firmware_versions')
-    .select('id')
+    .select('id, archived_at, compatible_body_type')
     .eq('id', firmware_version_id)
     .maybeSingle();
 
   if (!firmwareVersion) return errorResponse('Firmware version not found', 'FIRMWARE_NOT_FOUND', 404);
 
-  // Deploying again to an already-pending machine replaces its pending
-  // deployment rather than stacking a second one. The DB enforces this with
-  // a partial unique index (only among status='pending' rows), which
-  // supabase-js's upsert can't target directly (it can't express the WHERE
-  // predicate), so do it as an explicit update-existing / insert-new split.
-  const now = new Date().toISOString();
-
-  const { data: existingPending } = await service
-    .from('firmware_deployments')
-    .select('id, machine_id')
-    .eq('status', 'pending')
-    .in('machine_id', machine_ids);
-
-  const existingByMachine = new Map((existingPending ?? []).map((d) => [d.machine_id, d.id]));
-  const toUpdateIds = machine_ids.filter((id) => existingByMachine.has(id)).map((id) => existingByMachine.get(id)!);
-  const toInsert = machine_ids.filter((id) => !existingByMachine.has(id));
-
-  const results: unknown[] = [];
-
-  if (toUpdateIds.length > 0) {
-    const { data: updated, error: updateError } = await service
-      .from('firmware_deployments')
-      .update({
-        firmware_version_id,
-        error_message: null,
-        requested_by: user.id,
-        requested_at: now,
-        applied_at: null,
-        updated_at: now,
-      })
-      .in('id', toUpdateIds)
-      .select();
-
-    if (updateError) return errorResponse(updateError.message, 'DEPLOY_UPDATE_FAILED', 500);
-    results.push(...(updated ?? []));
+  if (firmwareVersion.archived_at) {
+    return errorResponse('This firmware version is archived and cannot be deployed', 'FIRMWARE_ARCHIVED', 409);
   }
 
-  if (toInsert.length > 0) {
-    const { data: inserted, error: insertError } = await service
-      .from('firmware_deployments')
-      .insert(toInsert.map((machine_id) => ({
-        firmware_version_id,
-        machine_id,
-        status: 'pending' as const,
-        requested_by: user.id,
-        requested_at: now,
-        updated_at: now,
-      })))
-      .select();
+  if (firmwareVersion.compatible_body_type && !force) {
+    const { data: incompatible } = await service
+      .from('vending_machines')
+      .select('id, name, body_type')
+      .in('id', machine_ids)
+      .neq('body_type', firmwareVersion.compatible_body_type);
 
-    if (insertError) return errorResponse(insertError.message, 'DEPLOY_INSERT_FAILED', 500);
-    results.push(...(inserted ?? []));
+    if (incompatible && incompatible.length > 0) {
+      const names = incompatible.map((m) => `${m.name} (${m.body_type})`).join(', ');
+      return errorResponse(
+        `This build is tagged for ${firmwareVersion.compatible_body_type} only -- incompatible: ${names}`,
+        'INCOMPATIBLE_BODY_TYPE',
+        409
+      );
+    }
   }
+
+  const { results, error } = await createOrReplacePendingDeployments(service, {
+    firmwareVersionId: firmware_version_id,
+    machineIds: machine_ids,
+    requestedBy: user.id,
+  });
+
+  if (error) return errorResponse(error, 'DEPLOY_FAILED', 500);
 
   return successResponse(results);
 }
