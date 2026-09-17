@@ -1,0 +1,713 @@
+#include <Wire.h>
+#include <RTClib.h>          // Adafruit RTClib - install via Library Manager
+#include <LiquidCrystal_I2C.h> // install "LiquidCrystal I2C" via Library Manager
+#include <Preferences.h>
+#include <WiFi.h>
+#include <WebServer.h>
+
+// --- Identity ---
+#define MACHINE_ID "LYRA-NAPKIN-01"
+#define FIRMWARE_VERSION "1.1.0"
+
+// --- Pins ---
+#define VEND_BUTTON 13   // press to dispense a napkin
+#define RESET_PIN 14     // hold ~2s to refill stock
+#define WIFI_BUTTON 32   // press to open WiFi hotspot dashboard
+#define RELAY_PIN 27     // controls the motor
+#define STATUS_LED 4      // internal/admin indicator, not visible to users: on = has stock, off = empty
+#define USER_LED 5        // user-facing indicator: solid = ready, slow blink = empty, fast blink = dispensing
+// DS3231 uses I2C: SDA -> GPIO21, SCL -> GPIO22 (ESP32 default I2C pins)
+// NOTE: GPIO6-11 are wired to the internal flash chip - never use them for I/O.
+// GPIO0, 2, 12, 15 are boot-strapping pins - avoided here to prevent boot issues.
+
+// --- Settings ---
+#define MAX_STOCK 25
+#define DEBOUNCE_MS 40
+#define VEND_RUN_MS 2850
+#define MOTOR_TEST_MS 800          // brief pulse for manual motor test, doesn't touch stock
+#define MAX_DAYS_KEPT 90           // oldest days drop off the manifest past this
+#define WIFI_TIMEOUT_MS 300000UL   // auto-shutoff hotspot after 5 min
+#define REFILL_HOLD_MS 2000        // hold reset button this long to confirm refill
+#define MOTOR_TEST_HOLD_MS 3000    // hold vend+reset together this long for a motor test
+#define VEND_COOLDOWN_MS 1200      // minimum gap enforced between two vends
+#define ABUSE_WINDOW_MS 20000      // abuse detection window - must exceed ABUSE_MAX_PRESSES * VEND_RUN_MS,
+                                   // since each real vend blocks for VEND_RUN_MS before the next press can register
+#define ABUSE_MAX_PRESSES 5        // this many vend presses inside the window = lockout
+#define ABUSE_LOCKOUT_MS 60000     // vending disabled for this long after abuse is detected
+#define MAINTENANCE_INTERVAL 500   // vend cycles between service reminders
+#define ACCESS_LOG_MAX 20          // how many hotspot-open events to remember
+#define COMBO_SUPPRESS_MS 400      // ignore vend presses this long around a combo-hold entry/exit
+
+const char* AP_SSID = MACHINE_ID; // tags the hotspot itself so multiple units are distinguishable
+const char* AP_PASSWORD = "napkin123"; // change this
+
+RTC_DS3231 rtc;
+LiquidCrystal_I2C lcd(0x27, 16, 2); // shares the RTC's I2C bus (SDA21/SCL22); try 0x3F if 0x27 shows nothing
+Preferences prefs;
+WebServer server(80);
+
+int stock = 0;
+uint16_t todayCount = 0;
+String todayKey;            // "YYYYMMDD" for the day currently being counted
+uint32_t firstVendEpoch = 0; // 0 = no vend yet today
+uint32_t lastVendEpoch = 0;
+
+uint32_t totalVendedEver = 0;
+uint32_t motorCycles = 0;
+uint32_t maintCycles = 0;
+uint32_t rebootCount = 0;
+uint32_t abuseEvents = 0;
+bool rtcLowBattery = false;
+String lastRefillDate = "";
+uint16_t hourCounts[24];
+
+unsigned long resetHoldStart = 0;
+bool resetHoldTriggered = false;
+unsigned long comboHoldStart = 0;
+bool comboTriggered = false;
+bool comboWasActive = false;
+unsigned long comboSuppressUntil = 0;
+unsigned long vendLockedUntil = 0;
+unsigned long lastVendMillis = 0;
+unsigned long pressTimes[ABUSE_MAX_PRESSES] = {0};
+int pressIndex = 0;
+
+void setup() {
+    pinMode(VEND_BUTTON, INPUT_PULLUP);
+    pinMode(RESET_PIN, INPUT_PULLUP);
+    pinMode(WIFI_BUTTON, INPUT_PULLUP);
+    pinMode(RELAY_PIN, OUTPUT);
+    pinMode(STATUS_LED, OUTPUT);
+    pinMode(USER_LED, OUTPUT);
+    digitalWrite(RELAY_PIN, LOW);
+
+    Wire.begin();
+    lcd.init();
+    lcd.backlight();
+    lcdMsg("LYRA ENTERPRISES", "Napkin Dispenser");
+    delay(1800);
+
+    if (!rtc.begin()) {
+        // RTC not found/wired - blink LED and show it on the display so it's obvious at install time
+        lcdMsg("LYRA - HW ERROR", "RTC Not Found");
+        while (true) {
+            digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
+            delay(150);
+        }
+    }
+    if (rtc.lostPower()) {
+        // Only true on first power-up or after the coin cell dies.
+        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        rtcLowBattery = true; // sticky warning, cleared only via /clear_rtc_warning
+    }
+
+    prefs.begin("napkin", false);
+    stock = prefs.getUChar("stock", MAX_STOCK);
+    if (stock > MAX_STOCK) stock = prefs.getUChar("stock_bak", MAX_STOCK); // corrupted primary, fall back
+
+    totalVendedEver = prefs.getUInt("totalEver", 0);
+    motorCycles = prefs.getUInt("motorCycles", 0);
+    maintCycles = prefs.getUInt("maintCycles", 0);
+    abuseEvents = prefs.getUInt("abuseEvents", 0);
+    rtcLowBattery = rtcLowBattery || prefs.getBool("rtcLowBatt", false);
+    lastRefillDate = prefs.getString("lastRefill", "");
+
+    rebootCount = prefs.getUInt("rebootCount", 0) + 1;
+    prefs.putUInt("rebootCount", rebootCount);
+
+    for (int h = 0; h < 24; h++) {
+        hourCounts[h] = prefs.getUShort(("h" + String(h)).c_str(), 0);
+    }
+
+    todayKey = dateKey(rtc.now());
+    todayCount = prefs.getUShort(("c" + todayKey).c_str(), 0);
+    firstVendEpoch = prefs.getUInt(("f" + todayKey).c_str(), 0);
+    lastVendEpoch = prefs.getUInt(("l" + todayKey).c_str(), 0);
+
+    digitalWrite(STATUS_LED, stock > 0 ? HIGH : LOW);
+    updateUserLed();
+}
+
+// Writes two lines to the 16x2 LCD, clearing first. Both lines must be <=16 chars.
+void lcdMsg(const char* line1, const char* line2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(line1);
+    lcd.setCursor(0, 1);
+    lcd.print(line2);
+}
+
+// Branded idle screen: "LYRA - Ready"/stock, or "LYRA Enterprises"/"OUT OF STOCK" when empty.
+// Only rewrites when something actually changed, so it doesn't flicker every loop() tick.
+// lcdIdleDirty forces a redraw once (e.g. right after the WiFi screen was showing something else).
+int lcdLastStock = -1;
+bool lcdLastEmpty = false;
+bool lcdIdleDirty = true;
+
+void lcdIdle() {
+    bool empty = (stock == 0);
+    if (!lcdIdleDirty && stock == lcdLastStock && empty == lcdLastEmpty) return;
+    lcdLastStock = stock;
+    lcdLastEmpty = empty;
+    lcdIdleDirty = false;
+
+    if (empty) {
+        lcdMsg("LYRA Enterprises", "OUT OF STOCK");
+    } else {
+        char line2[17];
+        snprintf(line2, sizeof(line2), "Stock: %d/%d", stock, MAX_STOCK);
+        lcdMsg("LYRA - Ready", line2);
+    }
+}
+
+// User-facing LED: solid = ready, slow blink = empty, (fast blink is driven separately during dispensing).
+void updateUserLed() {
+    if (stock == 0) {
+        digitalWrite(USER_LED, (millis() / 500) % 2);
+    } else {
+        digitalWrite(USER_LED, HIGH);
+    }
+}
+
+void loop() {
+    checkDayRollover();
+    updateUserLed();
+    lcdIdle();
+    handlePhysicalButtons();
+
+    if (wasPressed(WIFI_BUTTON)) {
+        saveAll();
+        runWifiExport();
+    }
+}
+
+// Vend/refill/motor-test button logic - shared by loop() and the WiFi dashboard's loop,
+// so the machine keeps working normally for customers while an admin is browsing the dashboard.
+void handlePhysicalButtons() {
+    bool vendDown = digitalRead(VEND_BUTTON) == LOW;
+    bool resetDown = digitalRead(RESET_PIN) == LOW;
+    bool comboActiveNow = vendDown && resetDown;
+
+    // Human fingers can't touch two separate wires/buttons at the exact same instant,
+    // so there's always a brief moment on entry AND exit of a combo hold where only one
+    // button reads down - that moment looks identical to a real single vend press.
+    // Suppress vend-triggering around any combo interaction to avoid an accidental real vend.
+    if (comboActiveNow) {
+        comboSuppressUntil = millis() + COMBO_SUPPRESS_MS;
+        comboWasActive = true;
+    } else if (comboWasActive) {
+        comboSuppressUntil = millis() + COMBO_SUPPRESS_MS;
+        comboWasActive = false;
+    }
+
+    // Always poll wasPressed() so its debounce timer stays current even while the
+    // combo branch is active below - otherwise releasing one button mid-combo while
+    // still holding the other can be misread as a fresh vend press. See vendJustPressed use below.
+    bool vendJustPressed = wasPressed(VEND_BUTTON);
+
+    if (comboActiveNow) {
+        // Combo hold = manual motor test, doesn't touch stock.
+        if (comboHoldStart == 0) comboHoldStart = millis();
+        if (!comboTriggered && millis() - comboHoldStart >= MOTOR_TEST_HOLD_MS) {
+            comboTriggered = true;
+            runMotorTest();
+        }
+        resetHoldStart = 0;
+        resetHoldTriggered = false;
+    } else {
+        comboHoldStart = 0;
+        comboTriggered = false;
+
+        // Hold-to-confirm refill (prevents accidental single-tap refills).
+        if (resetDown) {
+            if (resetHoldStart == 0) resetHoldStart = millis();
+            if (!resetHoldTriggered && millis() - resetHoldStart >= REFILL_HOLD_MS) {
+                resetHoldTriggered = true;
+                refillStock();
+            }
+        } else {
+            resetHoldStart = 0;
+            resetHoldTriggered = false;
+        }
+
+        if (vendJustPressed && millis() >= comboSuppressUntil) {
+            vendNapkin();
+        }
+    }
+}
+
+// If the real date has changed since we last checked, close out yesterday's record.
+void checkDayRollover() {
+    String nowKey = dateKey(rtc.now());
+    if (nowKey != todayKey) {
+        saveAll();
+        prefs.putUChar(("s" + todayKey).c_str(), stock);          // stock at day end
+        prefs.putUInt(("f" + todayKey).c_str(), firstVendEpoch);  // first vend time
+        prefs.putUInt(("l" + todayKey).c_str(), lastVendEpoch);   // last vend time
+        addToManifest(todayKey);
+
+        todayKey = nowKey;
+        todayCount = 0;
+        firstVendEpoch = 0;
+        lastVendEpoch = 0;
+
+        // re-check the RTC's own health once a day
+        if (rtc.lostPower()) {
+            rtcLowBattery = true;
+            prefs.putBool("rtcLowBatt", true);
+        }
+    }
+}
+
+String dateKey(DateTime dt) {
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%04d%02d%02d", dt.year(), dt.month(), dt.day());
+    return String(buf);
+}
+
+DateTime parseDateKey(const String& key) {
+    int y = key.substring(0, 4).toInt();
+    int mo = key.substring(4, 6).toInt();
+    int d = key.substring(6, 8).toInt();
+    return DateTime(y, mo, d, 0, 0, 0);
+}
+
+String hhmm(uint32_t epoch) {
+    if (epoch == 0) return "-";
+    DateTime dt(epoch);
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%02d:%02d", dt.hour(), dt.minute());
+    return String(buf);
+}
+
+void refillStock() {
+    stock = MAX_STOCK;
+    lastRefillDate = todayKey;
+    prefs.putString("lastRefill", lastRefillDate);
+    appendLog("refillLog", rtc.now().unixtime());
+    saveAll();
+    digitalWrite(STATUS_LED, HIGH);
+    updateUserLed();
+
+    char line2[17];
+    snprintf(line2, sizeof(line2), "Stock: %d/%d", stock, MAX_STOCK);
+    lcdMsg("LYRA - Refilled!", line2);
+    delay(1200);
+}
+
+void runMotorTest() {
+    lcdMsg("LYRA - Testing", "Motor Running...");
+    digitalWrite(RELAY_PIN, HIGH);
+    delay(MOTOR_TEST_MS);
+    digitalWrite(RELAY_PIN, LOW);
+}
+
+void vendNapkin() {
+    unsigned long now = millis();
+    if (now < vendLockedUntil) {
+        char line2[17];
+        snprintf(line2, sizeof(line2), "Wait %lus", (vendLockedUntil - now) / 1000 + 1);
+        lcdMsg("LYRA - Locked", line2);
+        return;
+    }
+    if (now - lastVendMillis < VEND_COOLDOWN_MS) return; // cooldown guard
+    if (stock == 0) {
+        lcdMsg("LYRA Enterprises", "OUT OF STOCK");
+        return;
+    }
+
+    // Abuse detection: if the last ABUSE_MAX_PRESSES vends all happened within the window, lock out.
+    pressTimes[pressIndex] = now;
+    pressIndex = (pressIndex + 1) % ABUSE_MAX_PRESSES;
+    bool allRecent = true;
+    for (int i = 0; i < ABUSE_MAX_PRESSES; i++) {
+        if (pressTimes[i] == 0 || now - pressTimes[i] > ABUSE_WINDOW_MS) { allRecent = false; break; }
+    }
+    if (allRecent) {
+        vendLockedUntil = now + ABUSE_LOCKOUT_MS;
+        abuseEvents++;
+        prefs.putUInt("abuseEvents", abuseEvents);
+        lcdMsg("LYRA - Too Fast!", "Locked 60s");
+        return;
+    }
+
+    lcdMsg("LYRA Dispensing", "Please wait...");
+    digitalWrite(RELAY_PIN, HIGH);
+    unsigned long vendStart = millis();
+    while (millis() - vendStart < VEND_RUN_MS) {
+        digitalWrite(USER_LED, (millis() / 150) % 2); // fast blink = dispensing, please wait
+        delay(10);
+    }
+    digitalWrite(RELAY_PIN, LOW);
+
+    stock--;
+    todayCount++;
+    totalVendedEver++;
+    motorCycles++;
+    maintCycles++;
+    lastVendMillis = now;
+
+    DateTime nowDt = rtc.now();
+    if (firstVendEpoch == 0) {
+        firstVendEpoch = nowDt.unixtime();
+        prefs.putUInt(("f" + todayKey).c_str(), firstVendEpoch);
+    }
+    lastVendEpoch = nowDt.unixtime();
+    prefs.putUInt(("l" + todayKey).c_str(), lastVendEpoch);
+    // Persisted immediately (not just at day-rollover) so a reboot mid-day doesn't lose today's
+    // first/last vend timestamps - todayCount already worked this way, these two didn't.
+
+    int h = nowDt.hour();
+    hourCounts[h]++;
+    prefs.putUShort(("h" + String(h)).c_str(), hourCounts[h]);
+
+    saveAll();
+
+    if (stock == 0) {
+        digitalWrite(STATUS_LED, LOW);
+        lcdMsg("LYRA - Enjoy!", "OUT OF STOCK");
+    } else {
+        char line2[17];
+        snprintf(line2, sizeof(line2), "Stock: %d/%d", stock, MAX_STOCK);
+        lcdMsg("LYRA - Enjoy!", line2);
+    }
+    delay(1200);
+    updateUserLed();
+}
+
+void saveAll() {
+    prefs.putUChar("stock", stock);
+    prefs.putUChar("stock_bak", stock);
+    prefs.putUShort(("c" + todayKey).c_str(), todayCount);
+    prefs.putUInt("totalEver", totalVendedEver);
+    prefs.putUInt("motorCycles", motorCycles);
+    prefs.putUInt("maintCycles", maintCycles);
+}
+
+// Keeps a comma-separated list of the last MAX_DAYS_KEPT date keys, so we know
+// which per-day entries exist (NVS has no built-in "list all keys" call).
+void addToManifest(const String& key) {
+    String manifest = prefs.getString("manifest", "");
+    if (manifest.indexOf(key) != -1) return;
+
+    manifest += key + ",";
+
+    int count = 0;
+    for (unsigned int i = 0; i < manifest.length(); i++) if (manifest[i] == ',') count++;
+    while (count > MAX_DAYS_KEPT) {
+        int comma = manifest.indexOf(',');
+        String oldKey = manifest.substring(0, comma);
+        prefs.remove(("c" + oldKey).c_str());
+        prefs.remove(("s" + oldKey).c_str());
+        prefs.remove(("f" + oldKey).c_str());
+        prefs.remove(("l" + oldKey).c_str());
+        manifest = manifest.substring(comma + 1);
+        count--;
+    }
+
+    prefs.putString("manifest", manifest);
+}
+
+// Appends a timestamp to a capped log list stored under `key` (used for hotspot access log).
+void appendLog(const char* key, uint32_t epoch) {
+    String log = prefs.getString(key, "");
+    log += String(epoch) + ",";
+
+    int count = 0;
+    for (unsigned int i = 0; i < log.length(); i++) if (log[i] == ',') count++;
+    while (count > ACCESS_LOG_MAX) {
+        int comma = log.indexOf(',');
+        log = log.substring(comma + 1);
+        count--;
+    }
+    prefs.putString(key, log);
+}
+
+// Returns the date-key list from the manifest as an array, oldest first. Caller provides storage.
+int loadManifestKeys(String* out, int maxOut) {
+    String manifest = prefs.getString("manifest", "");
+    int total = 0;
+    int start = 0;
+    while (start < (int)manifest.length()) {
+        int comma = manifest.indexOf(',', start);
+        if (comma == -1) break;
+        if (total < maxOut) out[total] = manifest.substring(start, comma);
+        total++;
+        start = comma + 1;
+    }
+    return total;
+}
+
+// Sums transaction counts over the last n completed days, optionally including today.
+long sumLastNDays(int n, bool includeToday) {
+    String keys[MAX_DAYS_KEPT];
+    int total = loadManifestKeys(keys, MAX_DAYS_KEPT);
+
+    long sum = includeToday ? todayCount : 0;
+    int from = total - n;
+    if (from < 0) from = 0;
+    for (int i = from; i < total; i++) {
+        sum += prefs.getUShort(("c" + keys[i]).c_str(), 0);
+    }
+    return sum;
+}
+
+// Counts how many of the last n days ended with zero stock (machine was empty at some point that day).
+int daysEmptyLastNDays(int n) {
+    String keys[MAX_DAYS_KEPT];
+    int total = loadManifestKeys(keys, MAX_DAYS_KEPT);
+    int from = total - n;
+    if (from < 0) from = 0;
+
+    int emptyDays = 0;
+    for (int i = from; i < total; i++) {
+        if (prefs.getUChar(("s" + keys[i]).c_str(), 1) == 0) emptyDays++;
+    }
+    if (stock == 0) emptyDays++; // count today too if currently empty
+    return emptyDays;
+}
+
+// Returns the last `count` epoch timestamps from a capped log (used for refill/access history).
+String formatRecentLog(const char* key, int count) {
+    String log = prefs.getString(key, "");
+    String entries[ACCESS_LOG_MAX + 1];
+    int total = 0, start = 0;
+    while (start < (int)log.length()) {
+        int comma = log.indexOf(',', start);
+        if (comma == -1) break;
+        if (total <= ACCESS_LOG_MAX) entries[total] = log.substring(start, comma);
+        total++;
+        start = comma + 1;
+    }
+    int from = total - count > 0 ? total - count : 0;
+    String out = "";
+    for (int i = total - 1; i >= from; i--) { // newest first
+        DateTime dt((uint32_t)entries[i].toInt());
+        char buf[20];
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", dt.year(), dt.month(), dt.day(), dt.hour(), dt.minute());
+        out += "<div class='row'>" + String(buf) + "</div>";
+    }
+    if (out.length() == 0) out = "<div class='row muted'>None yet</div>";
+    return out;
+}
+
+int daysSinceRefill() {
+    if (lastRefillDate.length() == 0) return -1;
+    TimeSpan diff = rtc.now() - parseDateKey(lastRefillDate);
+    return diff.days();
+}
+
+bool wasPressed(int pin) {
+    static unsigned long lastPressTime[40] = {0};
+    if (digitalRead(pin) == LOW && millis() - lastPressTime[pin] > DEBOUNCE_MS) {
+        lastPressTime[pin] = millis();
+        return true;
+    }
+    return false;
+}
+
+// --- WiFi dashboard + CSV export ---
+// Starts a hotspot; connect to it and open http://192.168.4.1/
+void runWifiExport() {
+    WiFi.softAP(AP_SSID, AP_PASSWORD);
+    appendLog("accessLog", rtc.now().unixtime());
+    lcdMsg("LYRA - WiFi On", "192.168.4.1");
+
+    server.on("/", []() {
+        int dsr = daysSinceRefill();
+        String stockStatus = stock == 0 ? "EMPTY" : "OK";
+        bool maintDue = maintCycles >= MAINTENANCE_INTERVAL;
+        String lockStatus = millis() < vendLockedUntil
+            ? "LOCKED (" + String((vendLockedUntil - millis()) / 1000) + "s remaining)"
+            : "normal";
+
+        String recentAccess = formatRecentLog("accessLog", ACCESS_LOG_MAX);
+        String recentRefills = formatRecentLog("refillLog", ACCESS_LOG_MAX);
+        int emptyDays30 = daysEmptyLastNDays(30);
+
+        uint16_t maxHourCount = 1; // avoid div-by-zero; min bar height still shows via CSS floor
+        for (int h = 0; h < 24; h++) if (hourCounts[h] > maxHourCount) maxHourCount = hourCounts[h];
+
+        // Single shared <style> block - cheaper to send than per-element inline styles,
+        // and keeps the body markup below short (matters for ESP32 heap while building this String).
+        String html =
+            "<html><head>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+            "<style>"
+            "*{box-sizing:border-box}"
+            "body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f7f8;margin:0;"
+                "padding:16px 16px 90px;color:#12313a}"
+            ".container{max-width:900px;margin:0 auto}"
+            ".topbar{display:flex;align-items:center;gap:12px;margin-bottom:16px}"
+            ".logo{width:42px;height:42px;flex-shrink:0;border-radius:11px;color:#fff;font-weight:800;"
+                "font-size:20px;display:flex;align-items:center;justify-content:center;"
+                "background:linear-gradient(135deg,#0a5c5c,#0fae7a)}"
+            ".mark{font-weight:800;font-size:21px;letter-spacing:1px;color:#0a5c5c;line-height:1.15}"
+            ".tagline{font-size:11.5px;color:#5b7676}"
+            ".verbadge{margin-left:auto;font-size:10.5px;color:#93a5a5;text-align:right;line-height:1.4}"
+            "#status{font-size:12px;color:#0a5c5c;background:#e3f2f0;display:inline-block;"
+                "padding:4px 10px;border-radius:12px;margin-bottom:14px}"
+            ".grid{display:grid;grid-template-columns:1fr;gap:12px}"
+            "@media(min-width:680px){.grid{grid-template-columns:1fr 1fr}.grid .full{grid-column:1/-1}}"
+            ".card{background:#fff;border-radius:12px;padding:14px 16px;"
+                "box-shadow:0 1px 3px rgba(0,0,0,0.08)}"
+            ".card h4{margin:0 0 8px;font-size:12.5px;text-transform:uppercase;letter-spacing:0.6px;"
+                "color:#5b7676}"
+            ".card p{margin:4px 0;font-size:14px;line-height:1.5}"
+            ".stat{font-size:28px;font-weight:700;color:#0a5c5c}"
+            ".badge-ok{color:#0a8f5c;font-weight:600}"
+            ".badge-warn{color:#c0392b;font-weight:600}"
+            "a.link{color:#0a5c5c;font-weight:600;text-decoration:none}"
+            ".btn{display:inline-block;background:#0a8f5c;color:#fff;padding:8px 14px;"
+                "border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;border:none}"
+            ".fab{position:fixed;bottom:20px;right:20px;background:#0a5c5c;color:#fff;border:none;"
+                "padding:13px 20px;border-radius:26px;font-weight:700;font-size:14px;"
+                "box-shadow:0 3px 10px rgba(0,0,0,0.25)}"
+            ".modal{display:none;position:fixed;inset:0;background:rgba(10,30,30,0.6);"
+                "align-items:center;justify-content:center;padding:20px}"
+            ".modal .box{background:#fff;padding:22px;border-radius:14px;max-width:320px;text-align:center}"
+            ".list{max-height:172px;overflow-y:auto;margin:0 -4px}"
+            ".row{padding:7px 4px;font-size:13px;border-bottom:1px solid #eef2f2}"
+            ".row:last-child{border-bottom:none}"
+            ".row.muted{color:#93a5a5}"
+            ".barchart{display:flex;align-items:flex-end;gap:2px;height:64px;"
+                "background:#f4f7f8;border-radius:8px;padding:6px 4px}"
+            ".bar{flex:1;min-width:0;background:#0a8f5c;border-radius:2px 2px 0 0}"
+            ".barlabels{display:flex;justify-content:space-between;font-size:10px;"
+                "color:#93a5a5;margin-top:4px;padding:0 2px}"
+            "</style></head><body><div class='container'>"
+            "<div class='topbar'><div class='logo'>L</div>"
+            "<div><div class='mark'>LYRA</div><div class='tagline'>Built for Women's Dignity</div></div>"
+            "<div class='verbadge'>" MACHINE_ID "<br>v" FIRMWARE_VERSION "</div></div>"
+            "<p id='status'>Syncing time...</p><div class='grid'>";
+
+        html += "<div class='card'><h4>Stock</h4>"
+            "<p class='stat'>" + String(stock) + " <span style='font-size:14px;color:#5b7676'>/ " + String(MAX_STOCK)
+                + " &middot; <span class='" + (stock == 0 ? "badge-warn'>EMPTY" : "badge-ok'>OK") + "</span></span></p>"
+            "<p>Days since last refill: " + String(dsr < 0 ? String("unknown") : String(dsr)) + "</p>"
+            "<p>Days empty (last 30 days): " + String(emptyDays30) + "</p></div>";
+
+        html += "<div class='card'><h4>Usage</h4>"
+            "<p>Today: <b>" + String(todayCount) + "</b></p>"
+            "<p>7d: " + String(sumLastNDays(7, true)) + " &middot; 30d: " + String(sumLastNDays(30, true))
+              + " &middot; Lifetime: " + String(totalVendedEver) + "</p></div>";
+
+        html += "<div class='card'><h4>Recent refills</h4><div class='list'>" + recentRefills + "</div></div>";
+
+        html += "<div class='card'><h4>Recent hotspot access</h4><div class='list'>" + recentAccess + "</div></div>";
+
+        html += "<div class='card'><h4>Machine health</h4>"
+            "<p>Motor cycles: " + String(motorCycles)
+              + (maintDue ? " <span class='badge-warn'>SERVICE DUE</span>" : " <span class='badge-ok'>ok</span>") + "</p>"
+            "<p>Reboot count: " + String(rebootCount) + "</p>"
+            "<p>RTC battery: " + (rtcLowBattery ? "<span class='badge-warn'>LOW - replace coin cell</span>" : "<span class='badge-ok'>ok</span>") + "</p>"
+            "<p>Vend abuse events: " + String(abuseEvents) + " &middot; Lock: " + lockStatus + "</p></div>";
+
+        html += "<div class='card full'><h4>Peak hours (lifetime, by hour of day)</h4><div class='barchart'>";
+        for (int h = 0; h < 24; h++) {
+            int pct = max(6, (int)(hourCounts[h] * 100L / maxHourCount)); // floor so a zero-count bar is still visible
+            html += "<div class='bar' style='height:" + String(pct) + "%' title='" + String(h) + "h: " + String(hourCounts[h]) + "'></div>";
+        }
+        html += "</div><div class='barlabels'><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div></div>";
+
+        html += "<div class='card full'>";
+        if (maintDue) html += "<p><a class='link' href='/ack_maintenance'>Mark serviced (reset counter)</a></p>";
+        html += "<p><a class='btn' href='/usage.csv'>Download usage.csv</a></p></div>";
+
+        html += "</div></div>"; // .grid .container
+
+        html += "<button class='fab' onclick=\"document.getElementById('helpModal').style.display='flex'\">Help</button>";
+        html += "<div id='helpModal' class='modal'><div class='box'>"
+            "<p><b>This machine's Wi-Fi has no internet.</b></p>"
+            "<p>To open the help site, switch off this Wi-Fi (or connect to your mobile data) "
+            "in your phone's settings, then tap Continue.</p>"
+            "<p><a class='btn' href='https://lyraenterprise.co.in/' target='_blank' rel='noopener'>Continue</a></p>"
+            "<p><a class='link' href='#' onclick=\"document.getElementById('helpModal').style.display='none';return false;\">Cancel</a></p>"
+            "</div></div>";
+
+        html += "<script>"
+            "fetch('/settime?epoch=' + Math.floor(Date.now()/1000) + "
+                "'&tzoff=' + (-new Date().getTimezoneOffset()*60))"
+            ".then(r=>r.text()).then(t=>document.getElementById('status').innerText=t);"
+            "</script></body></html>";
+        server.sendHeader("Cache-Control", "no-store");
+        server.send(200, "text/html", html);
+    });
+
+    server.on("/settime", []() {
+        if (!server.hasArg("epoch")) {
+            server.send(400, "text/plain", "Missing epoch");
+            return;
+        }
+        time_t epoch = server.arg("epoch").toInt();
+        long tzOffset = server.hasArg("tzoff") ? server.arg("tzoff").toInt() : 0;
+        // Sanity-check the phone's clock before trusting it - roughly 2023-2033.
+        // Rejects garbage/zero values that would otherwise corrupt every date-based feature.
+        if (epoch < 1700000000L || epoch > 2000000000L) {
+            server.send(400, "text/plain", "Rejected: phone's clock looks wrong");
+            return;
+        }
+        rtc.adjust(DateTime(epoch + tzOffset));
+        rtcLowBattery = false;
+        prefs.putBool("rtcLowBatt", false);
+        checkDayRollover();
+        server.send(200, "text/plain", "Clock synced to phone time");
+    });
+
+    server.on("/ack_maintenance", []() {
+        maintCycles = 0;
+        prefs.putUInt("maintCycles", 0);
+        server.send(200, "text/html", "Maintenance counter reset. <a href='/'>Back</a>");
+    });
+
+    server.on("/usage.csv", []() {
+        String csv = "# machine_id," MACHINE_ID "\n";
+        csv += "# firmware," FIRMWARE_VERSION "\n";
+        csv += "# lifetime_total," + String(totalVendedEver) + "\n";
+        csv += "# motor_cycles," + String(motorCycles) + "\n";
+        csv += "# reboot_count," + String(rebootCount) + "\n";
+        csv += "# rtc_low_battery," + String(rtcLowBattery ? 1 : 0) + "\n";
+        csv += "# abuse_events," + String(abuseEvents) + "\n";
+        csv += "# maintenance_due," + String(maintCycles >= MAINTENANCE_INTERVAL ? 1 : 0) + "\n";
+        csv += "# days_since_refill," + String(daysSinceRefill()) + "\n";
+        csv += "# days_empty_last_30," + String(daysEmptyLastNDays(30)) + "\n";
+        csv += "# hourly_histogram(0-23),";
+        for (int h = 0; h < 24; h++) {
+            csv += String(hourCounts[h]) + (h < 23 ? ";" : "");
+        }
+        csv += "\n";
+        csv += "date,transactions,stock_at_end,first_vend_time,last_vend_time\n";
+
+        String keys[MAX_DAYS_KEPT];
+        int total = loadManifestKeys(keys, MAX_DAYS_KEPT);
+        for (int i = 0; i < total; i++) {
+            String k = keys[i];
+            uint16_t count = prefs.getUShort(("c" + k).c_str(), 0);
+            uint8_t stockEnd = prefs.getUChar(("s" + k).c_str(), 0);
+            uint32_t firstE = prefs.getUInt(("f" + k).c_str(), 0);
+            uint32_t lastE = prefs.getUInt(("l" + k).c_str(), 0);
+            csv += k + "," + String(count) + "," + String(stockEnd) + "," + hhmm(firstE) + "," + hhmm(lastE) + "\n";
+        }
+        csv += todayKey + "," + String(todayCount) + "," + String(stock) + ","
+             + hhmm(firstVendEpoch) + "," + hhmm(lastVendEpoch) + " (today, in progress)\n";
+
+        server.sendHeader("Cache-Control", "no-store"); // browsers must not reuse a stale export after a reboot/update
+        server.send(200, "text/csv", csv);
+    });
+
+    server.begin();
+
+    unsigned long start = millis();
+    while (millis() - start < WIFI_TIMEOUT_MS) {
+        server.handleClient();
+        checkDayRollover();
+        updateUserLed();
+        handlePhysicalButtons(); // machine keeps vending normally while the dashboard is open
+        if (wasPressed(WIFI_BUTTON)) break;
+    }
+
+    server.stop();
+    WiFi.softAPdisconnect(true);
+    digitalWrite(STATUS_LED, stock > 0 ? HIGH : LOW);
+    lcdIdleDirty = true; // force the idle screen to redraw over the WiFi message
+}
