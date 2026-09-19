@@ -111,7 +111,7 @@
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "RFID-SINGLE35-V1.0.0"
+#define CURRENT_FIRMWARE_VERSION "RFID-SINGLE35-V1.0.3"
 #define BODY_TYPE "single_motor_35"
 
 // ==================== WATCHDOG CONFIGURATION ====================
@@ -2283,6 +2283,14 @@ void performOtaUpdate(const String& deploymentId, const String& firmwareVersion,
     unsigned long lastByteAt = millis();
     bool writeError = false;
 
+    // Coarse 5% steps -- fine enough to actually see progress moving, but
+    // not so fine that a 1MB transfer (~2000 chunks at 512 bytes each)
+    // spends noticeable time redrawing the LCD (a full clear+resync4bit
+    // handshake per lcdMsg() call) or spamming the serial log once per
+    // chunk. -1 so the very first 0%/starting chunk always prints once.
+    int lastReportedPercent = -1;
+    unsigned long lastProgressLogAt = millis();
+
     while (totalWritten < (size_t)contentLength) {
         int avail = ethClient.available();
         if (avail == 0) {
@@ -2306,6 +2314,21 @@ void performOtaUpdate(const String& deploymentId, const String& firmwareVersion,
                 break;
             }
             totalWritten += n;
+
+            int percent = (int)((totalWritten * 100) / (size_t)contentLength);
+            if (percent >= lastReportedPercent + 5 || (percent == 100 && lastReportedPercent != 100)) {
+                lastReportedPercent = percent;
+                Serial.printf("OTA download: %d%% (%u/%ld bytes)\n", percent, (unsigned)totalWritten, contentLength);
+                lcdMsg("Updating " + String(percent) + "%", "Do not power off");
+                lastProgressLogAt = millis();
+            } else if (millis() - lastProgressLogAt > 4000) {
+                // Between 5%-steps on a slow link, a silent multi-second gap
+                // looks identical to a genuine stall from the serial log
+                // alone -- a periodic "still going" line makes that
+                // distinguishable without waiting for the next full step.
+                Serial.printf("OTA download: still going, %d%% (%u/%ld bytes)\n", percent, (unsigned)totalWritten, contentLength);
+                lastProgressLogAt = millis();
+            }
         }
         feedWatchdog();
     }
@@ -2316,10 +2339,15 @@ void performOtaUpdate(const String& deploymentId, const String& firmwareVersion,
         Serial.printf("OTA download incomplete (%u/%ld bytes) — aborting, staying on current firmware\n", (unsigned)totalWritten, contentLength);
         mbedtls_sha256_free(&shaCtx);
         Update.abort();
+        lcdMsg("Update Failed", "Download error");
         reportFirmwareStatus(deploymentId, "failed", "incomplete_download");
+        delay(2000);
         sendStockAwareStatus();
         return;
     }
+
+    Serial.println("OTA download complete, verifying checksum...");
+    lcdMsg("Verifying...", "Checking update");
 
     unsigned char hash[32];
     mbedtls_sha256_finish(&shaCtx, hash);
@@ -2336,19 +2364,27 @@ void performOtaUpdate(const String& deploymentId, const String& firmwareVersion,
     if (expectedLower.length() > 0 && computedSha256 != expectedLower) {
         Serial.println("OTA: checksum mismatch — expected " + expectedLower + ", computed " + computedSha256);
         Update.abort();
+        lcdMsg("Update Failed", "Checksum error");
         reportFirmwareStatus(deploymentId, "failed", "checksum_mismatch");
+        delay(2000);
         sendStockAwareStatus();
         return;
     }
 
+    Serial.println("OTA checksum OK, installing...");
+    lcdMsg("Installing...", "Please wait");
+
     if (!Update.end(true) || Update.hasError()) {
         Serial.printf("OTA verification failed (%s) — staying on current firmware\n", Update.errorString());
+        lcdMsg("Update Failed", "Install error");
         reportFirmwareStatus(deploymentId, "failed", "flash_finalize_failed");
+        delay(2000);
         sendStockAwareStatus();
         return;
     }
 
     Serial.println("OTA flashed and verified successfully — rebooting into " + firmwareVersion);
+    lcdMsg("Update OK!", "Rebooting...");
     reportFirmwareStatus(deploymentId, "applied");
     File flag = LittleFS.open(OTA_CONFIRM_FLAG_FILE, "w");
     if (flag) { flag.print("1"); flag.close(); }
