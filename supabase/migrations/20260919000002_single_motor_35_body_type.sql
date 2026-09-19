@@ -9,6 +9,15 @@ ALTER TABLE vending_machines
     ADD CONSTRAINT vending_machines_body_type_check
     CHECK (body_type IN ('single_motor', 'single_motor_35', 'quad_motor'));
 
+-- 20260915100000_firmware_ota_enterprise.sql (which adds this column) was
+-- apparently never actually applied to this database -- ADD COLUMN IF NOT
+-- EXISTS here so this migration is self-sufficient either way, instead of
+-- assuming that earlier one already ran.
+ALTER TABLE firmware_versions
+    ADD COLUMN IF NOT EXISTS archived_at timestamptz,
+    ADD COLUMN IF NOT EXISTS compatible_body_type text;
+COMMENT ON COLUMN firmware_versions.archived_at IS 'When set, this version is hidden from the deploy picker but keeps its deployment history intact';
+
 ALTER TABLE firmware_versions DROP CONSTRAINT IF EXISTS firmware_versions_compatible_body_type_check;
 ALTER TABLE firmware_versions
     ADD CONSTRAINT firmware_versions_compatible_body_type_check

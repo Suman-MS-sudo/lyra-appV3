@@ -6,7 +6,7 @@
 // counter).
 //
 // Hardware:
-//   RFID reader: MFRC522, SS=GPIO27, RST=GPIO15, shared SPI bus (SCK18/MISO19/MOSI23)
+//   RFID reader: MFRC522, SS=GPIO15, RST=GPIO27, shared SPI bus (SCK18/MISO19/MOSI23)
 //   Display: HW-61 1602A LCD (16x2, PCF8574 I2C backpack), SDA=GPIO21, SCL=GPIO22,
 //            I2C addr 0x27 (try 0x3F if blank)
 //   Library: "LiquidCrystal I2C" by Frank de Brabander (install via Library Manager)
@@ -38,6 +38,15 @@
 // twice before either syncs) can overspend past its true balance — there's
 // no distributed consensus here, the server just clamps and logs the
 // shortfall for admin visibility on reconciliation.
+//
+// Card roster scale: sized for rosters in the thousands (e.g. a client
+// with 1500+ employee cards), not just a handful. /cards.jsonl on flash
+// holds the whole roster, but it's never loaded into RAM at once — the
+// download streams straight to that file and every lookup/update scans it
+// one line at a time, holding only a single record in memory regardless of
+// roster size. See the OFFLINE CARD CACHE section below for why (a roster
+// that large is well past what the ESP32's RAM could hold as one parsed
+// JSON document).
 
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -51,6 +60,9 @@
 #include <esp_task_wdt.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <Update.h>       // OTA UPDATE section — streams a firmware .bin into flash
+#include "esp_ota_ops.h"  // partition inspection + self-rollback for a bad OTA build
+#include "mbedtls/sha256.h"  // OTA download integrity check — /api/firmware-download's binary is verified against firmware_versions.sha256
 
 // Ethernet — module: HANRUN HR911105A (ENC28J60-based), shares the
 // RFID/LCD SPI bus (SCK18/MISO19/MOSI23) via its own CS line. This is the
@@ -63,7 +75,7 @@
 // REQUIRES library-side fixes (none of these can be done from the sketch
 // with a #define — each lives in a separately-compiled library .cpp/.h, so
 // a sketch-level macro never reaches the #ifndef guards below). Reapply all
-// three if the UIPEthernet library is ever reinstalled/updated, or this
+// four if the UIPEthernet library is ever reinstalled/updated, or this
 // firmware WILL go back to hanging at boot on flaky/absent Ethernet:
 //   1. utility/Enc28J60Network.cpp, Enc28J60Network::sendPacket(): the
 //      `while (((eir = readReg(EIR)) & (EIR_TXIF | EIR_TXERIF)) == 0);`
@@ -85,15 +97,46 @@
 //      timers close the connection — seen hanging indefinitely on
 //      "Connecting to <host>..." with no OK/Failed ever printed. Set to 5
 //      (seconds).
+//   4. utility/Enc28J60Network.h/.cpp: hardcoded every internal SPI call to
+//      the global `SPI` object (`extern SPIClass SPI;`), with no way to
+//      point this library at a different SPI peripheral. Added a
+//      `enc28j60SPI` pointer (defaults to &SPI, so unpatched behavior is
+//      unchanged) plus `Enc28J60Network::setSPI(SPIClass&)`, and replaced
+//      every bare `SPI.` call in Enc28J60Network.cpp with `enc28j60SPI->`.
+//      Lets this sketch give Ethernet its own dedicated hardware SPI bus
+//      (ESP32's HSPI, via the global `ethSPI` below) instead of sharing
+//      RFID's bus (VSPI) — see ETHERNET_SCK/MISO/MOSI and the
+//      Enc28J60Network::setSPI(ethSPI) call in setup().
 #include <UIPEthernet.h>
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "RFID-SINGLE-V2.0.0"
-#define BODY_TYPE "single_motor"
+#define CURRENT_FIRMWARE_VERSION "RFID-SINGLE35-V1.0.0"
+#define BODY_TYPE "single_motor_35"
 
 // ==================== WATCHDOG CONFIGURATION ====================
-#define WDT_TIMEOUT 1800  // seconds (30 minutes)
+// Was 1800 (30 minutes) — far too long for a deployed vending machine: if
+// loop() ever genuinely hangs (e.g. an unresponsive ENC28J60/UIPEthernet
+// call that never returns — observed in the field after extended use,
+// requiring a manual power-cycle to recover), the machine would sit dead
+// for up to half an hour with no customer able to use it and no one
+// necessarily around to notice, let alone restart it. 60s is short enough
+// to self-recover quickly, and safe against false positives now that every
+// chained multi-request sequence (setup()'s and checkForEthernetRecovery()'s
+// online bring-up, dispenseSequence()) feeds the watchdog between each
+// individual step instead of only at the very end — no single step in this
+// firmware legitimately blocks anywhere near that long on its own (worst
+// case is a single HTTP request, bounded to ~11s by makeEthernetHTTPRequest()'s
+// own connect/response timeouts).
+#define WDT_TIMEOUT 60  // seconds
+
+// ==================== TESTING: RFID DISABLED ====================
+// Keeps the RFID reader fully idle (no PCD_Init, no periodic reinit, no tap
+// polling) so the shared SPI bus is free for Ethernet bring-up/testing with
+// no interference. RFID_SS is still held HIGH (deasserted) once at boot so
+// a floating CS line can't inject noise onto the bus. Comment this out to
+// restore normal RFID operation once Ethernet is confirmed working.
+// #define DISABLE_RFID_FOR_TESTING
 
 // ==================== PIN DEFINITIONS ====================
 #define EEPROM_SIZE 256
@@ -102,8 +145,8 @@
 #define RESET_PIN 13   // GPIO21 is taken by the LCD's I2C SDA
 
 // RFID reader (MFRC522)
-#define RFID_SS   27
-#define RFID_RST  15
+#define RFID_SS   15
+#define RFID_RST  27
 #define SPI_SCK   18
 #define SPI_MISO  19
 #define SPI_MOSI  23
@@ -113,18 +156,37 @@
 #define LCD_SCL      22
 #define LCD_I2C_ADDR 0x27   // try 0x3F if blank
 
-// Ethernet module CS line. NOTE: unlike the coin-machine PCB (CS hardwired
-// to GPIO22), this RFID board has never carried an Ethernet module before —
-// GPIO22 is already taken by the LCD's I2C SCL here, so it can't be reused.
-// GPIO17 is free on this variant; verify it matches your actual wiring
-// before flashing a board that has the Ethernet module attached (use the
-// "scan-eth" serial command to find the right pin if unsure).
+// Ethernet gets its own dedicated SPI peripheral (ESP32's second hardware
+// SPI bus, HSPI) on its own physical SCK/MISO/MOSI pins — genuinely
+// independent of the RFID reader's bus (SPI_SCK/MISO/MOSI above), not just
+// a different CS on the same wires. This requires the UIPEthernet library
+// to be patched (utility/Enc28J60Network.h/.cpp) to accept an injectable
+// SPIClass instead of hardcoding the global `SPI` object — see
+// Enc28J60Network::setSPI(), called once in setup() below. Reapply that
+// patch if UIPEthernet is ever reinstalled/updated, same as the other
+// library patches documented near USE_ETHERNET above.
+// Verify these match your actual wiring — use "scan-eth" (now scanning on
+// this dedicated bus) if unsure.
 #ifdef USE_ETHERNET
-#define ETHERNET_CS 17
+#define ETHERNET_CS   17
+#define ETHERNET_SCK  4
+#define ETHERNET_MISO 25
+#define ETHERNET_MOSI 16
 #endif
 
 // ==================== CAPACITY ====================
-#define MAX_STOCK 25   // single-motor body: 25-napkin hopper
+// MAX_STOCK is baked into the compiled binary, not read from the server --
+// it's the firmware's own hard ceiling on stock reads/refills/overrides
+// (see readMotorStockFromEEPROM(), refillStock(), applyStockOverrideIfPresent()),
+// independent of whatever vending_machines.max_capacity says in the DB. This
+// build is for the 35-napkin single-motor hopper specifically -- when
+// deploying via /admin/firmware, tag it compatible_body_type =
+// "single_motor_35" and target ONLY machines with that body type. Pushing
+// this build to a 25-napkin single_motor machine would raise its real
+// physical ceiling past what its hopper can hold; the deploy-time
+// compatible_body_type check exists specifically to catch that mismatch
+// before it reaches a machine.
+#define MAX_STOCK 35
 
 // EEPROM: single stock byte at address 64 (see EEPROM FUNCTIONS below for
 // why 0-3 are used for something else now)
@@ -132,21 +194,37 @@
 
 MFRC522 rfid(RFID_SS, RFID_RST);
 LiquidCrystal_I2C lcd(LCD_I2C_ADDR, 16, 2);
+#ifdef USE_ETHERNET
+// Ethernet's own dedicated hardware SPI peripheral (ESP32's HSPI) — the
+// default global `SPI` object (VSPI) stays exclusively RFID's. Handed to
+// UIPEthernet via Enc28J60Network::setSPI() once in setup().
+SPIClass ethSPI(HSPI);
+#endif
 
 // ==================== GLOBAL VARIABLES ====================
 String deviceMacAddress;
 String machineId = "UNKNOWN";
 String machineName = "UNKNOWN";
 String defaultProductId = "";
+// Authenticates /api/firmware-download and /api/machine-firmware-status --
+// both check this against vending_machines.device_secret (see those routes'
+// own comments). Learned once from /api/get-machine-id-from-mac's response
+// and persisted to LittleFS so a reboot mid-outage doesn't lose it before
+// Ethernet reconnects.
+String deviceSecret = "";
 unsigned long lastPingTime = 0;
 bool rfidHardwarePresent = false;
 bool rfidFaultLogged = false;
 // rfidFaultLogged latches true on the first failure and would otherwise
 // silence every message after it (see reinitializeRfidReader()/
-// tryReadTapUid() below) — this instead re-announces an ongoing fault every
-// few seconds so taps attempted while the reader is down aren't silent.
+// tryReadTapUid() below) — this instead re-announces an ongoing fault
+// periodically so taps attempted while the reader is down aren't silent.
+// 60s (not the original 5s) — a genuinely dead/disconnected reader can stay
+// faulted for hours, and re-announcing every 5s during that whole window
+// floods the serial console into unusability without adding any real
+// diagnostic value over a slower reminder.
 unsigned long lastRfidFaultPrint = 0;
-#define RFID_FAULT_LOG_INTERVAL 5000
+#define RFID_FAULT_LOG_INTERVAL 60000
 
 // Counts consecutive PICC_ReadCardSerial()/empty-UID failures in
 // tryReadTapUid() (see there). A card that was just tapped and is still
@@ -187,13 +265,17 @@ unsigned long lastRfidReadFailureReset = 0;
 // PICC_RequestA (i.e. rfid.PICC_IsNewCardPresent() never returns true
 // again for any card) after a long idle period, with no error anywhere —
 // SPI communication, networking, and everything else in loop() keeps
-// working fine the whole time. PCD_Init() is a cheap soft reset (a handful
-// of register writes, no meaningful blocking delay when the reader isn't
-// already held in hardware power-down), so re-running it periodically as a
-// background "keep-alive" is a safe, standard fix for this MFRC522
-// behavior rather than requiring a manual reboot to recover.
+// working fine the whole time. A full hard reset (RST pulse + SPI reinit,
+// via reinitializeRfidReader() — see its call site in loop()) periodically
+// as a background "keep-alive" is a safe, standard fix for this MFRC522
+// behavior rather than requiring a manual reboot to recover. Was 5 minutes
+// with a soft-only PCD_Init(): still observed the reader going silent in
+// the field within that window — shortened to 1 minute so the worst-case
+// "machine stopped detecting taps" window a customer could hit is much
+// smaller, and upgraded the keep-alive itself to the full hard reset (see
+// loop()) since the soft reset wasn't reliably clearing it.
 unsigned long lastRfidReinit = 0;
-#define RFID_REINIT_INTERVAL 300000  // 5 minutes
+#define RFID_REINIT_INTERVAL 60000  // 1 minute
 
 // Idle-display rotation: while ready and untouched, the LCD alternates
 // between the "Tap Card" prompt and the current stock count so an operator
@@ -230,30 +312,38 @@ unsigned long lastEthernetRecoveryCheck = 0;
 #define ETHERNET_RECOVERY_CHECK_INTERVAL 300000  // 5 minutes
 #endif
 
-// UIPEthernet can't do TLS, so all requests go through the plain-HTTP
-// proxy instead. TESTING_LOCAL points this at a dev machine's own
-// "npm run dev" proxy (scripts/proxy-server.mjs, port 8080) so fixes can be
-// tested without needing production server access — only enable it for a
-// machine actually being bench-tested against a local server.
-#define TESTING_LOCAL
-#ifdef TESTING_LOCAL
-String ETHERNET_SERVER_BASE = "http://192.168.29.33:8080";
-#else
+// UIPEthernet can't do TLS, so all requests go through the plain-HTTP proxy instead.
 String ETHERNET_SERVER_BASE = "http://lyra-app.co.in:8080";
-#endif
 
 // ==================== OFFLINE CARD CACHE / SYNC QUEUE ====================
-// See the file-header comment for the overall design. cardsCache mirrors
-// /cards.json on LittleFS (synced down from the server whenever connected);
-// mutations made offline (credit deductions, postpaid tallies) are applied
-// to both the in-RAM doc and the file immediately, so they survive a
-// reboot mid-outage. Each queued transaction's tap time is tagged with a
-// wall-clock epoch (not a boot-relative millis() value), so it stays
-// accurate even across a reboot mid-outage — see the WALL-CLOCK TIME
-// section below and syncQueueToServer().
-#define CARDS_CACHE_DOC_SIZE 16384
-DynamicJsonDocument cardsCache(CARDS_CACHE_DOC_SIZE);
+// See the file-header comment for the overall design. The card roster is
+// kept on LittleFS as /cards.jsonl — one JSON object per line, one line per
+// card — and is NEVER loaded into RAM all at once. A roster of hundreds or
+// thousands of employee cards (this machine's real target: 1500+) would be
+// well over 100KB of JSON, and ArduinoJson's per-object overhead in RAM
+// typically runs several times the raw JSON size on top of that — far past
+// the ESP32's ~300KB total heap. Instead, findCachedCard() and
+// updateCachedCardInFS() scan the file on flash one line at a time,
+// holding only a single record (a few hundred bytes) in memory at once, no
+// matter how large the roster is — see their comments below, and
+// syncCardsFromServer()'s comment for how the download itself avoids
+// buffering the whole response too. Each queued transaction's tap time is
+// tagged with a wall-clock epoch (not a boot-relative millis() value), so
+// it stays accurate even across a reboot mid-outage — see the WALL-CLOCK
+// TIME section below and syncQueueToServer().
 bool cardsCacheLoaded = false;
+
+// One card record, filled in by findCachedCard() from whichever single
+// line in /cards.jsonl matches the tapped UID — never the whole roster.
+struct CardRecord {
+    String uid;
+    int credits_remaining = 0;
+    bool is_active = true;
+    String card_type = "prepaid";
+    String product_id;
+    int monthly_remaining = 0;
+    int vend_count = 0;
+};
 // Regenerated fresh every boot. tap_epoch (below) is the primary way a
 // queued tap's timestamp survives a reboot, but a tap can still happen
 // before THIS boot has ever managed to sync time even once (e.g. right at
@@ -286,7 +376,13 @@ void fetchMachineProducts();
 bool dispenseProductByMotor(String productId = "");
 void voidRfidPayment(const String& paymentId);
 void sendMachineStatusPing();
+String connectivityStatus();
 bool isNetworkConnected();
+void applyStockOverrideIfPresent(const String& responseBody);
+void performOtaUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256);
+void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage);
+void checkOtaBootConfirm();
+void checkOtaPendingConfirm();
 String extractJsonFromString(const String &s);
 void lcdMsg(const String& line0, const String& line1 = "");
 void sendStockAwareStatus();
@@ -302,7 +398,8 @@ bool initializeEthernet(bool fastProbe = false);
 void rfidRawBitBangTest();
 void deriveEthernetMAC();
 bool loadCardsCacheFromFS();
-bool saveCardsCacheToFS();
+bool updateCachedCardInFS(const String& uid, int newCreditsRemaining, int newVendCount, int newMonthlyRemaining);
+int countCachedCards();
 void loadDefaultProductFromFS();
 void saveDefaultProductToFS();
 bool syncCardsFromServer();
@@ -570,35 +667,112 @@ void initializeWatchdog() {
 void feedWatchdog() { esp_task_wdt_reset(); }
 
 // ==================== OFFLINE CARD CACHE / SYNC QUEUE FUNCTIONS ====================
-// See the file-header comment and the GLOBAL VARIABLES section above for
-// the overall design. cardsCache always mirrors what's on disk (mutations
-// are written straight through, never held in RAM-only) so a reboot
-// mid-outage never loses a credit deduction that already happened.
+// See the GLOBAL VARIABLES section above for the overall design: the card
+// roster lives on flash as /cards.jsonl (one JSON object per line) and is
+// never loaded into RAM as a whole — these functions all work one line at
+// a time instead. Mutations (credit deductions, postpaid tallies) are
+// written straight through to the file immediately (see
+// updateCachedCardInFS()) so a reboot mid-outage never loses a deduction
+// that already happened, same guarantee the old in-RAM-doc design had.
 
-JsonObject findCachedCard(const String& uid) {
-    if (!cardsCacheLoaded || !cardsCache.containsKey("cards")) return JsonObject();
-    JsonArray cards = cardsCache["cards"];
-    for (JsonObject c : cards) {
-        if (String(c["uid"].as<const char*>()).equalsIgnoreCase(uid)) return c;
-    }
-    return JsonObject();
-}
+// Scans /cards.jsonl for the tapped UID, one line at a time, holding only
+// that single line's parsed JSON (a few hundred bytes) in memory at once —
+// not the whole roster. Slower than an in-RAM array lookup (a linear scan,
+// worst case reading every line), but for a roster in the thousands this
+// is still comfortably under the time a customer would notice at the
+// reader, and it's the only way this fits in the ESP32's memory at all
+// once the roster is more than a few hundred cards.
+bool findCachedCard(const String& uid, CardRecord& out) {
+    if (!cardsCacheLoaded) return false;
+    File f = LittleFS.open("/cards.jsonl", "r");
+    if (!f) return false;
 
-bool saveCardsCacheToFS() {
-    File f = LittleFS.open("/cards.json.tmp", "w");
-    if (!f) {
-        Serial.println("Failed to open cards.json.tmp for writing");
-        return false;
-    }
-    if (serializeJson(cardsCache, f) == 0) {
-        Serial.println("Failed to write card cache");
-        f.close();
-        LittleFS.remove("/cards.json.tmp");
-        return false;
+    bool found = false;
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
+        StaticJsonDocument<512> doc;
+        if (deserializeJson(doc, line) != DeserializationError::Ok) continue;
+        if (!String((const char*)(doc["uid"] | "")).equalsIgnoreCase(uid)) continue;
+
+        out.uid = uid;
+        out.credits_remaining = doc["credits_remaining"] | 0;
+        out.is_active = doc["is_active"] | true;
+        out.card_type = String((const char*)(doc["card_type"] | "prepaid"));
+        out.product_id = String((const char*)(doc["product_id"] | ""));
+        out.monthly_remaining = doc["monthly_remaining"] | 0;
+        out.vend_count = doc["vend_count"] | 0;
+        found = true;
+        break;
     }
     f.close();
-    LittleFS.remove("/cards.json");
-    return LittleFS.rename("/cards.json.tmp", "/cards.json");
+    return found;
+}
+
+// Rewrites just the tapped card's line in /cards.jsonl after an offline
+// dispense, by streaming every line from the old file into a new one and
+// only ever holding one line in RAM at a time (same reasoning as
+// findCachedCard()) — never the whole roster. This is a full read+rewrite
+// of the file (a few hundred KB for a large roster), but it's a background
+// flash I/O cost that fits comfortably inside the multi-second
+// "Please Collect" delay the dispense flow already has; nothing a customer
+// standing at the machine would perceive as a pause.
+bool updateCachedCardInFS(const String& uid, int newCreditsRemaining, int newVendCount, int newMonthlyRemaining) {
+    File in = LittleFS.open("/cards.jsonl", "r");
+    if (!in) return false;
+    File out = LittleFS.open("/cards.jsonl.tmp", "w");
+    if (!out) {
+        in.close();
+        return false;
+    }
+
+    bool found = false;
+    while (in.available()) {
+        String line = in.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
+        if (!found) {
+            StaticJsonDocument<512> doc;
+            if (deserializeJson(doc, line) == DeserializationError::Ok &&
+                String((const char*)(doc["uid"] | "")).equalsIgnoreCase(uid)) {
+                doc["credits_remaining"] = newCreditsRemaining;
+                doc["vend_count"] = newVendCount;
+                doc["monthly_remaining"] = newMonthlyRemaining;
+                serializeJson(doc, out);
+                out.println();
+                found = true;
+                continue;
+            }
+        }
+        out.println(line);
+    }
+    in.close();
+    out.close();
+
+    if (!found) {
+        LittleFS.remove("/cards.jsonl.tmp");
+        return false;
+    }
+    LittleFS.remove("/cards.jsonl");
+    return LittleFS.rename("/cards.jsonl.tmp", "/cards.jsonl");
+}
+
+// Counts lines in /cards.jsonl without ever holding more than one line in
+// memory — used for the boot-time/status log messages, which only need
+// the count, not the data itself.
+int countCachedCards() {
+    if (!LittleFS.exists("/cards.jsonl")) return 0;
+    File f = LittleFS.open("/cards.jsonl", "r");
+    if (!f) return 0;
+    int n = 0;
+    while (f.available()) {
+        if (f.readStringUntil('\n').length() > 0) n++;
+    }
+    f.close();
+    return n;
 }
 
 // Persists defaultProductId across boots. Without this, a machine that
@@ -631,6 +805,30 @@ void loadDefaultProductFromFS() {
     if (saved.length() > 0) {
         defaultProductId = saved;
         Serial.println("Loaded default product ID from LittleFS: " + defaultProductId);
+    }
+}
+
+// ---- Device secret persistence (see the GLOBAL VARIABLES comment) ----
+#define DEVICE_SECRET_FILE "/device_secret.txt"
+
+void saveDeviceSecretToFS() {
+    if (deviceSecret.length() == 0) return;
+    File f = LittleFS.open(DEVICE_SECRET_FILE, "w");
+    if (!f) return;
+    f.print(deviceSecret);
+    f.close();
+}
+
+void loadDeviceSecretFromFS() {
+    if (!LittleFS.exists(DEVICE_SECRET_FILE)) return;
+    File f = LittleFS.open(DEVICE_SECRET_FILE, "r");
+    if (!f) return;
+    String saved = f.readString();
+    f.close();
+    saved.trim();
+    if (saved.length() > 0) {
+        deviceSecret = saved;
+        Serial.println("Loaded device secret from LittleFS");
     }
 }
 
@@ -695,64 +893,243 @@ long currentEpoch() {
 }
 
 bool loadCardsCacheFromFS() {
-    if (!LittleFS.exists("/cards.json")) {
+    if (!LittleFS.exists("/cards.jsonl")) {
         Serial.println("No local card cache yet (never synced) — offline taps can't be validated until the first successful sync");
-        return false;
-    }
-    File f = LittleFS.open("/cards.json", "r");
-    if (!f) return false;
-    cardsCache.clear();
-    DeserializationError err = deserializeJson(cardsCache, f);
-    f.close();
-    if (err) {
-        Serial.printf("Card cache file corrupt (%s), ignoring until next sync\n", err.c_str());
-        cardsCache.clear();
+        cardsCacheLoaded = false;
         return false;
     }
     cardsCacheLoaded = true;
-    Serial.printf("Loaded %d cached card(s) from LittleFS\n", cardsCache["cards"].as<JsonArray>().size());
+    Serial.printf("Found %d cached card(s) on LittleFS\n", countCachedCards());
     return true;
 }
 
-// GET /api/machine-cards-sync — refreshes the local card cache wholesale.
-// Called on every successful (re)connect and periodically while connected.
+// GET /api/machine-cards-sync — refreshes the local card cache. Called on
+// every successful (re)connect and periodically while connected.
+//
+// This can't go through makeHTTPRequest()/makeEthernetHTTPRequest() like
+// every other API call in this firmware does — those buffer the entire
+// response into one String before returning it, and a roster of hundreds
+// or thousands of employee cards (this machine's real target: 1500+) is
+// well over 100KB of JSON, far past what the ESP32 can hold in one String
+// on top of everything else already using its ~300KB heap. Instead this
+// reads the response directly off the TCP socket byte by byte and writes
+// each card object straight to /cards.jsonl.tmp as it's completed, never
+// holding more than one record (a few hundred bytes) in memory — same
+// approach findCachedCard()/updateCachedCardInFS() use to read it back.
+//
+// The parsing here is a deliberately simple brace-counter, not a general
+// JSON stream parser: it first scans for the literal `"cards":[` marker
+// (skipping the small, fixed success/data wrapper before it), then tracks
+// `{`/`}` nesting depth to know when one complete card object has arrived,
+// at which point that single object (still just a few hundred bytes) gets
+// parsed normally and re-emitted as one line. This is safe specifically
+// because /api/machine-cards-sync is this same codebase's own endpoint
+// with a known, simple field shape (hex UIDs, booleans, plain numbers,
+// short strings) — none of which can contain a literal `{`, `}`, or `]`
+// that would confuse the brace count.
 bool syncCardsFromServer() {
     if (!isNetworkConnected() || machineId == "UNKNOWN" || machineId.length() == 0) return false;
 
-    String responseBody;
-    int code = makeHTTPRequest(apiUrl("/api/machine-cards-sync?machine_id=" + urlEncode(machineId)), "GET", "", &responseBody);
-    if (code != 200 || responseBody.length() == 0) {
+    String u = ETHERNET_SERVER_BASE;
+    if (u.startsWith("http://")) u = u.substring(7);
+    int slashIdx = u.indexOf('/');
+    String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
+    int colonIdx = host.indexOf(':');
+    int port = 80;
+    if (colonIdx >= 0) {
+        port = host.substring(colonIdx + 1).toInt();
+        host = host.substring(0, colonIdx);
+    }
+    String path = "/api/machine-cards-sync?machine_id=" + urlEncode(machineId);
+
+    IPAddress ip = Ethernet.localIP();
+    if (ip == IPAddress(0,0,0,0) || ip[0] == 0) {
+        Serial.println("Card sync-down: no valid IP");
+        return false;
+    }
+
+    // Same 2-attempt connect pattern as makeEthernetHTTPRequest() — see its
+    // comment for why a single attempt is too fragile right after boot/reconnect.
+    bool connected = false;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        if (ethClient.connect(host.c_str(), port)) {
+            connected = true;
+            break;
+        }
+        if (attempt == 0) {
+            ethClient.stop();
+            delay(200);
+        }
+    }
+    if (!connected) {
+        Serial.println("Card sync-down: connect failed");
+        return false;
+    }
+
+    String req = "GET " + path + " HTTP/1.1\r\n";
+    req += "Host: " + host + "\r\n";
+    req += "Connection: close\r\n";
+    req += "X-Machine-ID: " + machineId + "\r\n";
+    req += "X-Firmware-Version: " + String(CURRENT_FIRMWARE_VERSION) + "\r\n\r\n";
+    ethClient.print(req);
+
+    unsigned long waitStart = millis();
+    while (ethClient.available() == 0) {
+        if (millis() - waitStart > 5000) {
+            ethClient.stop();
+            delay(250);
+            Serial.println("Card sync-down: response timeout");
+            return false;
+        }
+        feedWatchdog();
+    }
+
+    String statusLine = ethClient.readStringUntil('\n');
+    statusLine.trim();
+    int code = -1;
+    int firstSpace = statusLine.indexOf(' ');
+    if (firstSpace > 0) {
+        int secondSpace = statusLine.indexOf(' ', firstSpace + 1);
+        String codeStr = (secondSpace > firstSpace) ?
+                        statusLine.substring(firstSpace + 1, secondSpace) :
+                        statusLine.substring(firstSpace + 1);
+        code = codeStr.toInt();
+    }
+
+    // Skip past the response headers to reach the body.
+    bool headersEnded = false;
+    while (!headersEnded) {
+        while (ethClient.available() == 0) {
+            if (!ethClient.connected()) { headersEnded = true; break; }
+            feedWatchdog();
+        }
+        if (!ethClient.connected() && ethClient.available() == 0) break;
+        String line = ethClient.readStringUntil('\n');
+        if (line == "\r" || line.length() == 0) headersEnded = true;
+    }
+
+    if (code != 200) {
+        ethClient.stop();
+        delay(100);
         Serial.printf("Card sync-down failed: %d\n", code);
         return false;
     }
 
-    DynamicJsonDocument doc(CARDS_CACHE_DOC_SIZE);
-    DeserializationError err = deserializeJson(doc, responseBody);
-    if (err || !doc.containsKey("data")) {
-        Serial.println("Card sync-down: bad response");
+    File out = LittleFS.open("/cards.jsonl.tmp", "w");
+    if (!out) {
+        ethClient.stop();
+        Serial.println("Card sync-down: failed to open tmp file for writing");
         return false;
     }
 
-    cardsCache.clear();
-    JsonArray cards = cardsCache.createNestedArray("cards");
-    JsonArray incoming = doc["data"]["cards"];
-    for (JsonObject c : incoming) {
-        JsonObject dst = cards.createNestedObject();
-        dst["uid"] = c["uid"].as<String>();
-        dst["credits_remaining"] = c["credits_remaining"] | 0;
-        dst["is_active"] = c["is_active"] | true;
-        dst["card_type"] = c["card_type"] | "prepaid";
-        dst["product_id"] = c["product_id"].isNull() ? "" : c["product_id"].as<String>();
-        // Every card is capped at this many taps/month regardless of
-        // card_type — server-computed remaining count, refreshed on every
-        // sync (see /api/machine-cards-sync). Decremented locally per
-        // offline dispense in handleOfflineRfidTap().
-        dst["monthly_remaining"] = c["monthly_remaining"] | 0;
+    const char* marker = "\"cards\":[";
+    const int markerLen = 9;
+    int markerPos = 0;
+    bool inArray = false;
+    bool sawArrayEnd = false;
+    int depth = 0;
+    String objBuffer;
+    objBuffer.reserve(320);
+    int cardCount = 0;
+    unsigned long lastByteAt = millis();
+
+    while (true) {
+        if (ethClient.available() == 0) {
+            if (!ethClient.connected()) break;
+            if (millis() - lastByteAt > 5000) {
+                Serial.println("Card sync-down: stream stalled, keeping previous cache");
+                break;
+            }
+            feedWatchdog();
+            continue;
+        }
+        lastByteAt = millis();
+        char c = (char)ethClient.read();
+
+        if (!inArray) {
+            // Looking for the `"cards":[` marker in the fixed wrapper
+            // before the array — a plain restart-on-mismatch scan is safe
+            // here since that literal has no internal repeats to trip it up.
+            if (c == marker[markerPos]) {
+                markerPos++;
+                if (markerPos == markerLen) {
+                    inArray = true;
+                    markerPos = 0;
+                }
+            } else {
+                markerPos = (c == marker[0]) ? 1 : 0;
+            }
+            continue;
+        }
+
+        if (depth == 0) {
+            if (c == '{') {
+                depth = 1;
+                objBuffer = "{";
+            } else if (c == ']') {
+                sawArrayEnd = true;
+                break;
+            }
+            // Commas/whitespace between array elements — nothing to do.
+            continue;
+        }
+
+        objBuffer += c;
+        if (c == '{') {
+            depth++;
+        } else if (c == '}') {
+            depth--;
+            if (depth == 0) {
+                // One complete card object just arrived — parse only this
+                // one (a few hundred bytes), re-emit the normalized fields
+                // as one line, then throw the buffer away before the next.
+                StaticJsonDocument<384> cardDoc;
+                if (deserializeJson(cardDoc, objBuffer) == DeserializationError::Ok) {
+                    StaticJsonDocument<384> lineDoc;
+                    lineDoc["uid"] = cardDoc["uid"] | "";
+                    lineDoc["credits_remaining"] = cardDoc["credits_remaining"] | 0;
+                    lineDoc["is_active"] = cardDoc["is_active"] | true;
+                    lineDoc["card_type"] = cardDoc["card_type"] | "prepaid";
+                    lineDoc["product_id"] = cardDoc["product_id"].isNull() ? "" : cardDoc["product_id"].as<const char*>();
+                    // Every card is capped at this many taps/month regardless
+                    // of card_type — server-computed remaining count, refreshed
+                    // on every sync. Decremented locally per offline dispense
+                    // in handleOfflineRfidTap() via updateCachedCardInFS().
+                    lineDoc["monthly_remaining"] = cardDoc["monthly_remaining"] | 0;
+                    serializeJson(lineDoc, out);
+                    out.println();
+                    cardCount++;
+                }
+                objBuffer = "";
+                if (cardCount % 50 == 0) feedWatchdog();  // a large roster is a long stream
+            }
+        }
+    }
+
+    out.close();
+    ethClient.stop();
+    // Same connection-teardown settle time as makeEthernetHTTPRequest() —
+    // see its comment for why.
+    delay(100);
+
+    if (!sawArrayEnd) {
+        // Connection dropped or stalled mid-stream — the tmp file is a
+        // truncated, unusable partial roster. Discard it and keep whatever
+        // was already installed as /cards.jsonl from the last successful
+        // sync, rather than replacing a good cache with a broken one.
+        LittleFS.remove("/cards.jsonl.tmp");
+        Serial.println("Card sync-down: incomplete, previous cache kept");
+        return false;
+    }
+
+    LittleFS.remove("/cards.jsonl");
+    if (!LittleFS.rename("/cards.jsonl.tmp", "/cards.jsonl")) {
+        Serial.println("Card sync-down: failed to install new cache file");
+        return false;
     }
 
     cardsCacheLoaded = true;
-    saveCardsCacheToFS();
-    Serial.printf("Synced %d card(s) from server\n", cards.size());
+    Serial.printf("Synced %d card(s) from server\n", cardCount);
     return true;
 }
 
@@ -778,8 +1155,9 @@ int getQueueLineCount() {
 // A plain append (not the temp-file-then-rename pattern used for the full
 // card cache) is fine here — an interrupted append can only corrupt the
 // last line, which syncQueueToServer() already has to tolerate (a queue
-// file is inherently written incrementally, unlike cards.json which is
-// always replaced wholesale), and we defensively skip any line that fails
+// file is inherently written incrementally, unlike cards.jsonl which is
+// replaced wholesale on every sync — see syncCardsFromServer()), and we
+// defensively skip any line that fails
 // to parse as JSON when reading it back.
 void queueOfflineTransaction(const String& uid, const String& productId) {
     if (getQueueLineCount() >= MAX_QUEUE_ENTRIES) {
@@ -1237,8 +1615,8 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
 bool initializeEthernet(bool fastProbe) {
     unsigned long startTime = millis();
     Serial.println("Initializing Ethernet...");
-    Serial.printf("Ethernet Pins - CS:%d, MOSI:%d, MISO:%d, SCK:%d\n",
-                 ETHERNET_CS, SPI_MOSI, SPI_MISO, SPI_SCK);
+    Serial.printf("Ethernet Pins - CS:%d, MOSI:%d, MISO:%d, SCK:%d (dedicated bus)\n",
+                 ETHERNET_CS, ETHERNET_MOSI, ETHERNET_MISO, ETHERNET_SCK);
 
     // fastProbe cuts hardware-detect retries and DHCP attempts/timeout down
     // for the periodic background recovery check (checkForEthernetRecovery(),
@@ -1273,12 +1651,12 @@ bool initializeEthernet(bool fastProbe) {
         digitalWrite(ETHERNET_CS, HIGH);
         delay(500);
 
-        SPI.end();
+        ethSPI.end();
         delay(100);
-        SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
-        SPI.setBitOrder(MSBFIRST);
-        SPI.setDataMode(SPI_MODE0);
-        SPI.setFrequency(4000000);
+        ethSPI.begin(ETHERNET_SCK, ETHERNET_MISO, ETHERNET_MOSI, ETHERNET_CS);
+        ethSPI.setBitOrder(MSBFIRST);
+        ethSPI.setDataMode(SPI_MODE0);
+        ethSPI.setFrequency(4000000);
         delay(200);
 
         Ethernet.init(ETHERNET_CS);
@@ -1317,12 +1695,12 @@ bool initializeEthernet(bool fastProbe) {
     for (int attempt = 0; attempt < dhcpAttempts; attempt++) {
         if (attempt > 0) {
             Serial.printf("Retry attempt %d/%d...\n", attempt + 1, dhcpAttempts);
-            SPI.end();
+            ethSPI.end();
             delay(100);
-            SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
-            SPI.setBitOrder(MSBFIRST);
-            SPI.setDataMode(SPI_MODE0);
-            SPI.setFrequency(4000000);
+            ethSPI.begin(ETHERNET_SCK, ETHERNET_MISO, ETHERNET_MOSI, ETHERNET_CS);
+            ethSPI.setBitOrder(MSBFIRST);
+            ethSPI.setDataMode(SPI_MODE0);
+            ethSPI.setFrequency(4000000);
             delay(100);
             Ethernet.init(ETHERNET_CS);
             delay(200);
@@ -1421,12 +1799,26 @@ void checkForEthernetRecovery() {
     // touches the bus happens to reinit it. reinitializeRfidReader() must
     // run unconditionally here, not just in the success branch below, to
     // hand the bus back to the RFID reader after every probe attempt.
+#ifndef DISABLE_RFID_FOR_TESTING
     reinitializeRfidReader();
+#endif
 
     if (recovered) {
         Serial.println("LAN recovered");
+        // Each of these is its own HTTP round trip that can legitimately take
+        // several seconds (worst case ~11s — two failed connect attempts plus
+        // a response-wait timeout, see makeEthernetHTTPRequest()), and none of
+        // them feeds the watchdog internally. Chained back-to-back with no
+        // feed in between, this whole sequence used to be able to run for
+        // close to a minute without a single feedWatchdog() call — fine
+        // against the old 30-minute timeout, but not safe once WDT_TIMEOUT is
+        // shortened (see its own comment) to actually catch a genuine hang
+        // quickly. Feeding after each step keeps the gap between feeds bounded
+        // by a single request's worst case, not the whole chain's.
         syncTimeFromServer();  // before syncQueueToServer() below, so any queued taps' offline_ms_ago is as accurate as possible
+        feedWatchdog();
         fetchMachineInfoFromBackend(deviceMacAddress);
+        feedWatchdog();
         if (machineId == "UNKNOWN") {
             // The very first connection right after Ethernet comes back up
             // sometimes still fails even though the link is genuinely fine
@@ -1444,11 +1836,15 @@ void checkForEthernetRecovery() {
             ethernetConnected = true;
             useEthernet = true;
             fetchMachineInfoFromBackend(deviceMacAddress);
+            feedWatchdog();
         }
         if (machineId != "UNKNOWN") {
             fetchMachineProducts();
+            feedWatchdog();
             syncCardsFromServer();
+            feedWatchdog();
             syncQueueToServer();
+            feedWatchdog();
         }
         // sendMachineStatusPing() is the ONLY call that updates
         // asset_online/last_ping in the DB — the dashboards read that, not
@@ -1488,7 +1884,10 @@ void printEthernetDiagnostics() {
 
 void scanEthernetPins() {
     Serial.println("\n=== ETHERNET CS PIN SCANNER ===");
-    int testPins[] = {17, 16, 25, 14};
+    // Scans on Ethernet's own dedicated bus (ETHERNET_SCK/MISO/MOSI) — GPIO16/25
+    // are no longer free candidates here since they're now permanently
+    // claimed as that bus's MOSI/MISO. Only CS is what varies in this scan.
+    int testPins[] = {17, 14};
     int numPins = sizeof(testPins) / sizeof(testPins[0]);
 
     for (int i = 0; i < numPins; i++) {
@@ -1498,10 +1897,10 @@ void scanEthernetPins() {
         digitalWrite(csPin, HIGH);
         delay(50);
 
-        SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, csPin);
-        SPI.setBitOrder(MSBFIRST);
-        SPI.setDataMode(SPI_MODE0);
-        SPI.setFrequency(8000000);
+        ethSPI.begin(ETHERNET_SCK, ETHERNET_MISO, ETHERNET_MOSI, csPin);
+        ethSPI.setBitOrder(MSBFIRST);
+        ethSPI.setDataMode(SPI_MODE0);
+        ethSPI.setFrequency(8000000);
         delay(50);
 
         Ethernet.init(csPin);
@@ -1514,11 +1913,11 @@ void scanEthernetPins() {
             Serial.println("no hardware");
         }
 
-        SPI.end();
+        ethSPI.end();
         delay(100);
     }
     Serial.printf("\nCurrent configuration: CS=%d, SCK=%d, MISO=%d, MOSI=%d\n",
-                 ETHERNET_CS, SPI_SCK, SPI_MISO, SPI_MOSI);
+                 ETHERNET_CS, ETHERNET_SCK, ETHERNET_MISO, ETHERNET_MOSI);
     Serial.println("================================\n");
 }
 
@@ -1575,6 +1974,13 @@ String fetchMachineInfoFromBackend(const String& mac) {
             if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
                 machineId = doc["data"]["machine_id"].as<String>();
                 machineName = doc["data"]["machine_name"].as<String>();
+                if (doc["data"].containsKey("device_secret")) {
+                    String secret = doc["data"]["device_secret"].as<String>();
+                    if (secret.length() > 0 && secret != deviceSecret) {
+                        deviceSecret = secret;
+                        saveDeviceSecretToFS();
+                    }
+                }
             } else if (doc.containsKey("machine_id")) {
                 machineId = doc["machine_id"].as<String>();
                 machineName = doc["machine_name"].as<String>();
@@ -1613,23 +2019,383 @@ void fetchMachineProducts() {
     }
 }
 
+// The 5-state label the admin dashboard's machine list shows for this
+// machine (see /api/machine-ping and its connectivity_status column) —
+// "fault" takes priority over everything else since this machine is
+// RFID-ONLY: with no working reader, it can't serve a single tap
+// regardless of network state, so that's the more urgent thing to surface.
+// Four states — a machine that hasn't pinged even once yet just shows no
+// last_ping at all server-side; there's no separate "booting" label to send.
+// NETWORK_ERROR and OFFLINE both mean isNetworkConnected() is false — the
+// only distinction this hardware can make (see the OUTAGE TRACKING comment
+// above) is whether there's a card cache to fall back on.
+String connectivityStatus() {
+    if (!rfidHardwarePresent) return "FAULT";
+    if (isNetworkConnected()) return "ONLINE";
+    if (cardsCacheLoaded) return "OFFLINE";
+    return "NETWORK_ERROR";
+}
+
+// ==================== STOCK OVERRIDE (manual dashboard edit) ====================
+// An admin or customer can set an exact stock count from the web dashboard
+// (POST /api/machines/set-stock) — but EEPROM here is the real source of
+// truth for stock, so that request can't take effect on its own; the
+// server stages it and hands it back in the very next ping's response
+// body, once, then clears it (see /api/machine-ping). Applying it directly
+// to EEPROM — rather than the dashboard just overwriting its own copy —
+// keeps this machine's own numbers as the one source of truth going
+// forward: the very next stock sync simply confirms the same value back.
+void applyStockOverrideIfPresent(const String& responseBody) {
+    if (responseBody.length() == 0) return;
+    // Sized for the full /api/machine-ping response, not just the
+    // stock_override field — it also carries update_available/deployment_id/
+    // firmware_sha256 and a few other fields, so this must stay at least as
+    // big as sendMachineStatusPing()'s own parse buffer for that response.
+    // NOTE: as of this writing, /api/machine-ping never actually sends a
+    // stock_override field (see that route) -- this stays dormant until the
+    // server side implements it. Not touched here since OTA was the ask.
+    // A too-small buffer here fails SILENTLY otherwise
+    // (deserializeJson returns NoMemory, which looked identical to "no
+    // override present" until this log line was added) — a real bug that
+    // shipped once already when this was left at 256 after ota_update got
+    // added to the response later.
+    DynamicJsonDocument doc(512);
+    DeserializationError err = deserializeJson(doc, responseBody);
+    if (err != DeserializationError::Ok) {
+        Serial.println("Stock override check: failed to parse ping response (" + String(err.c_str()) + ")");
+        return;
+    }
+    if (!doc.containsKey("stock_override") || doc["stock_override"].isNull()) return;
+
+    int newStock = doc["stock_override"]["total"] | -1;
+    if (newStock < 0) return;
+    newStock = min(newStock, (int)MAX_STOCK);
+
+    writeMotorStockToEEPROM(newStock);
+    Serial.printf("Stock override applied from dashboard: %d\n", newStock);
+    sendStockAwareStatus();
+    syncTotalStockToServer(defaultProductId);
+}
+
+// ==================== OTA UPDATE (remote firmware upgrade) ====================
+// A machine only ever downloads and flashes a build when an admin has
+// explicitly approved THIS machine for it (see /api/machines/set-ota-target)
+// — the ping response only carries ota_update at all in that case, never
+// just because a newer build exists somewhere (see /api/machine-ping).
+// There is deliberately no fleet-wide auto-update: these machines run
+// unattended, so a bad build reaching all of them at once with no remote
+// way back would be far worse than the slower, explicit rollout this
+// enables instead.
+//
+// Self-rollback: flashing successfully doesn't by itself prove the new
+// build actually works — it could still fail to boot, panic-loop, or come
+// up with Ethernet broken. OTA_CONFIRM_FLAG_FILE is written to LittleFS
+// right before the reboot into a freshly-flashed image; checkOtaBootConfirm()
+// (called once from setup()) notices it on the very next boot, and
+// checkOtaPendingConfirm() (called every loop() iteration until resolved)
+// requires the new image to reach a genuinely working state — Ethernet up
+// and a resolved machine ID — within OTA_CONFIRM_TIMEOUT_MS. If it does,
+// the flag is cleared and esp_ota_mark_app_valid_cancel_rollback() confirms
+// the image as good. If it doesn't, this machine sets its own boot
+// partition back to the one it was just running before the update and
+// restarts into it — no admin action required to recover an unattended
+// machine from a bad build.
+#define OTA_CONFIRM_FLAG_FILE "/ota_pending"
+#define OTA_CONFIRM_TIMEOUT_MS 180000  // 3 minutes to prove the new image actually works
+
+bool otaPendingConfirm = false;
+unsigned long otaBootMillis = 0;
+
+// Called once from setup(), after LittleFS is mounted, before anything
+// else touches the flag file.
+void checkOtaBootConfirm() {
+    if (LittleFS.exists(OTA_CONFIRM_FLAG_FILE)) {
+        otaPendingConfirm = true;
+        otaBootMillis = millis();
+        Serial.println("Booted into a freshly-applied OTA update — must confirm within " +
+                        String(OTA_CONFIRM_TIMEOUT_MS / 1000) + "s or this rolls back automatically");
+    }
+}
+
+// Called every loop() iteration — a single bool check once confirmed, so
+// negligible cost the rest of this machine's life.
+void checkOtaPendingConfirm() {
+    if (!otaPendingConfirm) return;
+
+    if (isNetworkConnected() && machineId != "UNKNOWN") {
+        LittleFS.remove(OTA_CONFIRM_FLAG_FILE);
+        otaPendingConfirm = false;
+        esp_ota_mark_app_valid_cancel_rollback();
+        Serial.println("OTA confirmed good — staying on this firmware");
+        return;
+    }
+
+    if (millis() - otaBootMillis > OTA_CONFIRM_TIMEOUT_MS) {
+        Serial.println("New firmware did not come up cleanly within the confirm window — rolling back to the previous image");
+        const esp_partition_t* running = esp_ota_get_running_partition();
+        const esp_partition_t* previous = esp_ota_get_next_update_partition(running);
+        if (previous) esp_ota_set_boot_partition(previous);
+        LittleFS.remove(OTA_CONFIRM_FLAG_FILE);
+        delay(200);
+        ESP.restart();
+    }
+}
+
+// Reports OTA progress back to the admin dashboard (see that route's own
+// comment for why device_secret travels in the body, not a header). Purely
+// informational -- a failed report here doesn't block or retry the OTA
+// itself, it just means the dashboard won't show this particular status
+// transition.
+void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage = "") {
+    String payload;
+    payload.reserve(160 + errorMessage.length());
+    payload = "{\"deployment_id\":\"" + deploymentId + "\",\"device_secret\":\"" + deviceSecret +
+              "\",\"status\":\"" + status + "\"";
+    if (errorMessage.length() > 0) payload += ",\"error_message\":\"" + errorMessage + "\"";
+    payload += "}";
+
+    int code = makeHTTPRequest(apiUrl("/api/machine-firmware-status"), "POST", payload);
+    if (code == 200) Serial.println("Firmware status reported: " + status);
+    else Serial.printf("Failed to report firmware status (%s): %d\n", status.c_str(), code);
+}
+
+// GET /api/firmware-download?deployment_id=...&device_secret=... -- streams
+// the .bin straight into flash via the Update library, never buffered whole
+// in RAM (same reasoning as the card roster download in
+// syncCardsFromServer()), hashing it with SHA-256 as it goes and comparing
+// against firmware_versions.sha256 (passed in as expectedSha256, straight
+// from /api/machine-ping's response -- the same value/mechanism the MQTT
+// fleet's firmware already uses successfully) before committing to it. If
+// anything about the download or verification fails, this simply gives up
+// and stays on the current, known-working firmware -- the actual protection
+// against a BAD build that flashes and boots successfully is
+// checkOtaPendingConfirm() above, not this function.
+void performOtaUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256) {
+    if (esp_ota_get_next_update_partition(NULL) == NULL) {
+        Serial.println("OTA update approved for this machine, but this board has no second OTA partition to flash into "
+                        "— needs one manual USB reflash with an OTA-capable partition scheme first. Skipping.");
+        return;
+    }
+    if (deviceSecret.length() == 0) {
+        Serial.println("OTA update available but no device_secret yet — will retry once identity resolves");
+        return;
+    }
+
+    Serial.println("OTA update approved: " + firmwareVersion + " — downloading...");
+    lcdMsg("Updating...", "Do not power off");
+    reportFirmwareStatus(deploymentId, "downloading");
+
+    String otaPath = "/api/firmware-download?deployment_id=" + urlEncode(deploymentId) +
+                      "&device_secret=" + urlEncode(deviceSecret);
+
+    String u = ETHERNET_SERVER_BASE;
+    if (u.startsWith("http://")) u = u.substring(7);
+    int slashIdx = u.indexOf('/');
+    String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
+    int colonIdx = host.indexOf(':');
+    int port = 80;
+    if (colonIdx >= 0) {
+        port = host.substring(colonIdx + 1).toInt();
+        host = host.substring(0, colonIdx);
+    }
+
+    bool connected = false;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        if (ethClient.connect(host.c_str(), port)) { connected = true; break; }
+        if (attempt == 0) { ethClient.stop(); delay(200); }
+    }
+    if (!connected) {
+        Serial.println("OTA download: connect failed");
+        reportFirmwareStatus(deploymentId, "failed", "connect_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    String req = "GET " + otaPath + " HTTP/1.1\r\n";
+    req += "Host: " + host + "\r\n";
+    req += "Connection: close\r\n\r\n";
+    ethClient.print(req);
+
+    unsigned long waitStart = millis();
+    while (ethClient.available() == 0) {
+        if (millis() - waitStart > 5000) {
+            ethClient.stop();
+            Serial.println("OTA download: response timeout");
+            reportFirmwareStatus(deploymentId, "failed", "response_timeout");
+            sendStockAwareStatus();
+            return;
+        }
+        feedWatchdog();
+    }
+
+    String statusLine = ethClient.readStringUntil('\n');
+    statusLine.trim();
+    int code = -1;
+    int firstSpace = statusLine.indexOf(' ');
+    if (firstSpace > 0) {
+        int secondSpace = statusLine.indexOf(' ', firstSpace + 1);
+        String codeStr = (secondSpace > firstSpace) ?
+                        statusLine.substring(firstSpace + 1, secondSpace) :
+                        statusLine.substring(firstSpace + 1);
+        code = codeStr.toInt();
+    }
+
+    long contentLength = -1;
+    bool headersEnded = false;
+    while (!headersEnded) {
+        while (ethClient.available() == 0) {
+            if (!ethClient.connected()) { headersEnded = true; break; }
+            feedWatchdog();
+        }
+        if (!ethClient.connected() && ethClient.available() == 0) break;
+        String line = ethClient.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) { headersEnded = true; break; }
+        String lower = line;
+        lower.toLowerCase();
+        if (lower.startsWith("content-length:")) {
+            contentLength = line.substring(line.indexOf(':') + 1).toInt();
+        }
+    }
+
+    if (code != 200 || contentLength <= 0) {
+        ethClient.stop();
+        Serial.printf("OTA download failed: HTTP %d, content-length %ld\n", code, contentLength);
+        reportFirmwareStatus(deploymentId, "failed", "download_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    if (!Update.begin(contentLength)) {
+        ethClient.stop();
+        Serial.println("OTA: Update.begin() failed — not enough free space in the OTA partition");
+        reportFirmwareStatus(deploymentId, "failed", "update_begin_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    mbedtls_sha256_context shaCtx;
+    mbedtls_sha256_init(&shaCtx);
+    mbedtls_sha256_starts(&shaCtx, 0);  // 0 = SHA-256 (not the truncated SHA-224 variant)
+
+    uint8_t buf[512];
+    size_t totalWritten = 0;
+    unsigned long lastByteAt = millis();
+    bool writeError = false;
+
+    while (totalWritten < (size_t)contentLength) {
+        int avail = ethClient.available();
+        if (avail == 0) {
+            if (!ethClient.connected()) break;
+            if (millis() - lastByteAt > 8000) {
+                Serial.println("OTA download: stream stalled");
+                writeError = true;
+                break;
+            }
+            feedWatchdog();
+            continue;
+        }
+        int toRead = min(avail, (int)sizeof(buf));
+        int n = ethClient.read(buf, toRead);
+        if (n > 0) {
+            lastByteAt = millis();
+            mbedtls_sha256_update(&shaCtx, buf, n);
+            if (Update.write(buf, n) != (size_t)n) {
+                Serial.println("OTA: flash write error mid-stream");
+                writeError = true;
+                break;
+            }
+            totalWritten += n;
+        }
+        feedWatchdog();
+    }
+    ethClient.stop();
+    delay(100);  // same connection-teardown settle time as makeEthernetHTTPRequest() — see its comment
+
+    if (writeError || totalWritten != (size_t)contentLength) {
+        Serial.printf("OTA download incomplete (%u/%ld bytes) — aborting, staying on current firmware\n", (unsigned)totalWritten, contentLength);
+        mbedtls_sha256_free(&shaCtx);
+        Update.abort();
+        reportFirmwareStatus(deploymentId, "failed", "incomplete_download");
+        sendStockAwareStatus();
+        return;
+    }
+
+    unsigned char hash[32];
+    mbedtls_sha256_finish(&shaCtx, hash);
+    mbedtls_sha256_free(&shaCtx);
+
+    char hashHex[65];
+    for (int i = 0; i < 32; i++) sprintf(hashHex + i * 2, "%02x", hash[i]);
+    hashHex[64] = '\0';
+
+    String computedSha256 = String(hashHex);
+    String expectedLower = expectedSha256;
+    expectedLower.toLowerCase();
+
+    if (expectedLower.length() > 0 && computedSha256 != expectedLower) {
+        Serial.println("OTA: checksum mismatch — expected " + expectedLower + ", computed " + computedSha256);
+        Update.abort();
+        reportFirmwareStatus(deploymentId, "failed", "checksum_mismatch");
+        sendStockAwareStatus();
+        return;
+    }
+
+    if (!Update.end(true) || Update.hasError()) {
+        Serial.printf("OTA verification failed (%s) — staying on current firmware\n", Update.errorString());
+        reportFirmwareStatus(deploymentId, "failed", "flash_finalize_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    Serial.println("OTA flashed and verified successfully — rebooting into " + firmwareVersion);
+    reportFirmwareStatus(deploymentId, "applied");
+    File flag = LittleFS.open(OTA_CONFIRM_FLAG_FILE, "w");
+    if (flag) { flag.print("1"); flag.close(); }
+    delay(300);
+    ESP.restart();
+}
+
 void sendMachineStatusPing() {
     int currentStock = readMotorStockFromEEPROM();
 
     String payload;
-    payload.reserve(220);
+    payload.reserve(260);
     payload = "{\"machine_id\":\"" + machineId + "\",";
     payload += "\"firmware_version\":\"" + String(CURRENT_FIRMWARE_VERSION) + "\",";
     payload += "\"body_type\":\"" + String(BODY_TYPE) + "\",";
     payload += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
     payload += "\"uptime\":" + String(millis()) + ",";
-    payload += "\"stock_count\":" + String(currentStock);
+    payload += "\"stock_count\":" + String(currentStock) + ",";
+    payload += "\"connectivity_status\":\"" + connectivityStatus() + "\"";
     payload += "}";
 
-    int code = makeHTTPRequest(apiUrl("/api/machine-ping"), "POST", payload);
+    String responseBody;
+    int code = makeHTTPRequest(apiUrl("/api/machine-ping"), "POST", payload, &responseBody);
 
-    if (code == 200) Serial.printf("Machine ping successful (Stock: %d)\n", currentStock);
-    else Serial.printf("Machine ping failed: %d\n", code);
+    if (code == 200) {
+        Serial.printf("Machine ping successful (Stock: %d)\n", currentStock);
+        applyStockOverrideIfPresent(responseBody);
+
+        // update_available/deployment_id/firmware_sha256 -- the same
+        // response shape /api/machine-ping actually sends (see that route),
+        // not the ota_update.{path,md5} shape this used to look for, which
+        // the server never sent. Last check here -- may reboot this
+        // machine on success, so nothing after it in this function is
+        // guaranteed to run.
+        DynamicJsonDocument pingDoc(512);
+        if (deserializeJson(pingDoc, responseBody) == DeserializationError::Ok &&
+            pingDoc["update_available"] == true) {
+            String deploymentId = pingDoc["deployment_id"] | "";
+            String newFirmwareVersion = pingDoc["firmware_version"] | "";
+            String firmwareSha256 = pingDoc["firmware_sha256"] | "";
+            if (deploymentId.length() > 0 && firmwareSha256.length() > 0) {
+                performOtaUpdate(deploymentId, newFirmwareVersion, firmwareSha256);
+            }
+        }
+    } else {
+        Serial.printf("Machine ping failed: %d\n", code);
+    }
 }
 
 // ==================== DISPENSE FUNCTIONS ====================
@@ -1683,17 +2449,29 @@ bool dispenseProductByMotor(String productId) {
 }
 
 void dispenseSequence(String productId, String paymentId) {
+    // This whole sequence — the fixed delays plus two HTTP round trips
+    // (syncTotalStockToServer() here, and the /api/rfid-payment call that
+    // got us into this function in the first place) — has no watchdog feed
+    // anywhere in it otherwise, and loop() only feeds again once this
+    // entire function returns. Feeding at each step keeps a single slow
+    // network hop from eating into the same budget as everything else in
+    // one unbroken stretch, so WDT_TIMEOUT can stay short enough to
+    // actually catch a genuine hang instead of needing 30 minutes.
+    feedWatchdog();
     lcdMsg("Dispensing...", "Please wait");
     digitalWrite(BLUE_LED_PIN, LOW);
     delay(100);
     digitalWrite(BLUE_LED_PIN, HIGH);
     delay(2900);
+    feedWatchdog();
 
     bool dispensed = dispenseProductByMotor(productId);
+    feedWatchdog();
 
     if (dispensed) {
         lcdMsg("Please Collect", "Your Napkin");
         syncTotalStockToServer(productId);
+        feedWatchdog();
         delay(3000);
         lcdMsg("Thank You!", "");
         delay(3000);
@@ -1745,7 +2523,7 @@ bool tryReadTapUid(String& uidOut) {
     if (readerVersion == 0x00 || readerVersion == 0xFF) {
         if (millis() - lastRfidFaultPrint > RFID_FAULT_LOG_INTERVAL) {
             Serial.printf("RFID reader unhealthy (0x%02X), forcing reinit\n", readerVersion);
-            Serial.println("Check wiring: 3.3V, GND, SS=27, RST=15, SCK=18, MISO=19, MOSI=23");
+            Serial.println("Check wiring: 3.3V, GND, SS=15, RST=27, SCK=18, MISO=19, MOSI=23");
             lastRfidFaultPrint = millis();
         }
         rfidFaultLogged = true;
@@ -1880,25 +2658,23 @@ void handleOfflineRfidTap(const String& uid) {
         return;
     }
 
-    JsonObject card = findCachedCard(uid);
-    if (card.isNull()) {
+    CardRecord card;
+    if (!findCachedCard(uid, card)) {
         lcdMsg("Card Not Found", "Unregistered");
         delay(2000);
         sendStockAwareStatus();
         return;
     }
 
-    bool active = card["is_active"] | true;
-    if (!active) {
+    if (!card.is_active) {
         lcdMsg("Card Inactive", "Contact Admin");
         delay(2000);
         sendStockAwareStatus();
         return;
     }
 
-    String cardType = card["card_type"] | "prepaid";
-    bool isPostpaid = (cardType == "postpaid");
-    if (!isPostpaid && (int)(card["credits_remaining"] | 0) <= 0) {
+    bool isPostpaid = (card.card_type == "postpaid");
+    if (!isPostpaid && card.credits_remaining <= 0) {
         lcdMsg("No Credits Left", "Please Top Up");
         delay(2000);
         sendStockAwareStatus();
@@ -1908,7 +2684,7 @@ void handleOfflineRfidTap(const String& uid) {
     // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
     // card_type — enforced here too since a machine can be offline for the
     // whole cap, not just re-checked once it reconnects.
-    if ((int)(card["monthly_remaining"] | 0) <= 0) {
+    if (card.monthly_remaining <= 0) {
         lcdMsg("Monthly Limit", "Reached");
         delay(2000);
         sendStockAwareStatus();
@@ -1923,29 +2699,26 @@ void handleOfflineRfidTap(const String& uid) {
         return;
     }
 
-    String productId = card["product_id"].as<String>();
-    if (productId.length() == 0) productId = defaultProductId;
+    String productId = card.product_id.length() > 0 ? card.product_id : defaultProductId;
 
     lcdMsg("Dispensing...", "Please wait");
     digitalWrite(BLUE_LED_PIN, LOW);
     delay(100);
     digitalWrite(BLUE_LED_PIN, HIGH);
     delay(2900);
+    feedWatchdog();
 
     bool dispensed = dispenseProductByMotor(productId);
+    feedWatchdog();
 
     if (dispensed) {
         // Update the local cache and persist immediately — must survive a
         // reboot mid-outage just as reliably as the queue entry does below,
         // or a second offline tap (or the same card after a reboot) could
         // spend credits the cache no longer actually reflects.
-        if (!isPostpaid) {
-            card["credits_remaining"] = (int)(card["credits_remaining"] | 0) - 1;
-        } else {
-            card["vend_count"] = (int)(card["vend_count"] | 0) + 1;
-        }
-        card["monthly_remaining"] = (int)(card["monthly_remaining"] | 0) - 1;
-        saveCardsCacheToFS();
+        int newCredits = isPostpaid ? card.credits_remaining : card.credits_remaining - 1;
+        int newVendCount = isPostpaid ? card.vend_count + 1 : card.vend_count;
+        updateCachedCardInFS(uid, newCredits, newVendCount, card.monthly_remaining - 1);
 
         queueOfflineTransaction(uid, productId);
 
@@ -2029,7 +2802,12 @@ void handleRfidTap(const String& uid) {
     if (errCode == "CARD_NOT_FOUND") lcdMsg("Card Not Found", "Unregistered");
     else if (errCode == "INSUFFICIENT_CREDITS") lcdMsg("No Credits Left", "Please Top Up");
     else if (errCode == "CARD_INACTIVE") lcdMsg("Card Inactive", "Contact Admin");
-    else if (errCode == "WRONG_MACHINE") lcdMsg("Card Not Valid", "On This Machine");
+    // Deliberately shown identically to CARD_NOT_FOUND rather than revealing
+    // "not valid on this machine" — the card IS registered, just under a
+    // different company, and the customer at this machine has no need to
+    // know that. The server still enforces the restriction and logs the
+    // real WRONG_MACHINE reason; only the on-device message is collapsed.
+    else if (errCode == "WRONG_MACHINE") lcdMsg("Card Not Found", "Unregistered");
     else if (errCode == "MONTHLY_LIMIT_REACHED") lcdMsg("Monthly Limit", "Reached");
     else if (errCode == "OUT_OF_STOCK") lcdMsg("Out of Stock", "Please wait...");
     else lcdMsg("Payment Failed", "Try Again");
@@ -2046,6 +2824,14 @@ void setup() {
 
     bootId = esp_random();
 
+#ifdef USE_ETHERNET
+    // Must happen before any Ethernet call below — points the (patched)
+    // UIPEthernet library at its own dedicated SPI peripheral instead of
+    // the default global SPI object RFID uses, so the two are genuinely
+    // independent buses rather than sharing physical SCK/MISO/MOSI wires.
+    Enc28J60Network::setSPI(ethSPI);
+#endif
+
     initializeWatchdog();
     EEPROM.begin(EEPROM_SIZE);  // opened once — all helpers assume this is already done
 
@@ -2054,7 +2840,9 @@ void setup() {
     } else {
         loadCardsCacheFromFS();
         loadDefaultProductFromFS();
+        loadDeviceSecretFromFS();
         loadTimeAnchorFromFS();
+        checkOtaBootConfirm();  // see the OTA UPDATE section for why this must run every boot
     }
 
     pinMode(TRANSISTOR_BASE, OUTPUT);
@@ -2068,12 +2856,26 @@ void setup() {
     lcdMsg("Lyra Vending", String(CURRENT_FIRMWARE_VERSION));
     delay(1000);
 
+#ifdef DISABLE_RFID_FOR_TESTING
+    Serial.println("RFID reader DISABLED (DISABLE_RFID_FOR_TESTING) — SPI bus reserved for Ethernet testing");
+    pinMode(RFID_SS, OUTPUT);
+    digitalWrite(RFID_SS, HIGH);  // deassert so it can't interfere with Ethernet's SPI transactions
+#else
     SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, RFID_SS);
     rfid.PCD_Init();
     delay(50);
     byte rfidVersion = rfid.PCD_ReadRegister(MFRC522::VersionReg);
     Serial.printf("RFID reader version: 0x%02X %s\n", rfidVersion,
                   (rfidVersion == 0x00 || rfidVersion == 0xFF) ? "(NOT DETECTED - check wiring)" : "(OK)");
+    // PCD_Init() just powered on the antenna field (its biggest current draw
+    // — the RF PA, run at max gain by this firmware). Keep it off through the
+    // Ethernet connection attempts right below: stacked with the WiFi radio
+    // (already active for the MAC read) and the ENC28J60 module, it's enough
+    // extra draw during that DHCP-timing-sensitive window to matter (see the
+    // power debugging earlier in this firmware's history). reinitializeRfidReader(),
+    // called right after those attempts finish, turns it back on.
+    rfid.PCD_AntennaOff();
+#endif
 
     getMACAddress();   // backend identifies the machine by MAC
     deriveEthernetMAC();
@@ -2099,12 +2901,19 @@ void setup() {
         feedWatchdog();
     }
 
+#ifndef DISABLE_RFID_FOR_TESTING
     reinitializeRfidReader();
+#endif
 
     if (ethernetUp) {
         Serial.println("Using Ethernet");
+        // See the matching comment in checkForEthernetRecovery() — feeding
+        // between each chained request keeps the gap bounded by one
+        // request's worst case instead of this whole boot-time sequence.
         syncTimeFromServer();  // before syncQueueToServer() below, so any queued taps' offline_ms_ago is as accurate as possible
+        feedWatchdog();
         fetchMachineInfoFromBackend(deviceMacAddress);
+        feedWatchdog();
         if (machineId == "UNKNOWN") {
             // Same first-connection-after-bring-up issue as
             // checkForEthernetRecovery() — see the comment there.
@@ -2112,11 +2921,15 @@ void setup() {
             ethernetConnected = true;
             useEthernet = true;
             fetchMachineInfoFromBackend(deviceMacAddress);
+            feedWatchdog();
         }
         if (machineId != "UNKNOWN") {
             fetchMachineProducts();
+            feedWatchdog();
             syncCardsFromServer();
+            feedWatchdog();
             syncQueueToServer();
+            feedWatchdog();
         }
         feedWatchdog();
         sendMachineStatusPing();
@@ -2132,6 +2945,7 @@ void setup() {
 
 void loop() {
     feedWatchdog();
+    checkOtaPendingConfirm();
 
 #ifdef USE_ETHERNET
     checkEthernetLinkStatus();
@@ -2153,8 +2967,7 @@ void loop() {
             Serial.println("Machine ID: " + machineId);
             Serial.println("Network: " + String(isNetworkConnected() ? "Ethernet (connected)" : "Offline"));
             Serial.println("IP: " + Ethernet.localIP().toString());
-            Serial.printf("Cards cached: %s (%d)\n", cardsCacheLoaded ? "yes" : "no",
-                          cardsCacheLoaded ? cardsCache["cards"].as<JsonArray>().size() : 0);
+            Serial.printf("Cards cached: %s (%d)\n", cardsCacheLoaded ? "yes" : "no", countCachedCards());
             Serial.printf("Queued offline transactions: %d\n", getQueueLineCount());
             Serial.println("Stock: " + String(readMotorStockFromEEPROM()));
         } else if (command == "dispense") {
@@ -2165,6 +2978,25 @@ void loop() {
             Serial.println(syncCardsFromServer() ? "Card cache synced" : "Card sync failed (offline, or an error)");
         } else if (command == "sync-queue") {
             syncQueueToServer();
+        } else if (command == "partinfo") {
+            // Checks whether this specific board can ever receive an OTA
+            // update at all — the Arduino IDE's Partition Scheme setting
+            // at flash time decides this, and there's no other way to
+            // find out after the fact than asking the running firmware.
+            const esp_partition_t* running = esp_ota_get_running_partition();
+            const esp_partition_t* next = esp_ota_get_next_update_partition(NULL);
+            Serial.printf("Running partition: %s @ 0x%x (%u bytes)\n",
+                          running ? running->label : "?",
+                          running ? running->address : 0,
+                          running ? (unsigned)running->size : 0);
+            if (next) {
+                Serial.printf("OTA-capable: YES — next update partition: %s @ 0x%x (%u bytes)\n",
+                              next->label, next->address, (unsigned)next->size);
+            } else {
+                Serial.println("OTA-capable: NO — this board has no second app partition. Needs one manual "
+                                "USB reflash with an OTA-enabled partition scheme (Arduino IDE: Tools > "
+                                "Partition Scheme > Default or Minimal SPIFFS) before remote updates can work on it.");
+            }
 #ifdef USE_ETHERNET
         } else if (command == "diag") {
             printEthernetDiagnostics();
@@ -2200,17 +3032,23 @@ void loop() {
         syncCardsFromServer();
     }
 
+#ifndef DISABLE_RFID_FOR_TESTING
     if (millis() - lastRfidReinit > RFID_REINIT_INTERVAL) {
         lastRfidReinit = millis();
         byte rfidVersion = rfid.PCD_ReadRegister(MFRC522::VersionReg);
         if (rfidVersion == 0x00 || rfidVersion == 0xFF) {
             Serial.printf("RFID reader unhealthy on periodic health check (0x%02X) — reinit\n", rfidVersion);
-            reinitializeRfidReader();
-        } else {
-            rfid.PCD_Init();
-            rfid.PCD_AntennaOn();
-            rfid.PCD_SetAntennaGain(MFRC522::RxGain_max);
         }
+        // Always the FULL hard reset (RST pulse + SPI reinit), not just a
+        // soft PCD_Init() when VersionReg still reads fine. The documented
+        // failure mode this keep-alive exists for (see RFID_REINIT_INTERVAL's
+        // comment) is specifically PICC_RequestA going silently unresponsive
+        // while VersionReg keeps reading fine — a soft PCD_Init() was not
+        // reliably clearing that stuck antenna/RF state in the field
+        // ("stopped detecting taps after a while" despite this keep-alive
+        // already running). The hard reset power-cycles the antenna field
+        // itself, which the soft path never touched.
+        reinitializeRfidReader();
     }
 
     static unsigned long lastTapMs = 0;
@@ -2223,4 +3061,5 @@ void loop() {
             handleRfidTap(uid);
         }
     }
+#endif
 }
