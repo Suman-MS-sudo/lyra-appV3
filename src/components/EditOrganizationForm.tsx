@@ -30,9 +30,9 @@ const CARD: React.CSSProperties = {
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#f5f5f7',
+  background: '#ffffff',
   border: '1px solid #e5e5e7',
-  color: '#f3f4f6',
+  color: '#1d1d1f',
   borderRadius: 12,
 };
 
