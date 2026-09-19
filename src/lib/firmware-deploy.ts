@@ -20,10 +20,19 @@ export async function createOrReplacePendingDeployments(
   const { firmwareVersionId, machineIds, requestedBy } = params;
   const now = new Date().toISOString();
 
+  // Matches 'downloading' too, not just 'pending': a device that reports
+  // "downloading" and then never finishes (crash, power loss, watchdog
+  // reset mid-transfer) leaves that row stuck in 'downloading' forever --
+  // re-deploying to the same machine must reuse/replace that row, not
+  // insert a second one alongside it. /api/machine-ping's own pending-or-
+  // downloading lookup uses .maybeSingle(), which errors out (silently,
+  // since only `data` is destructured there) the moment more than one row
+  // matches a machine_id -- two rows here means the ping's OTA check goes
+  // dark with no error surfaced anywhere, exactly the bug this away.
   const { data: existingPending } = await service
     .from('firmware_deployments')
     .select('id, machine_id')
-    .eq('status', 'pending')
+    .in('status', ['pending', 'downloading'])
     .in('machine_id', machineIds);
 
   const existingByMachine = new Map((existingPending ?? []).map((d) => [d.machine_id, d.id]));
