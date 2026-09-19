@@ -773,8 +773,10 @@ void loop() {
         ESP.restart();
     }
 
-    // Status ping every 2 minutes
-    if (millis() - lastPingTime > 120000) {
+    // Status ping every 5 minutes -- keeps steady-state Vercel invocation
+    // volume down fleet-wide; the dashboard's offline cutoff is 10 minutes,
+    // so this still lands well inside that window.
+    if (millis() - lastPingTime > 300000) {
         if (isNetworkConnected()) {
             sendMachineStatusPing();
         }

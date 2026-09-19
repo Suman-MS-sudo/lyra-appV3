@@ -3021,7 +3021,13 @@ void loop() {
         sendMachineStatusPing();
     }
 
-    if (millis() - lastPingTime > 120000) {
+    // 5 minutes, not 2 -- this runs continuously on every deployed machine,
+    // 24/7, so its interval is the single biggest driver of steady-state
+    // Vercel invocation volume across the whole fleet. The dashboard's own
+    // "offline" cutoff is 10 minutes (see src/app/page.tsx), so 5-minute
+    // pings still land comfortably inside that window with room to spare
+    // for one missed ping.
+    if (millis() - lastPingTime > 300000) {
         if (isNetworkConnected()) sendMachineStatusPing();
         lastPingTime = millis();
     }

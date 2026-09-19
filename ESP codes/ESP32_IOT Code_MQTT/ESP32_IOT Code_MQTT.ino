@@ -18,11 +18,10 @@
 #include <Preferences.h>
 #include "esp_ota_ops.h"
 #include "mbedtls/sha256.h"
-// OTA checksum verification below uses the _ret-suffixed mbedtls sha256 API
-// (mbedtls_sha256_starts_ret etc). This matches ESP32 Arduino core 2.x
-// (mbedtls 2.x); on core 3.x (mbedtls 3.x) these are deprecated aliases and
-// should still compile, but if your exact toolchain removed them, drop the
-// _ret suffix from those three call sites in performOTAUpdate().
+// OTA checksum verification below uses the plain (non-_ret-suffixed)
+// mbedtls sha256 API. ESP32 core 2.x (mbedtls 2.x) exposes both names via
+// a _ret-suffixed compatibility alias; core 3.x (mbedtls 3.x) has dropped
+// that alias, so the plain names are the ones that compile on both.
 #include <SPI.h>
 #include <esp_task_wdt.h>
 
@@ -65,14 +64,14 @@
 // transport, which is every real machine in this fleet today; add a WiFi
 // PubSubClient instance later if that ever changes.
 #define USE_MQTT_PAYMENT_PUSH
-#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+#if defined(USE_MQTT_PAYMENT_PUSH)
   #include <PubSubClient.h>
   #define MQTT_BROKER_HOST "lyra-app.co.in"
   #define MQTT_BROKER_PORT 1883
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "V1.0.0"
+#define CURRENT_FIRMWARE_VERSION "V1.0.1"
 
 // ==================== WATCHDOG CONFIGURATION ====================
 #define WDT_TIMEOUT 1800  // Watchdog timeout in seconds (30 minutes)
@@ -178,14 +177,25 @@ void markOtaBootValidIfNeeded() {
 // sits earlier in the file than that definition.
 void handlePaymentDocument(JsonObject doc);
 
-#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+#if defined(USE_MQTT_PAYMENT_PUSH)
 // ==================== MQTT PAYMENT PUSH ====================
-// Separate EthernetClient from the one HTTP polling uses (ethClient) --
-// MQTT needs a long-lived, exclusively-owned connection, and sharing a
-// socket between that and the short, one-off HTTP requests would corrupt
-// both. ENC28J60 has few concurrent sockets but two is well within budget.
+// This machine can end up running over either transport -- Ethernet is
+// preferred (see setup()), but falls back to WiFi whenever the Ethernet
+// module isn't detected/wired, same as the HTTP polling path always could.
+// PubSubClient needs a concrete Client& to wrap, so we keep one dedicated
+// instance per transport (separate from ethClient/HTTP's own WiFiClientSecure
+// -- MQTT needs a long-lived, exclusively-owned connection, and sharing a
+// socket with short one-off HTTP requests would corrupt both) and switch
+// which one mqttClient is bound to via setClient() based on whichever
+// transport actually came up this boot.
+extern bool useEthernet;
+extern bool ethernetConnected;
+
+#ifdef USE_ETHERNET
 EthernetClient mqttEthClient;
-PubSubClient mqttClient(mqttEthClient);
+#endif
+WiFiClient mqttWifiClient;
+PubSubClient mqttClient(mqttWifiClient); // rebound to the right transport in maintainMqttConnection()
 unsigned long lastMqttReconnectAttempt = 0;
 
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
@@ -215,6 +225,16 @@ void maintainMqttConnection() {
 
     if (millis() - lastMqttReconnectAttempt < 5000) return; // backoff between attempts
     lastMqttReconnectAttempt = millis();
+
+#ifdef USE_ETHERNET
+    if (useEthernet && ethernetConnected) {
+        mqttClient.setClient(mqttEthClient);
+    } else {
+        mqttClient.setClient(mqttWifiClient);
+    }
+#else
+    mqttClient.setClient(mqttWifiClient);
+#endif
 
     mqttClient.setServer(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
     mqttClient.setCallback(onMqttMessage);
@@ -1301,7 +1321,7 @@ bool performOTAUpdateHTTPS(const String& url, mbedtls_sha256_context* shaCtx) {
             size_t toRead = (avail < sizeof(buf)) ? avail : sizeof(buf);
             int readBytes = stream->readBytes(buf, toRead);
             if (readBytes > 0) {
-                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
@@ -1427,7 +1447,7 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
             int toRead = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
             int readBytes = ethClient.read(buf, toRead);
             if (readBytes > 0) {
-                mbedtls_sha256_update_ret(shaCtx, buf, readBytes);
+                mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
@@ -1479,7 +1499,7 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
 
     mbedtls_sha256_context shaCtx;
     mbedtls_sha256_init(&shaCtx);
-    mbedtls_sha256_starts_ret(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
+    mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256 (not the truncated SHA-224 variant)
 
     bool ok;
 #ifdef USE_ETHERNET
@@ -1499,7 +1519,7 @@ void performOTAUpdate(const String& deploymentId, const String& firmwareVersion,
     }
 
     unsigned char hash[32];
-    mbedtls_sha256_finish_ret(&shaCtx, hash);
+    mbedtls_sha256_finish(&shaCtx, hash);
     mbedtls_sha256_free(&shaCtx);
 
     char hashHex[65];
@@ -2055,10 +2075,15 @@ void printStartupSummary(bool networkOk, const String& networkType, bool machine
 
 void setup() {
     Serial.begin(115200);
-    Serial2.begin(9600, SERIAL_8N1, 16, 17);  // UNO SoftwareSerial on pins 2/3
+    Serial2.begin(115200, SERIAL_8N1, 16, 17);  // Must match the UNO/TFT display's Serial.begin(115200) -- a baud mismatch here means the UNO misreads every command byte and never draws anything
     
     Serial.println("\n🚀 Lyra Vending Machine " + String(CURRENT_FIRMWARE_VERSION));
     Serial.println("✨ Offline Mode Enabled - Works without internet!");
+    // OTA test marker -- V1.0.0 never prints this line, so seeing it after
+    // pushing a V1.0.1 deployment through /admin/firmware is a clear,
+    // unambiguous confirmation the OTA update actually took (not just a
+    // version string that could be misread/stale in the IDE's monitor).
+    Serial.println("🆕 OTA VERIFICATION MARKER: running V1.0.1 -- if you see this, the OTA update succeeded!");
     
     // Initialize watchdog timer for automatic recovery
     initializeWatchdog();
@@ -2330,9 +2355,10 @@ void loop() {
         ESP.restart();
     }
     
-#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+#if defined(USE_MQTT_PAYMENT_PUSH)
     // Payments arrive via MQTT push instead -- no polling at all for a
-    // machine built with this flag on.
+    // machine built with this flag on. maintainMqttConnection() picks
+    // whichever transport (Ethernet or WiFi) is actually up this boot.
     maintainMqttConnection();
 #else
     // Payment polling every 4 seconds
@@ -2348,9 +2374,12 @@ void loop() {
     }
 #endif
     
-    // Status ping every 5 minutes -- keeps steady-state Vercel invocation
-    // volume down fleet-wide; the dashboard's offline cutoff is 10 minutes,
-    // so this still lands well inside that window.
+    // Status ping every 5 minutes -- this runs continuously on every
+    // deployed machine, 24/7, so its interval is the single biggest driver
+    // of steady-state Vercel invocation volume across the whole fleet. The
+    // dashboard's own "offline" cutoff is 10 minutes (see src/app/page.tsx),
+    // so 5-minute pings still land comfortably inside that window with room
+    // to spare for one missed ping.
     if (millis() - lastPingTime > 300000) {
         if (isNetworkConnected()) {
             Serial.println("\n⏰ [Ping Timer] Sending machine status ping...");
