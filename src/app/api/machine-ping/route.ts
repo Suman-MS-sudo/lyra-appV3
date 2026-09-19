@@ -92,18 +92,30 @@ export async function POST(request: NextRequest) {
         console.error('Error updating machine ping:', updateError);
       }
 
-      // Firmware OTA: if there's a pending deployment for this machine, tell
-      // it to fetch the binary from our own /api/firmware-download endpoint
-      // (not a direct Supabase Storage URL -- the ESP32's Ethernet stack has
-      // no TLS support at all, so it can only ever talk to our own domain,
-      // same as every other device call). Status transitions
-      // (downloading/applied/failed) are reported back by the device itself
-      // via /api/machine-firmware-status, not flipped here.
+      // Firmware OTA: if there's a pending (or stuck-downloading) deployment
+      // for this machine, tell it to fetch the binary from our own
+      // /api/firmware-download endpoint (not a direct Supabase Storage URL
+      // -- the ESP32's Ethernet stack has no TLS support at all, so it can
+      // only ever talk to our own domain, same as every other device call).
+      // Status transitions (downloading/applied/failed) are reported back
+      // by the device itself via /api/machine-firmware-status, not flipped
+      // here.
+      //
+      // 'downloading' is included, not just 'pending': the device reports
+      // "downloading" the instant it starts, before the transfer actually
+      // completes -- if it then crashes, loses power, or hits a watchdog
+      // reset mid-download (a real, observed failure mode on flaky
+      // Ethernet), the deployment is left stuck in 'downloading' forever
+      // with nothing to ever move it to 'applied' or 'failed'. Since this
+      // device is single-threaded and blocking, there's no concurrent-
+      // download to race with -- offering it again on the next ping just
+      // lets a genuinely-stuck deployment retry instead of silently never
+      // being offered again.
       const { data: pendingDeployment } = await supabase
         .from('firmware_deployments')
         .select('id, firmware_versions(version, sha256)')
         .eq('machine_id', resolvedId)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'downloading'])
         .maybeSingle();
 
       if (pendingDeployment?.firmware_versions) {
