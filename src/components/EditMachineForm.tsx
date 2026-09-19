@@ -270,6 +270,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent text-gray-900 bg-white"
           >
             <option value="single_motor">Single Motor — 25 napkin capacity</option>
+            <option value="single_motor_35">Single Motor — 35 napkin capacity</option>
             <option value="quad_motor">Quad Motor — 100 napkin capacity (4x25)</option>
           </select>
           <p className="mt-1 text-xs text-gray-500">Must match the firmware flashed on this machine (ESP32_RFID_Firmware_SingleMotor.ino or _QuadMotor.ino).</p>

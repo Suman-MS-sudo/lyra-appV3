@@ -19,6 +19,15 @@ function serviceSupabase() {
   return _serviceSupabase;
 }
 
+// Napkin capacity per physical dispenser body -- single_motor and
+// single_motor_35 are the same one-motor/one-stock-counter firmware, just a
+// taller hopper; quad_motor is 4x25 with round-robin dispensing.
+function bodyTypeCapacity(bodyType: string | null): number {
+  if (bodyType === 'quad_motor') return 100;
+  if (bodyType === 'single_motor_35') return 35;
+  return 25;
+}
+
 export async function createVendingMachine(_prevState: { error: string } | null, formData: FormData): Promise<{ error: string } | null> {
   // Get selected product IDs
   const productIds = formData.getAll('product_ids').filter(id => id);
@@ -39,7 +48,7 @@ export async function createVendingMachine(_prevState: { error: string } | null,
     firmware_version: formData.get('firmware_version') as string || null,
     rfid_enabled: formData.get('rfid_enabled') === 'true',
     body_type: (formData.get('body_type') as string) || 'single_motor',
-    max_capacity: formData.get('body_type') === 'quad_motor' ? 100 : 25,
+    max_capacity: bodyTypeCapacity(formData.get('body_type') as string),
 
     // Organization fields (customer_id stores the organization UUID)
     customer_id: formData.get('organization_id') as string || null,

@@ -163,7 +163,8 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
     const headers = ['Name', 'Machine ID', 'MAC ID', 'Location', 'Status', 'Customer', 'Type', 'Motor Type', 'Stock', 'Last Ping'];
     const rows = filtered.map(m => [
       m.name, m.machine_id, m.mac_id, m.location, m.status,
-      m.customer_name, m.machine_type, m.body_type === 'quad_motor' ? 'Quad Motor' : 'Single Motor',
+      m.customer_name, m.machine_type,
+      m.body_type === 'quad_motor' ? 'Quad Motor' : m.body_type === 'single_motor_35' ? 'Single Motor (35)' : 'Single Motor',
       m.stock_level?.toString() ?? '0',
       m.last_ping ? new Date(m.last_ping).toLocaleString() : 'Never',
     ]);

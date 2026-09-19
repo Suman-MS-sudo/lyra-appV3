@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const body = await request.json();
   const { archived, compatible_body_type } = body as {
     archived?: boolean;
-    compatible_body_type?: 'single_motor' | 'quad_motor' | null;
+    compatible_body_type?: 'single_motor' | 'single_motor_35' | 'quad_motor' | null;
   };
 
   const updateData: Record<string, unknown> = {};

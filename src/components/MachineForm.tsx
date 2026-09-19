@@ -165,6 +165,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
           >
             <option value="" disabled>-- Select motor type --</option>
             <option value="single_motor">Single Motor — 25 napkin capacity</option>
+            <option value="single_motor_35">Single Motor — 35 napkin capacity</option>
             <option value="quad_motor">Quad Motor — 100 napkin capacity (4x25)</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">Must match the firmware flashed on this machine (ESP32_RFID_Firmware_SingleMotor.ino or _QuadMotor.ino).</p>

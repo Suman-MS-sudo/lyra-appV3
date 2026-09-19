@@ -97,7 +97,9 @@ export async function PUT(request: NextRequest) {
 
     if (body_type !== undefined) {
       updateData.body_type = body_type;
-      updateData.max_capacity = body_type === 'quad_motor' ? 100 : 25;
+      // single_motor and single_motor_35 are the same one-motor firmware,
+      // just a taller hopper; quad_motor is 4x25 with round-robin dispensing.
+      updateData.max_capacity = body_type === 'quad_motor' ? 100 : body_type === 'single_motor_35' ? 35 : 25;
     }
 
     const { error: updateError } = await supabase

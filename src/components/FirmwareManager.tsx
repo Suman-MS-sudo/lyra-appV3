@@ -13,7 +13,7 @@ interface FirmwareVersion {
   notes: string | null;
   created_at: string;
   archived_at: string | null;
-  compatible_body_type: 'single_motor' | 'quad_motor' | null;
+  compatible_body_type: 'single_motor' | 'single_motor_35' | 'quad_motor' | null;
 }
 
 interface Machine {
@@ -619,6 +619,7 @@ export default function FirmwareManager({
                     >
                       <option value={ALL}>All body types</option>
                       <option value="single_motor">single_motor only</option>
+                      <option value="single_motor_35">single_motor_35 only</option>
                       <option value="quad_motor">quad_motor only</option>
                     </select>
                   </td>
