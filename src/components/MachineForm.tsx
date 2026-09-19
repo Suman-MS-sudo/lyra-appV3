@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { createVendingMachine } from '@/app/actions/admin';
 
@@ -26,6 +26,7 @@ interface MachineFormProps {
 
 export function MachineForm({ organizations, products }: MachineFormProps) {
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [state, formAction, isPending] = useActionState(createVendingMachine, null);
 
   const handleOrgChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const orgId = e.target.value;
@@ -45,7 +46,12 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
   };
 
   return (
-    <form action={createVendingMachine} className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+    <form action={formAction} className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+      {state?.error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-4">
+          <strong>Could not create machine:</strong> {state.error}
+        </div>
+      )}
       {/* Basic Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h3>
@@ -177,13 +183,12 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
 
           <div>
             <label htmlFor="ip_address" className="block text-sm font-medium text-gray-700 mb-2">
-              IP Address <span className="text-red-500">*</span>
+              IP Address
             </label>
             <input
               type="text"
               id="ip_address"
               name="ip_address"
-              required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
               placeholder="e.g., 192.168.1.100"
             />
@@ -424,9 +429,10 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
         </Link>
         <button
           type="submit"
-          className="flex-1 px-4 py-2 bg-[#1d1d1f] text-white rounded-lg hover:bg-black font-medium"
+          disabled={isPending}
+          className="flex-1 px-4 py-2 bg-[#1d1d1f] text-white rounded-lg hover:bg-black font-medium disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Create Machine
+          {isPending ? 'Creating…' : 'Create Machine'}
         </button>
       </div>
     </form>

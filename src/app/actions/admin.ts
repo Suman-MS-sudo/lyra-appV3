@@ -19,14 +19,11 @@ function serviceSupabase() {
   return _serviceSupabase;
 }
 
-export async function createVendingMachine(formData: FormData) {
+export async function createVendingMachine(_prevState: { error: string } | null, formData: FormData): Promise<{ error: string } | null> {
   // Get selected product IDs
   const productIds = formData.getAll('product_ids').filter(id => id);
 
-  const ipAddress = (formData.get('ip_address') as string | null)?.trim();
-  if (!ipAddress) {
-    throw new Error('IP address is required when creating a machine');
-  }
+  const ipAddress = (formData.get('ip_address') as string | null)?.trim() || null;
 
   const machineData = {
     name: formData.get('name') as string,
@@ -67,7 +64,7 @@ export async function createVendingMachine(formData: FormData) {
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    return { error: error.message };
   }
 
   // If products were selected, create machine_products mappings
@@ -80,9 +77,13 @@ export async function createVendingMachine(formData: FormData) {
       is_active: 1,
     }));
 
-    await serviceSupabase()
+    const { error: mapError } = await serviceSupabase()
       .from('machine_products')
       .insert(machineProducts);
+
+    if (mapError) {
+      return { error: `Machine created, but product mapping failed: ${mapError.message}` };
+    }
   }
 
   revalidatePath('/admin/machines');
