@@ -208,13 +208,19 @@ function HomeContent() {
     // load -- stock_level/last_ping/asset_online themselves never actually
     // refresh, so a stock reset or the machine going offline never shows up
     // on an already-open page without a manual reload. Poll quietly in the
-    // background instead so this page reflects reality, same cadence as the
-    // heartbeat so both tick together. Skipped mid-purchase (isProcessing or
-    // a non-empty cart) so a fresh stock number can't silently invalidate an
-    // in-flight order or the customer's own selections.
+    // background instead so this page reflects reality. 5 minutes matches
+    // the machine's own ~5-minute ping cadence (RFID_REINIT/status pings
+    // are on that order) -- polling faster than the data source itself
+    // updates would just burn Vercel function invocations for no fresher
+    // data, and this page can be left open indefinitely (a kiosk browser
+    // tab, a customer who doesn't close it), so the interval needs to stay
+    // cheap over hours/days, not just look responsive in a quick demo.
+    // Skipped mid-purchase (isProcessing or a non-empty cart) so a fresh
+    // stock number can't silently invalidate an in-flight order or the
+    // customer's own selections.
     const refreshId = setInterval(() => {
       if (machineId) refreshMachineStatusSilently();
-    }, 30000);
+    }, 5 * 60 * 1000);
     return () => clearInterval(refreshId);
   }, [machineId]);
 
