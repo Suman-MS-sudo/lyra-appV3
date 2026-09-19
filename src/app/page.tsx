@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { ShoppingCart, Heart, Package, X, Minus, Plus, Lock, Zap, Sparkles, Globe, MapPin, Instagram, Linkedin, Activity, Wifi } from 'lucide-react';
@@ -134,6 +134,14 @@ function HomeContent() {
   const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [error, setError] = useState<{ type: string; message: string } | null>(null);
 
+  // Live refs for the background poll below -- a setInterval callback set up
+  // once in a mount-only effect otherwise closes over whatever isProcessing/
+  // cart were AT MOUNT TIME forever, never seeing later updates.
+  const isProcessingRef = useRef(isProcessing);
+  useEffect(() => { isProcessingRef.current = isProcessing; }, [isProcessing]);
+  const cartRef = useRef(cart);
+  useEffect(() => { cartRef.current = cart; }, [cart]);
+
   useEffect(() => {
     if (machineId) {
       // Validate machine ID format (should not be empty or just whitespace)
@@ -194,6 +202,20 @@ function HomeContent() {
       console.error('❌ Failed to load Razorpay:', err);
       setRazorpayLoaded(false);
     });
+
+    // The heartbeat pill re-renders its "Xm ago" text every 30s, but that's
+    // just recomputing elapsed time from a timestamp fetched once on page
+    // load -- stock_level/last_ping/asset_online themselves never actually
+    // refresh, so a stock reset or the machine going offline never shows up
+    // on an already-open page without a manual reload. Poll quietly in the
+    // background instead so this page reflects reality, same cadence as the
+    // heartbeat so both tick together. Skipped mid-purchase (isProcessing or
+    // a non-empty cart) so a fresh stock number can't silently invalidate an
+    // in-flight order or the customer's own selections.
+    const refreshId = setInterval(() => {
+      if (machineId) refreshMachineStatusSilently();
+    }, 30000);
+    return () => clearInterval(refreshId);
   }, [machineId]);
 
   const fetchMachineAndProducts = async () => {
@@ -267,6 +289,35 @@ function HomeContent() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Background counterpart to fetchMachineAndProducts() above -- same
+  // endpoint and parsing, but never touches loading/error state, so a
+  // routine 30s poll can't flash the full-page loading screen over an
+  // already-open purchase flow, and a transient network hiccup on one poll
+  // just leaves the last-known-good data on screen instead of replacing it
+  // with an error page. Skipped entirely mid-purchase (isProcessing, or the
+  // customer already has items in their cart) so a fresh stock number can't
+  // invalidate an in-flight order or silently change what they're buying.
+  const refreshMachineStatusSilently = async () => {
+    if (isProcessingRef.current || cartRef.current.size > 0) return;
+    try {
+      const response = await fetch(`/api/machines/${machineId}/products`);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data.success || !data.machine) return;
+
+      const machine = data.machine;
+      if (machine.last_ping) {
+        const lastPingTime = new Date(machine.last_ping).getTime();
+        machine.asset_online = (Date.now() - lastPingTime) < 10 * 60 * 1000;
+      }
+
+      setMachine(machine);
+      setProducts(data.products || []);
+    } catch {
+      // Transient network hiccup on a background poll -- next tick retries.
     }
   };
 
