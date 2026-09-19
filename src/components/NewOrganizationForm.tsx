@@ -26,6 +26,7 @@ export default function NewOrganizationForm() {
 
   const [formData, setFormData] = useState({
     name: '',
+    customer_id: '',
     contact_email: '',
     contact_phone: '',
     address: '',
@@ -88,6 +89,19 @@ export default function NewOrganizationForm() {
             className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="Enter organization name"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2" style={LABEL}>Customer ID</label>
+          <input
+            type="text"
+            name="customer_id"
+            value={formData.customer_id}
+            onChange={handleChange}
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            style={INPUT}
+            placeholder="e.g. CN00005"
           />
         </div>
 

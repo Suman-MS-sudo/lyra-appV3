@@ -67,6 +67,9 @@ export default async function OrganizationsPage() {
                   <Link href={`/admin/organizations/${org.id}/transactions`}>
                     <h3 className="font-semibold text-[#1d1d1f] truncate hover:text-pink-400 transition-colors cursor-pointer">{org.name}</h3>
                   </Link>
+                  {org.customer_id && (
+                    <p className="text-xs mt-0.5 font-mono" style={{ color: '#86868b' }}>ID: {org.customer_id}</p>
+                  )}
                   {org.profiles && (
                     <p className="text-xs mt-0.5 truncate" style={{ color: '#6e6e73' }}>{org.profiles.full_name}</p>
                   )}

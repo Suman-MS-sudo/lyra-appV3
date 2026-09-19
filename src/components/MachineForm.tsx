@@ -7,6 +7,7 @@ import { createVendingMachine } from '@/app/actions/admin';
 interface Organization {
   id: string;
   name: string;
+  customer_id: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   address: string | null;
@@ -36,10 +37,12 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
     // Auto-populate organization details
     if (org) {
       const nameInput = document.getElementById('customer_name') as HTMLInputElement;
+      const codeInput = document.getElementById('customer_code') as HTMLInputElement;
       const contactInput = document.getElementById('customer_contact') as HTMLInputElement;
       const addressInput = document.getElementById('customer_address') as HTMLTextAreaElement;
-      
+
       if (nameInput) nameInput.value = org.name || '';
+      if (codeInput) codeInput.value = org.customer_id || '';
       if (contactInput && org.contact_phone) contactInput.value = org.contact_phone;
       if (addressInput && org.address) addressInput.value = org.address;
     }
@@ -227,7 +230,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             <option value="">-- Select an organization --</option>
             {organizations?.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name} {org.contact_email && `(${org.contact_email})`}
+                {org.customer_id ? `[${org.customer_id}] ` : ''}{org.name} {org.contact_email && `(${org.contact_email})`}
               </option>
             ))}
           </select>

@@ -7,6 +7,7 @@ import Link from 'next/link';
 interface Organization {
   id: string;
   name: string;
+  customer_id: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   address: string | null;
@@ -44,6 +45,7 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
 
   const [formData, setFormData] = useState({
     name: organization.name || '',
+    customer_id: organization.customer_id || '',
     contact_email: organization.contact_email || '',
     contact_phone: organization.contact_phone || '',
     address: organization.address || '',
@@ -106,6 +108,19 @@ export default function EditOrganizationForm({ organization }: EditOrganizationF
             className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
             style={INPUT}
             placeholder="Enter organization name"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2" style={LABEL}>Customer ID</label>
+          <input
+            type="text"
+            name="customer_id"
+            value={formData.customer_id}
+            onChange={handleChange}
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            style={INPUT}
+            placeholder="e.g. CN00005"
           />
         </div>
 

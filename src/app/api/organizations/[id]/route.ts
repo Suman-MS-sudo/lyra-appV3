@@ -35,6 +35,7 @@ export async function PUT(
     const body = await request.json();
     const {
       name,
+      customer_id,
       contact_email,
       contact_phone,
       address,
@@ -55,6 +56,7 @@ export async function PUT(
       .from('organizations')
       .update({
         name,
+        customer_id: customer_id || null,
         contact_email: contact_email || null,
         contact_phone: contact_phone || null,
         address: address || null,

@@ -25,7 +25,7 @@ export default async function NewMachinePage() {
 
   const { data: organizations } = await serviceSupabase
     .from('organizations')
-    .select('id, name, contact_email, contact_phone, address')
+    .select('id, name, customer_id, contact_email, contact_phone, address')
     .order('name');
 
   const { data: products } = await serviceSupabase
