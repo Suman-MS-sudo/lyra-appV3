@@ -59,6 +59,9 @@
 #include <esp_task_wdt.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <Update.h>       // OTA UPDATE section — streams a firmware .bin into flash
+#include "esp_ota_ops.h"  // partition inspection + self-rollback for a bad OTA build
+#include "mbedtls/sha256.h"  // OTA download integrity check — /api/firmware-download's binary is verified against firmware_versions.sha256
 
 // Ethernet — module: HANRUN HR911105A (ENC28J60-based), shares the
 // RFID/LCD SPI bus (SCK18/MISO19/MOSI23) via its own CS line. This is the
@@ -152,6 +155,12 @@ String deviceMacAddress;
 String machineId = "UNKNOWN";
 String machineName = "UNKNOWN";
 String defaultProductId = "";
+// Authenticates /api/firmware-download and /api/machine-firmware-status --
+// both check this against vending_machines.device_secret (see those routes'
+// own comments). Learned once from /api/get-machine-id-from-mac's response
+// and persisted to LittleFS so a reboot mid-outage doesn't lose it before
+// Ethernet reconnects.
+String deviceSecret = "";
 unsigned long lastPingTime = 0;
 uint8_t nextMotorIndex = 0;  // round-robin cursor across taps; overwritten from EEPROM in setup()
 bool rfidHardwarePresent = false;
@@ -306,6 +315,10 @@ bool dispenseFromNextAvailableMotor(String productId = "", String paymentId = ""
 void reportDispenseMotor(const String& paymentId, uint8_t motorIndex);
 void voidRfidPayment(const String& paymentId);
 void sendMachineStatusPing();
+void performOtaUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256);
+void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage);
+void checkOtaBootConfirm();
+void checkOtaPendingConfirm();
 bool isNetworkConnected();
 String extractJsonFromString(const String &s);
 void lcdMsg(const String& line0, const String& line1 = "");
@@ -673,6 +686,30 @@ void loadDefaultProductFromFS() {
     if (saved.length() > 0) {
         defaultProductId = saved;
         Serial.println("Loaded default product ID from LittleFS: " + defaultProductId);
+    }
+}
+
+// ---- Device secret persistence (see the GLOBAL VARIABLES comment) ----
+#define DEVICE_SECRET_FILE "/device_secret.txt"
+
+void saveDeviceSecretToFS() {
+    if (deviceSecret.length() == 0) return;
+    File f = LittleFS.open(DEVICE_SECRET_FILE, "w");
+    if (!f) return;
+    f.print(deviceSecret);
+    f.close();
+}
+
+void loadDeviceSecretFromFS() {
+    if (!LittleFS.exists(DEVICE_SECRET_FILE)) return;
+    File f = LittleFS.open(DEVICE_SECRET_FILE, "r");
+    if (!f) return;
+    String saved = f.readString();
+    f.close();
+    saved.trim();
+    if (saved.length() > 0) {
+        deviceSecret = saved;
+        Serial.println("Loaded device secret from LittleFS");
     }
 }
 
@@ -1605,6 +1642,13 @@ String fetchMachineInfoFromBackend(const String& mac) {
             if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
                 machineId = doc["data"]["machine_id"].as<String>();
                 machineName = doc["data"]["machine_name"].as<String>();
+                if (doc["data"].containsKey("device_secret")) {
+                    String secret = doc["data"]["device_secret"].as<String>();
+                    if (secret.length() > 0 && secret != deviceSecret) {
+                        deviceSecret = secret;
+                        saveDeviceSecretToFS();
+                    }
+                }
             } else if (doc.containsKey("machine_id")) {
                 machineId = doc["machine_id"].as<String>();
                 machineName = doc["machine_name"].as<String>();
@@ -1668,6 +1712,283 @@ void fetchMachineProducts() {
     }
 }
 
+// ==================== OTA UPDATE (remote firmware upgrade) ====================
+// A machine only ever downloads and flashes a build when an admin has
+// explicitly approved THIS machine for it (see /api/machines/set-ota-target)
+// -- the ping response only carries update_available at all in that case,
+// never just because a newer build exists somewhere (see /api/machine-ping).
+// There is deliberately no fleet-wide auto-update: these machines run
+// unattended, so a bad build reaching all of them at once with no remote
+// way back would be far worse than the slower, explicit rollout this
+// enables instead.
+//
+// Self-rollback: flashing successfully doesn't by itself prove the new
+// build actually works -- it could still fail to boot, panic-loop, or come
+// up with Ethernet broken. OTA_CONFIRM_FLAG_FILE is written to LittleFS
+// right before the reboot into a freshly-flashed image; checkOtaBootConfirm()
+// (called once from setup()) notices it on the very next boot, and
+// checkOtaPendingConfirm() (called every loop() iteration until resolved)
+// requires the new image to reach a genuinely working state -- Ethernet up
+// and a resolved machine ID -- within OTA_CONFIRM_TIMEOUT_MS. If it does,
+// the flag is cleared and esp_ota_mark_app_valid_cancel_rollback() confirms
+// the image as good. If it doesn't, this machine sets its own boot
+// partition back to the one it was just running before the update and
+// restarts into it -- no admin action required to recover an unattended
+// machine from a bad build.
+#define OTA_CONFIRM_FLAG_FILE "/ota_pending"
+#define OTA_CONFIRM_TIMEOUT_MS 180000  // 3 minutes to prove the new image actually works
+
+bool otaPendingConfirm = false;
+unsigned long otaBootMillis = 0;
+
+// Called once from setup(), after LittleFS is mounted, before anything
+// else touches the flag file.
+void checkOtaBootConfirm() {
+    if (LittleFS.exists(OTA_CONFIRM_FLAG_FILE)) {
+        otaPendingConfirm = true;
+        otaBootMillis = millis();
+        Serial.println("Booted into a freshly-applied OTA update — must confirm within " +
+                        String(OTA_CONFIRM_TIMEOUT_MS / 1000) + "s or this rolls back automatically");
+    }
+}
+
+// Called every loop() iteration -- a single bool check once confirmed, so
+// negligible cost the rest of this machine's life.
+void checkOtaPendingConfirm() {
+    if (!otaPendingConfirm) return;
+
+    if (isNetworkConnected() && machineId != "UNKNOWN") {
+        LittleFS.remove(OTA_CONFIRM_FLAG_FILE);
+        otaPendingConfirm = false;
+        esp_ota_mark_app_valid_cancel_rollback();
+        Serial.println("OTA confirmed good — staying on this firmware");
+        return;
+    }
+
+    if (millis() - otaBootMillis > OTA_CONFIRM_TIMEOUT_MS) {
+        Serial.println("New firmware did not come up cleanly within the confirm window — rolling back to the previous image");
+        const esp_partition_t* running = esp_ota_get_running_partition();
+        const esp_partition_t* previous = esp_ota_get_next_update_partition(running);
+        if (previous) esp_ota_set_boot_partition(previous);
+        LittleFS.remove(OTA_CONFIRM_FLAG_FILE);
+        delay(200);
+        ESP.restart();
+    }
+}
+
+// Reports OTA progress back to the admin dashboard (see that route's own
+// comment for why device_secret travels in the body, not a header). Purely
+// informational -- a failed report here doesn't block or retry the OTA
+// itself, it just means the dashboard won't show this particular status
+// transition.
+void reportFirmwareStatus(const String& deploymentId, const String& status, const String& errorMessage = "") {
+    String payload;
+    payload.reserve(160 + errorMessage.length());
+    payload = "{\"deployment_id\":\"" + deploymentId + "\",\"device_secret\":\"" + deviceSecret +
+              "\",\"status\":\"" + status + "\"";
+    if (errorMessage.length() > 0) payload += ",\"error_message\":\"" + errorMessage + "\"";
+    payload += "}";
+
+    int code = makeHTTPRequest(apiUrl("/api/machine-firmware-status"), "POST", payload);
+    if (code == 200) Serial.println("Firmware status reported: " + status);
+    else Serial.printf("Failed to report firmware status (%s): %d\n", status.c_str(), code);
+}
+
+// GET /api/firmware-download?deployment_id=...&device_secret=... -- streams
+// the .bin straight into flash via the Update library, never buffered whole
+// in RAM, hashing it with SHA-256 as it goes and comparing against
+// firmware_versions.sha256 (passed in as expectedSha256, straight from
+// /api/machine-ping's response) before committing to it. If anything about
+// the download or verification fails, this simply gives up and stays on
+// the current, known-working firmware -- the actual protection against a
+// BAD build that flashes and boots successfully is checkOtaPendingConfirm()
+// above, not this function.
+void performOtaUpdate(const String& deploymentId, const String& firmwareVersion, const String& expectedSha256) {
+    if (esp_ota_get_next_update_partition(NULL) == NULL) {
+        Serial.println("OTA update approved for this machine, but this board has no second OTA partition to flash into "
+                        "— needs one manual USB reflash with an OTA-capable partition scheme first. Skipping.");
+        return;
+    }
+    if (deviceSecret.length() == 0) {
+        Serial.println("OTA update available but no device_secret yet — will retry once identity resolves");
+        return;
+    }
+
+    Serial.println("OTA update approved: " + firmwareVersion + " — downloading...");
+    lcdMsg("Updating...", "Do not power off");
+    reportFirmwareStatus(deploymentId, "downloading");
+
+    String otaPath = "/api/firmware-download?deployment_id=" + urlEncode(deploymentId) +
+                      "&device_secret=" + urlEncode(deviceSecret);
+
+    String u = ETHERNET_SERVER_BASE;
+    if (u.startsWith("http://")) u = u.substring(7);
+    int slashIdx = u.indexOf('/');
+    String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
+    int colonIdx = host.indexOf(':');
+    int port = 80;
+    if (colonIdx >= 0) {
+        port = host.substring(colonIdx + 1).toInt();
+        host = host.substring(0, colonIdx);
+    }
+
+    bool connected = false;
+    for (int attempt = 0; attempt < 2; attempt++) {
+        if (ethClient.connect(host.c_str(), port)) { connected = true; break; }
+        if (attempt == 0) { ethClient.stop(); delay(200); }
+    }
+    if (!connected) {
+        Serial.println("OTA download: connect failed");
+        reportFirmwareStatus(deploymentId, "failed", "connect_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    String req = "GET " + otaPath + " HTTP/1.1\r\n";
+    req += "Host: " + host + "\r\n";
+    req += "Connection: close\r\n\r\n";
+    ethClient.print(req);
+
+    unsigned long waitStart = millis();
+    while (ethClient.available() == 0) {
+        if (millis() - waitStart > 5000) {
+            ethClient.stop();
+            Serial.println("OTA download: response timeout");
+            reportFirmwareStatus(deploymentId, "failed", "response_timeout");
+            sendStockAwareStatus();
+            return;
+        }
+        feedWatchdog();
+    }
+
+    String statusLine = ethClient.readStringUntil('\n');
+    statusLine.trim();
+    int code = -1;
+    int firstSpace = statusLine.indexOf(' ');
+    if (firstSpace > 0) {
+        int secondSpace = statusLine.indexOf(' ', firstSpace + 1);
+        String codeStr = (secondSpace > firstSpace) ?
+                        statusLine.substring(firstSpace + 1, secondSpace) :
+                        statusLine.substring(firstSpace + 1);
+        code = codeStr.toInt();
+    }
+
+    long contentLength = -1;
+    bool headersEnded = false;
+    while (!headersEnded) {
+        while (ethClient.available() == 0) {
+            if (!ethClient.connected()) { headersEnded = true; break; }
+            feedWatchdog();
+        }
+        if (!ethClient.connected() && ethClient.available() == 0) break;
+        String line = ethClient.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) { headersEnded = true; break; }
+        String lower = line;
+        lower.toLowerCase();
+        if (lower.startsWith("content-length:")) {
+            contentLength = line.substring(line.indexOf(':') + 1).toInt();
+        }
+    }
+
+    if (code != 200 || contentLength <= 0) {
+        ethClient.stop();
+        Serial.printf("OTA download failed: HTTP %d, content-length %ld\n", code, contentLength);
+        reportFirmwareStatus(deploymentId, "failed", "download_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    if (!Update.begin(contentLength)) {
+        ethClient.stop();
+        Serial.println("OTA: Update.begin() failed — not enough free space in the OTA partition");
+        reportFirmwareStatus(deploymentId, "failed", "update_begin_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    mbedtls_sha256_context shaCtx;
+    mbedtls_sha256_init(&shaCtx);
+    mbedtls_sha256_starts(&shaCtx, 0);  // 0 = SHA-256 (not the truncated SHA-224 variant)
+
+    uint8_t buf[512];
+    size_t totalWritten = 0;
+    unsigned long lastByteAt = millis();
+    bool writeError = false;
+
+    while (totalWritten < (size_t)contentLength) {
+        int avail = ethClient.available();
+        if (avail == 0) {
+            if (!ethClient.connected()) break;
+            if (millis() - lastByteAt > 8000) {
+                Serial.println("OTA download: stream stalled");
+                writeError = true;
+                break;
+            }
+            feedWatchdog();
+            continue;
+        }
+        int toRead = min(avail, (int)sizeof(buf));
+        int n = ethClient.read(buf, toRead);
+        if (n > 0) {
+            lastByteAt = millis();
+            mbedtls_sha256_update(&shaCtx, buf, n);
+            if (Update.write(buf, n) != (size_t)n) {
+                Serial.println("OTA: flash write error mid-stream");
+                writeError = true;
+                break;
+            }
+            totalWritten += n;
+        }
+        feedWatchdog();
+    }
+    ethClient.stop();
+    delay(100);  // same connection-teardown settle time as makeEthernetHTTPRequest() — see its comment
+
+    if (writeError || totalWritten != (size_t)contentLength) {
+        Serial.printf("OTA download incomplete (%u/%ld bytes) — aborting, staying on current firmware\n", (unsigned)totalWritten, contentLength);
+        mbedtls_sha256_free(&shaCtx);
+        Update.abort();
+        reportFirmwareStatus(deploymentId, "failed", "incomplete_download");
+        sendStockAwareStatus();
+        return;
+    }
+
+    unsigned char hash[32];
+    mbedtls_sha256_finish(&shaCtx, hash);
+    mbedtls_sha256_free(&shaCtx);
+
+    char hashHex[65];
+    for (int i = 0; i < 32; i++) sprintf(hashHex + i * 2, "%02x", hash[i]);
+    hashHex[64] = '\0';
+
+    String computedSha256 = String(hashHex);
+    String expectedLower = expectedSha256;
+    expectedLower.toLowerCase();
+
+    if (expectedLower.length() > 0 && computedSha256 != expectedLower) {
+        Serial.println("OTA: checksum mismatch — expected " + expectedLower + ", computed " + computedSha256);
+        Update.abort();
+        reportFirmwareStatus(deploymentId, "failed", "checksum_mismatch");
+        sendStockAwareStatus();
+        return;
+    }
+
+    if (!Update.end(true) || Update.hasError()) {
+        Serial.printf("OTA verification failed (%s) — staying on current firmware\n", Update.errorString());
+        reportFirmwareStatus(deploymentId, "failed", "flash_finalize_failed");
+        sendStockAwareStatus();
+        return;
+    }
+
+    Serial.println("OTA flashed and verified successfully — rebooting into " + firmwareVersion);
+    reportFirmwareStatus(deploymentId, "applied");
+    File flag = LittleFS.open(OTA_CONFIRM_FLAG_FILE, "w");
+    if (flag) { flag.print("1"); flag.close(); }
+    delay(300);
+    ESP.restart();
+}
+
 void sendMachineStatusPing() {
     int currentStock = readTotalStockFromEEPROM();
 
@@ -1682,10 +2003,29 @@ void sendMachineStatusPing() {
     payload += "\"stock_count\":" + String(currentStock);
     payload += "}";
 
-    int code = makeHTTPRequest(apiUrl("/api/machine-ping"), "POST", payload);
+    String responseBody;
+    int code = makeHTTPRequest(apiUrl("/api/machine-ping"), "POST", payload, &responseBody);
 
-    if (code == 200) Serial.printf("Machine ping successful (Stock: %d)\n", currentStock);
-    else Serial.printf("Machine ping failed: %d\n", code);
+    if (code == 200) {
+        Serial.printf("Machine ping successful (Stock: %d)\n", currentStock);
+
+        // update_available/deployment_id/firmware_sha256 -- the response
+        // shape /api/machine-ping actually sends. Last check here -- may
+        // reboot this machine on success, so nothing after it in this
+        // function is guaranteed to run.
+        DynamicJsonDocument pingDoc(512);
+        if (deserializeJson(pingDoc, responseBody) == DeserializationError::Ok &&
+            pingDoc["update_available"] == true) {
+            String deploymentId = pingDoc["deployment_id"] | "";
+            String newFirmwareVersion = pingDoc["firmware_version"] | "";
+            String firmwareSha256 = pingDoc["firmware_sha256"] | "";
+            if (deploymentId.length() > 0 && firmwareSha256.length() > 0) {
+                performOtaUpdate(deploymentId, newFirmwareVersion, firmwareSha256);
+            }
+        }
+    } else {
+        Serial.printf("Machine ping failed: %d\n", code);
+    }
 }
 
 // ==================== DISPENSE FUNCTIONS ====================
@@ -2081,7 +2421,9 @@ void setup() {
     } else {
         loadCardsCacheFromFS();
         loadDefaultProductFromFS();
+        loadDeviceSecretFromFS();
         loadTimeAnchorFromFS();
+        checkOtaBootConfirm();  // see the OTA UPDATE section for why this must run every boot
     }
 
     for (uint8_t i = 0; i < MOTOR_COUNT; i++) {
@@ -2161,6 +2503,7 @@ void setup() {
 
 void loop() {
     feedWatchdog();
+    checkOtaPendingConfirm();
 
 #ifdef USE_ETHERNET
     checkEthernetLinkStatus();
