@@ -20,6 +20,16 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react'],
+    // Server Actions compare the request's Origin header against this list
+    // as a CSRF guard. lyra-app.co.in is a custom domain proxied onto the
+    // lyra-app-v3-chi.vercel.app deployment, so the browser's Origin
+    // (lyra-app.co.in) doesn't match the deployment's own host -- without
+    // this, every Server Action submitted from the custom domain is
+    // rejected with "Invalid Server Actions request" before any of our
+    // code runs.
+    serverActions: {
+      allowedOrigins: ['lyra-app.co.in', 'www.lyra-app.co.in', 'lyra-app-v3-chi.vercel.app'],
+    },
   },
 
   async headers() {
