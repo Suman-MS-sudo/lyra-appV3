@@ -73,7 +73,7 @@ export default async function MachinesPage() {
           <p className="text-sm mb-6" style={{ color: '#a1a1a6' }}>Add your first machine to get started</p>
           <Link
             href="/admin/machines/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f' }}
           >
             <Plus className="w-4 h-4" />

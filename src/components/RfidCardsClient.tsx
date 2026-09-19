@@ -364,7 +364,7 @@ export default function RfidCardsClient({
           </button>
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             <Plus className="w-4 h-4" /> Add Card
@@ -561,7 +561,7 @@ export default function RfidCardsClient({
               )}
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] disabled:opacity-50"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                   style={{ background: '#1d1d1f' }}>
                   {saving ? 'Adding...' : 'Add Card'}
                 </button>
@@ -603,7 +603,7 @@ export default function RfidCardsClient({
               />
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] disabled:opacity-50"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                   style={{ background: '#1d1d1f' }}>
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -634,7 +634,7 @@ export default function RfidCardsClient({
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] disabled:opacity-50"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                   style={{ background: '#1d1d1f' }}>
                   {saving ? 'Saving...' : 'Add Credits'}
                 </button>
@@ -709,7 +709,7 @@ export default function RfidCardsClient({
                     type="button"
                     disabled={importRows.length === 0 || importing}
                     onClick={submitImport}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
                     style={{ background: '#1d1d1f' }}
                   >
                     {importing ? 'Importing...' : `Import ${importRows.length || ''} Card${importRows.length === 1 ? '' : 's'}`}
@@ -761,7 +761,7 @@ export default function RfidCardsClient({
                 )}
 
                 <button type="button" onClick={closeImportModal}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f]"
+                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white"
                   style={{ background: '#1d1d1f' }}>
                   Done
                 </button>

@@ -193,7 +193,7 @@ export default async function CustomerBillingPage() {
                         {invoice.status !== 'paid' && invoice.status !== 'draft' && invoice.total_amount_paisa > 0 && (
                           <Link
                             href={`/customer/billing/${invoice.id}/pay`}
-                            className="px-2.5 py-1 text-xs font-medium rounded-lg text-[#1d1d1f] transition-opacity hover:opacity-90"
+                            className="px-2.5 py-1 text-xs font-medium rounded-lg text-white transition-opacity hover:opacity-90"
                             style={{ background: '#1d1d1f' }}
                           >
                             Pay Now

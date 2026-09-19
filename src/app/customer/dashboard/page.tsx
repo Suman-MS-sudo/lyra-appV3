@@ -613,7 +613,7 @@ export default async function CustomerDashboard() {
             </div>
             <Link
               href="/customer/users"
-              className="px-3 py-1.5 text-xs font-semibold text-[#1d1d1f] rounded-xl transition-all active:scale-[0.97]"
+              className="px-3 py-1.5 text-xs font-semibold text-white rounded-xl transition-all active:scale-[0.97]"
               style={{ background: '#1d1d1f', boxShadow: '0 4px 14px rgba(0,0,0,0.04)' }}
             >
               Manage Users

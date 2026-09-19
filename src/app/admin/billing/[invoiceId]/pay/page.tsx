@@ -42,7 +42,7 @@ export default async function PaymentPage({
           <p className="text-sm" style={{ color: '#6e6e73' }}>The invoice you're looking for doesn't exist.</p>
           <Link
             href="/admin/billing"
-            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            className="inline-block px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f' }}
           >
             ← Back to Billing

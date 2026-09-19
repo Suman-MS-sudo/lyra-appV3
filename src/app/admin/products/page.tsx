@@ -56,7 +56,7 @@ export default async function ProductsPage() {
         </div>
         <Link
           href="/admin/products/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
           style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           <Plus className="w-4 h-4" />

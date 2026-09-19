@@ -219,7 +219,7 @@ export function ManualInvoiceGenerator() {
               <button
                 onClick={handleGenerate}
                 disabled={loading || !selectedOrg || !periodStart || !periodEnd}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
               >
                 {loading ? 'Generating...' : 'Generate Invoice'}

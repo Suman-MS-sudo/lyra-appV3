@@ -41,7 +41,7 @@ export default async function SuperCustomersPage() {
         </div>
         <Link
           href="/admin/super-customers/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
           style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           <UserPlus className="w-4 h-4" />
@@ -70,7 +70,7 @@ export default async function SuperCustomersPage() {
             >
               <div className="flex items-start gap-3 mb-4">
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-[#1d1d1f] font-bold text-lg shrink-0"
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
                   style={{ background: '#1d1d1f' }}
                 >
                   {(customer.full_name?.charAt(0) || customer.email.charAt(0)).toUpperCase()}

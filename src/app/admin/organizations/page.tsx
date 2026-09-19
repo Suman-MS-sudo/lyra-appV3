@@ -40,7 +40,7 @@ export default async function OrganizationsPage() {
         </div>
         <Link
           href="/admin/organizations/new"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
           style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           <Plus className="w-4 h-4" />
@@ -121,7 +121,7 @@ export default async function OrganizationsPage() {
           <p className="text-sm mb-6" style={{ color: '#86868b' }}>Add partner organizations to track machines by location</p>
           <Link
             href="/admin/organizations/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f' }}
           >
             <Plus className="w-4 h-4" />

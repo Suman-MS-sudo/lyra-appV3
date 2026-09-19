@@ -86,7 +86,7 @@ export default function ReportDownload() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
         style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
       >
         <Download className="w-4 h-4" />
@@ -201,7 +201,7 @@ export default function ReportDownload() {
               <button
                 onClick={handleDownload}
                 disabled={downloading || rangeInvalid}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#1d1d1f] rounded-xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-xl transition-all active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: '#1d1d1f', boxShadow: '0 4px 14px rgba(0,0,0,0.04)' }}
               >
                 {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}

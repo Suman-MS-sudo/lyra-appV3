@@ -57,7 +57,7 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
         {invoice.status !== 'paid' && invoice.total_amount_paisa > 0 && (
           <Link
             href={`/customer/billing/${invoice.id}/pay`}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Pay Now
@@ -151,7 +151,7 @@ export default async function InvoiceDetailPage({ params }: { params: { invoiceI
         {invoice.status !== 'paid' && invoice.total_amount_paisa > 0 && (
           <Link
             href={`/customer/billing/${invoice.id}/pay`}
-            className="block w-full py-3 rounded-xl font-medium text-center text-[#1d1d1f] transition-opacity hover:opacity-90"
+            className="block w-full py-3 rounded-xl font-medium text-center text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f', boxShadow: '0 2px 16px rgba(0,0,0,0.04)' }}
           >
             Pay Now with Razorpay

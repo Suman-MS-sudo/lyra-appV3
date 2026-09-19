@@ -149,7 +149,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {loading ? 'Updating...' : 'Update Product'}

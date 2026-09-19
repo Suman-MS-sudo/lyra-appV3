@@ -50,7 +50,7 @@ export default async function CustomerUsersPage() {
         </div>
         <Link
           href="/customer/users/new"
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
           style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           <Plus className="w-4 h-4" />
@@ -148,7 +148,7 @@ export default async function CustomerUsersPage() {
                     <p className="text-xs mb-5" style={{ color: '#a1a1a6' }}>Add users to give them access to your organization</p>
                     <Link
                       href="/customer/users/new"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-[#1d1d1f] transition-opacity hover:opacity-90"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
                       style={{ background: '#1d1d1f' }}
                     >
                       <Plus className="w-4 h-4" />Add User
