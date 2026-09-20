@@ -32,7 +32,7 @@ type Product = { id: string; name: string; price: string };
 type ImportRowResult = { row: number; uid: string; status: 'created' | 'error'; error?: string };
 
 const CSV_TEMPLATE_HEADERS = ['uid', 'holder_name', 'card_type', 'initial_credits', 'organization', 'machine', 'product'];
-const CSV_TEMPLATE_EXAMPLE = ['A1B2C3D4', 'Jane Doe', 'prepaid', '50', '', '', ''];
+const CSV_TEMPLATE_EXAMPLE = ['A1B2C3D4', 'Jane Doe', 'prepaid', '50', '', 'Machine A; Machine B', ''];
 
 const card_style = { background: '#f5f5f7', border: '1px solid #e5e5e7' };
 const muted = { color: '#6e6e73' };
@@ -1078,6 +1078,7 @@ export default function RfidCardsClient({
                   <p className="text-xs mt-1" style={muted}>
                     Columns: uid (required), holder_name, card_type (prepaid/postpaid), initial_credits, organization, machine, product.
                     Organization/machine/product are matched by exact name — leave blank to leave a card unassigned.
+                    To restrict a card to more than one machine, separate names with a semicolon in the machine column, e.g. &quot;Machine A; Machine B&quot;.
                   </p>
                   <p className="text-xs mt-1" style={muted}>
                     An existing employee-roster sheet works too — &quot;name&quot; and &quot;tag no&quot; are accepted in place of holder_name/uid,

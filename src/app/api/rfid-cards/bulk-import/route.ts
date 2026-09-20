@@ -42,9 +42,22 @@ const FIELD_ALIASES: Record<string, string[]> = {
   card_type: ['card_type', 'type'],
   initial_credits: ['initial_credits', 'credits'],
   organization: ['organization', 'org'],
-  machine: ['machine'],
+  // A cell can list more than one machine, separated by ";" -- see
+  // parseMachineNames() below. "machines" is accepted as a header alias
+  // alongside the original singular "machine" for the same reason.
+  machine: ['machine', 'machines'],
   product: ['product'],
 };
+
+// Splits a "machine" cell on ";" (also tolerates "," since that's the more
+// natural separator on a lot of real-world sheets) into individual machine
+// names, trimmed and with blanks dropped.
+function parseMachineNames(raw: string | undefined): string[] {
+  return (raw || '')
+    .split(/[;,]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
 
 function normalizeRow(raw: ImportRow): Record<string, string> {
   const byLowerKey: Record<string, string> = {};
@@ -92,6 +105,24 @@ function resolveByName(
   return { id: candidates[0].id };
 }
 
+// Same idea as resolveByName but for a "machine1; machine2" cell -- resolves
+// every name in the list, short-circuiting on the first one that doesn't
+// match (or matches more than one machine).
+function resolveManyByName(
+  list: { id: string; name: string; customer_id?: string | null }[],
+  names: string[],
+  label: string,
+  scopeFilter?: (item: { id: string; name: string; customer_id?: string | null }) => boolean
+): { ids: string[]; error?: string } {
+  const ids: string[] = [];
+  for (const name of names) {
+    const result = resolveByName(list, name, label, scopeFilter);
+    if (result.error) return { ids: [], error: result.error };
+    if (result.id) ids.push(result.id);
+  }
+  return { ids };
+}
+
 /**
  * POST /api/rfid-cards/bulk-import
  * Body: { rows: ImportRow[] } — parsed client-side from an uploaded CSV.
@@ -127,6 +158,12 @@ export async function POST(request: NextRequest) {
 
   const results: RowResult[] = [];
   const pendingByUid = new Map<string, Record<string, any>>();
+  // uid -> the machine IDs that row's "machine" cell resolved to (0+, since
+  // a cell can list several separated by ";"). Kept separately from
+  // pendingByUid because rfid_cards itself only ever stores 0 or 1
+  // machine_id directly -- the full list is applied to rfid_card_machines
+  // after insert, same as the single-card create routes.
+  const machineIdsByUid = new Map<string, string[]>();
   const seenUids = new Set<string>();
   // uid -> 1-based row number, so the post-insert lookups below don't need
   // to re-guess which raw column held the uid.
@@ -154,9 +191,10 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    const machineResult = resolveByName(
+    const machineNames = parseMachineNames(norm.machine);
+    const machineResult = resolveManyByName(
       machines || [],
-      norm.machine,
+      machineNames,
       'Machine',
       orgResult.id ? (m) => m.customer_id === orgResult.id : undefined
     );
@@ -174,11 +212,16 @@ export async function POST(request: NextRequest) {
     const resolvedType = norm.card_type === 'postpaid' ? 'postpaid' : 'prepaid';
     const initialCredits = parseInt(norm.initial_credits || '0', 10);
 
+    machineIdsByUid.set(uid, machineResult.ids);
+
     pendingByUid.set(uid, {
       uid,
       holder_name: norm.holder_name || null,
       organization_id: orgResult.id,
-      machine_id: machineResult.id,
+      // Legacy single-machine column: kept in sync only for the simple
+      // (0 or 1 machine) case, same convention as the single-card create
+      // routes -- rfid_card_machines is the real source of truth.
+      machine_id: machineResult.ids.length === 1 ? machineResult.ids[0] : null,
       product_id: productResult.id,
       card_type: resolvedType,
       // Postpaid cards don't use credits — always store 0 regardless of what was passed.
@@ -190,7 +233,7 @@ export async function POST(request: NextRequest) {
     const { data: inserted, error: insertError } = await auth.service!
       .from('rfid_cards')
       .upsert(Array.from(pendingByUid.values()), { onConflict: 'uid', ignoreDuplicates: true })
-      .select('id, uid, machine_id');
+      .select('id, uid');
 
     if (insertError) {
       for (const uid of pendingByUid.keys()) {
@@ -199,13 +242,12 @@ export async function POST(request: NextRequest) {
     } else {
       const newlyInserted = new Set((inserted ?? []).map((r: any) => r.uid));
 
-      // CSV import only ever assigns at most one machine per row -- mirror
-      // that single machine_id into rfid_card_machines too, so these cards
-      // are validated the same way as one added by hand with one machine
-      // selected (the join table is the real source of truth now).
-      const linkRows = (inserted ?? [])
-        .filter((r: any) => r.machine_id)
-        .map((r: any) => ({ card_id: r.id, machine_id: r.machine_id }));
+      // Mirror each row's resolved machine list into rfid_card_machines --
+      // that join table is the real source of truth for scoping now, same
+      // as adding a card by hand with one or more machines selected.
+      const linkRows = (inserted ?? []).flatMap((r: any) =>
+        (machineIdsByUid.get(r.uid) || []).map((machine_id: string) => ({ card_id: r.id, machine_id }))
+      );
       if (linkRows.length > 0) {
         const { error: linkError } = await auth.service!.from('rfid_card_machines').insert(linkRows);
         if (linkError) {
