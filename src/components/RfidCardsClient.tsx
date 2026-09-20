@@ -102,6 +102,8 @@ export default function RfidCardsClient({
   const [topUpId, setTopUpId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [newUid, setNewUid] = useState('');
   const [newName, setNewName] = useState('');
@@ -331,6 +333,53 @@ export default function RfidCardsClient({
     loadCards();
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll(ids: string[]) {
+    setSelectedIds(prev => {
+      const allSelected = ids.length > 0 && ids.every(id => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...ids]);
+    });
+  }
+
+  function selectOrg(orgId: string | null) {
+    setSelectedOrgId(orgId);
+    setSelectedIds(new Set());
+  }
+
+  async function bulkDeleteCards(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} selected card${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    setError('');
+    try {
+      const res = await fetch('/api/rfid-cards/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete cards');
+      setSelectedIds(new Set());
+      loadCards();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   function openAddForOrg(orgId: string) {
     setNewOrgId(orgId);
     setNewMachineId('');
@@ -387,7 +436,7 @@ export default function RfidCardsClient({
         <div>
           {selectedGroup ? (
             <button
-              onClick={() => setSelectedOrgId(null)}
+              onClick={() => selectOrg(null)}
               className="flex items-center gap-1.5 text-sm font-medium mb-2"
               style={{ color: '#0071e3' }}
             >
@@ -471,7 +520,7 @@ export default function RfidCardsClient({
                 <button
                   key={group.id}
                   type="button"
-                  onClick={() => setSelectedOrgId(group.id)}
+                  onClick={() => selectOrg(group.id)}
                   className="text-left rounded-2xl p-5 transition-opacity hover:opacity-90"
                   style={card_style}
                 >
@@ -517,11 +566,49 @@ export default function RfidCardsClient({
           </p>
         </div>
       ) : (
-        <div className="rounded-2xl overflow-hidden" style={card_style}>
+        <div className="space-y-3">
+          {selectedIds.size > 0 && (
+            <div
+              className="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm"
+              style={{ background: 'rgba(200,16,46,0.08)', border: '1px solid rgba(200,16,46,0.18)' }}
+            >
+              <span style={{ color: '#c8102e' }} className="font-medium">
+                {selectedIds.size} card{selectedIds.size === 1 ? '' : 's'} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f]"
+                  style={{ background: '#fff', border: '1px solid #e5e5e7' }}
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkDeleting}
+                  onClick={() => bulkDeleteCards(Array.from(selectedIds))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+                  style={{ background: '#c8102e' }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.size})`}
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="rounded-2xl overflow-hidden" style={card_style}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: '#f5f5f7' }}>
+                  <th className="px-4 py-2.5 w-8">
+                    <input
+                      type="checkbox"
+                      checked={selectedGroupCards.length > 0 && selectedGroupCards.every(c => selectedIds.has(c.id))}
+                      onChange={() => toggleSelectAll(selectedGroupCards.map(c => c.id))}
+                    />
+                  </th>
                   <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>UID</th>
                   <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Holder</th>
                   <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Machine</th>
@@ -534,7 +621,10 @@ export default function RfidCardsClient({
               </thead>
               <tbody>
                 {selectedGroupCards.map(card => (
-                          <tr key={card.id} style={{ borderTop: '1px solid #f5f5f7' }}>
+                          <tr key={card.id} style={{ borderTop: '1px solid #f5f5f7', background: selectedIds.has(card.id) ? 'rgba(0,113,227,0.04)' : undefined }}>
+                            <td className="px-4 py-3">
+                              <input type="checkbox" checked={selectedIds.has(card.id)} onChange={() => toggleSelected(card.id)} />
+                            </td>
                             <td className="px-4 py-3 font-mono text-[#1d1d1f]">{card.uid}</td>
                             <td className="px-4 py-3 text-[#1d1d1f]">{card.holder_name || <span style={muted}>—</span>}</td>
                             <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{card.machine?.name || <span style={muted}>Any</span>}</td>
@@ -616,6 +706,7 @@ export default function RfidCardsClient({
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       )}
