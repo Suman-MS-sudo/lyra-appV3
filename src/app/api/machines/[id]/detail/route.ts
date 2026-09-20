@@ -15,6 +15,19 @@ const CHART_DAYS = 14;
  * -- direct owner, or any machine in their org if they're a super_customer).
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    return await handleGet(params);
+  } catch (error: any) {
+    // Any unhandled throw here (a malformed Supabase query, etc.) would
+    // otherwise crash to Next.js's default HTML error page -- which broke
+    // the client's res.json() with "Unexpected token '<'" instead of
+    // showing the real error. Always resolve to JSON.
+    console.error('Machine detail route error:', error);
+    return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });
+  }
+}
+
+async function handleGet(params: Promise<{ id: string }>) {
   const { id: machineId } = await params;
 
   const supabase = await createClient();
@@ -60,10 +73,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   chartStart.setDate(chartStart.getDate() - (CHART_DAYS - 1));
   chartStart.setHours(0, 0, 0, 0);
 
-  const [{ data: onlineTx }, { data: coinTx }, { data: rfidTx }] = await Promise.all([
+  const [{ data: onlineTx, error: onlineTxError }, { data: coinTx, error: coinTxError }, { data: rfidTx, error: rfidTxError }] = await Promise.all([
+    // No products(...) embed here -- transactions.product_id was dropped
+    // (see 20251213000001_cleanup_old_transaction_columns.sql); product
+    // info for an online/UPI sale lives in the `items` JSONB array instead.
     service
       .from('transactions')
-      .select('id, total_amount, payment_status, created_at, products(name)')
+      .select('id, total_amount, payment_status, created_at, items')
       .eq('machine_id', machineId)
       .gte('created_at', chartStart.toISOString())
       .order('created_at', { ascending: false }),
@@ -81,6 +97,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .order('created_at', { ascending: false }),
   ]);
 
+  if (onlineTxError || coinTxError || rfidTxError) {
+    console.error('Machine detail transaction query error:', { onlineTxError, coinTxError, rfidTxError });
+    return NextResponse.json({ error: 'Failed to load transaction history' }, { status: 500 });
+  }
+
   type FeedItem = {
     id: string;
     type: 'upi' | 'coin' | 'rfid';
@@ -92,14 +113,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   };
 
   const feed: FeedItem[] = [
-    ...(onlineTx || []).map((t: any) => ({
-      id: t.id,
-      type: 'upi' as const,
-      amount: Number(t.total_amount) || 0,
-      product_name: Array.isArray(t.products) ? t.products[0]?.name : t.products?.name,
-      dispensed: t.payment_status === 'completed' || t.payment_status === 'success',
-      created_at: t.created_at,
-    })),
+    ...(onlineTx || []).map((t: any) => {
+      const items = Array.isArray(t.items) ? t.items : [];
+      const name = items.length === 1
+        ? items[0]?.name
+        : items.length > 1
+          ? `${items[0]?.name} +${items.length - 1} more`
+          : null;
+      return {
+        id: t.id,
+        type: 'upi' as const,
+        amount: Number(t.total_amount) || 0,
+        product_name: name,
+        dispensed: t.payment_status === 'paid',
+        created_at: t.created_at,
+      };
+    }),
     ...(coinTx || []).map((t: any) => ({
       id: t.id,
       type: 'coin' as const,
