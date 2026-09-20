@@ -111,7 +111,7 @@
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "RFID-SINGLE35-V1.0.4"
+#define CURRENT_FIRMWARE_VERSION "RFID-SINGLE35-V1.0.0"
 #define BODY_TYPE "single_motor_35"
 
 // ==================== WATCHDOG CONFIGURATION ====================

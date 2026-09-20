@@ -100,7 +100,7 @@
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "RFID-QUAD-V1.0.1"
+#define CURRENT_FIRMWARE_VERSION "RFID-QUAD-V1.0.0"
 #define BODY_TYPE "quad_motor"
 
 // ==================== WATCHDOG CONFIGURATION ====================
