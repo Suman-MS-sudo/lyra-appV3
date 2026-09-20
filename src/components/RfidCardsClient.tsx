@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { Nfc, Plus, RefreshCw, Wallet, Ban, CheckCircle2, Trash2, X, Receipt, Pencil, Upload, Download, ChevronDown, ChevronRight, Building2 } from 'lucide-react';
+import { Nfc, Plus, RefreshCw, Wallet, Ban, CheckCircle2, Trash2, X, Receipt, Pencil, Upload, Download, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import { parseCsv, toCsvBlob } from '@/lib/csv';
 
 type CardType = 'prepaid' | 'postpaid';
@@ -101,7 +101,7 @@ export default function RfidCardsClient({
   const [editCard, setEditCard] = useState<RfidCard | null>(null);
   const [topUpId, setTopUpId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [collapsedOrgs, setCollapsedOrgs] = useState<Set<string>>(new Set());
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   const [newUid, setNewUid] = useState('');
   const [newName, setNewName] = useState('');
@@ -338,14 +338,6 @@ export default function RfidCardsClient({
     setShowAdd(true);
   }
 
-  function toggleOrgCollapsed(key: string) {
-    setCollapsedOrgs(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  }
-
   const filtered = cards.filter(c =>
     c.uid.toLowerCase().includes(search.toLowerCase()) ||
     (c.holder_name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -353,9 +345,12 @@ export default function RfidCardsClient({
     (c.machine?.name || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const groups = useMemo(() => {
+  // All customer tiles come from the full card list, not the search-filtered
+  // one -- a search should narrow which cards show up inside a tile you've
+  // opened, not make whole customer tiles disappear from the overview.
+  const allGroups = useMemo(() => {
     const byOrg = new Map<string, { id: string; name: string; cards: RfidCard[] }>();
-    for (const card of filtered) {
+    for (const card of cards) {
       const key = card.organization?.id || '__unassigned';
       const name = card.organization?.name || 'Unassigned';
       if (!byOrg.has(key)) byOrg.set(key, { id: key, name, cards: [] });
@@ -366,17 +361,57 @@ export default function RfidCardsClient({
       if (b.id === '__unassigned') return -1;
       return a.name.localeCompare(b.name);
     });
+  }, [cards]);
+
+  const filteredGroups = useMemo(() => {
+    const byOrg = new Map<string, { id: string; name: string; cards: RfidCard[] }>();
+    for (const card of filtered) {
+      const key = card.organization?.id || '__unassigned';
+      const name = card.organization?.name || 'Unassigned';
+      if (!byOrg.has(key)) byOrg.set(key, { id: key, name, cards: [] });
+      byOrg.get(key)!.cards.push(card);
+    }
+    return byOrg;
   }, [filtered]);
+
+  const selectedGroup = selectedOrgId
+    ? allGroups.find(g => g.id === selectedOrgId) || null
+    : null;
+  const selectedGroupCards = selectedOrgId
+    ? (filteredGroups.get(selectedOrgId)?.cards || [])
+    : [];
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
+          {selectedGroup ? (
+            <button
+              onClick={() => setSelectedOrgId(null)}
+              className="flex items-center gap-1.5 text-sm font-medium mb-2"
+              style={{ color: '#0071e3' }}
+            >
+              <ChevronLeft className="w-4 h-4" /> All Customers
+            </button>
+          ) : null}
           <h1 className="text-2xl font-bold text-[#1d1d1f] flex items-center gap-2">
-            <Nfc className="w-6 h-6" style={{ color: '#0071e3' }} />
-            RFID Cards
+            {selectedGroup ? (
+              <>
+                <Building2 className="w-6 h-6" style={{ color: selectedGroup.id === '__unassigned' ? '#a1a1a6' : '#0071e3' }} />
+                {selectedGroup.name}
+              </>
+            ) : (
+              <>
+                <Nfc className="w-6 h-6" style={{ color: '#0071e3' }} />
+                RFID Cards
+              </>
+            )}
           </h1>
-          <p className="text-sm mt-0.5" style={muted}>Manage credit-limited and no-limit RFID tap-to-pay cards</p>
+          <p className="text-sm mt-0.5" style={muted}>
+            {selectedGroup
+              ? `${selectedGroup.cards.length} card${selectedGroup.cards.length === 1 ? '' : 's'} registered to this customer`
+              : 'Select a customer to view or manage their RFID tap-to-pay cards'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -394,7 +429,7 @@ export default function RfidCardsClient({
             <Upload className="w-4 h-4" /> Import CSV
           </button>
           <button
-            onClick={() => setShowAdd(true)}
+            onClick={() => selectedGroup && selectedGroup.id !== '__unassigned' ? openAddForOrg(selectedGroup.id) : setShowAdd(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
@@ -406,7 +441,7 @@ export default function RfidCardsClient({
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Search by UID, holder, customer, or machine..."
+        placeholder={selectedGroup ? 'Search by UID, holder, or machine...' : 'Search by UID, holder, customer, or machine...'}
         className="w-full px-4 py-2.5 rounded-xl text-sm text-[#1d1d1f] outline-none"
         style={inputStyle}
       />
@@ -419,64 +454,86 @@ export default function RfidCardsClient({
 
       {loading ? (
         <div className="text-center py-16" style={muted}>Loading cards...</div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl p-16 text-center" style={card_style}>
-          <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
-          <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>No RFID cards found</p>
-          <p className="text-sm" style={{ color: '#a1a1a6' }}>Register a card to enable RFID payments</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {groups.map(group => {
-            const collapsed = collapsedOrgs.has(group.id);
-            return (
-              <div key={group.id} className="rounded-2xl overflow-hidden" style={card_style}>
+      ) : !selectedGroup ? (
+        allGroups.length === 0 ? (
+          <div className="rounded-2xl p-16 text-center" style={card_style}>
+            <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
+            <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>No RFID cards found</p>
+            <p className="text-sm" style={{ color: '#a1a1a6' }}>Register a card to enable RFID payments</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allGroups.map(group => {
+              const activeCount = group.cards.filter(c => c.is_active).length;
+              const matchesSearch = filteredGroups.has(group.id);
+              if (search && !matchesSearch) return null;
+              return (
                 <button
+                  key={group.id}
                   type="button"
-                  onClick={() => toggleOrgCollapsed(group.id)}
-                  className="w-full flex items-center justify-between px-4 py-3.5 text-left"
-                  style={{ background: '#f5f5f7' }}
+                  onClick={() => setSelectedOrgId(group.id)}
+                  className="text-left rounded-2xl p-5 transition-opacity hover:opacity-90"
+                  style={card_style}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {collapsed ? <ChevronRight className="w-4 h-4 shrink-0" style={muted} /> : <ChevronDown className="w-4 h-4 shrink-0" style={muted} />}
-                    <Building2 className="w-4 h-4 shrink-0" style={{ color: group.id === '__unassigned' ? '#a1a1a6' : '#0071e3' }} />
-                    <span className="font-semibold text-[#1d1d1f] truncate">{group.name}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: group.id === '__unassigned' ? 'rgba(0,0,0,0.05)' : 'rgba(0,113,227,0.10)' }}
+                      >
+                        <Building2 className="w-5 h-5" style={{ color: group.id === '__unassigned' ? '#a1a1a6' : '#0071e3' }} />
+                      </div>
+                      <span className="font-semibold text-[#1d1d1f] truncate">{group.name}</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 shrink-0 mt-2.5" style={muted} />
+                  </div>
+                  <div className="flex items-center gap-3 mt-4">
                     <span
-                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0"
+                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
                       style={{ background: 'rgba(0,0,0,0.05)', color: '#6e6e73' }}
                     >
                       {group.cards.length} card{group.cards.length === 1 ? '' : 's'}
                     </span>
-                  </div>
-                  {group.id !== '__unassigned' && (
                     <span
-                      role="button"
-                      onClick={e => { e.stopPropagation(); openAddForOrg(group.id); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] shrink-0"
-                      style={{ background: '#fff', border: '1px solid #e5e5e7' }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{ background: 'rgba(67,233,123,0.12)', color: '#43e97b' }}
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Card
+                      <CheckCircle2 className="w-3 h-3" /> {activeCount} active
                     </span>
-                  )}
+                  </div>
                 </button>
-
-                {!collapsed && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ borderTop: '1px solid #e5e5e7' }}>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>UID</th>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Holder</th>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Machine</th>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Product</th>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Type</th>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Credits / Usage</th>
-                          <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Status</th>
-                          <th className="text-right px-4 py-2.5 font-medium text-xs" style={muted}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.cards.map(card => (
+              );
+            })}
+          </div>
+        )
+      ) : selectedGroupCards.length === 0 ? (
+        <div className="rounded-2xl p-16 text-center" style={card_style}>
+          <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
+          <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>
+            {search ? 'No cards match your search' : 'No RFID cards for this customer yet'}
+          </p>
+          <p className="text-sm" style={{ color: '#a1a1a6' }}>
+            {search ? 'Try a different search term' : 'Add a card to enable RFID payments for them'}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={card_style}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: '#f5f5f7' }}>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>UID</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Holder</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Machine</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Product</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Type</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Credits / Usage</th>
+                  <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>Status</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-xs" style={muted}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedGroupCards.map(card => (
                           <tr key={card.id} style={{ borderTop: '1px solid #f5f5f7' }}>
                             <td className="px-4 py-3 font-mono text-[#1d1d1f]">{card.uid}</td>
                             <td className="px-4 py-3 text-[#1d1d1f]">{card.holder_name || <span style={muted}>—</span>}</td>
@@ -556,14 +613,10 @@ export default function RfidCardsClient({
                               </div>
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
