@@ -9,6 +9,7 @@ import {
   ChevronsUpDown, Building2,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import MachineDetailModal from './MachineDetailModal';
 
 interface Machine {
   id: string;
@@ -93,6 +94,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
   // inside the row got its top edge cut off for rows near the top of the
   // table. A portal escapes that clipping entirely.
   const [motorTooltip, setMotorTooltip] = useState<{ top: number; right: number; above: boolean; stock: number[] } | null>(null);
+  const [detailMachineId, setDetailMachineId] = useState<string | null>(null);
 
   const customers = useMemo(() => {
     return Array.from(new Set(machines.map(m => m.customer_name).filter(Boolean))).sort();
@@ -326,7 +328,13 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                 <tr key={m.id} className="row-hover" style={{ borderBottom: '1px solid #f5f5f7' }}>
                   {/* Name */}
                   <td className="py-3.5 px-4">
-                    <p className="font-semibold text-[#1d1d1f]">{m.name}</p>
+                    <button
+                      onClick={() => setDetailMachineId(m.id)}
+                      className="font-semibold text-left hover:underline"
+                      style={{ color: '#0071e3' }}
+                    >
+                      {m.name}
+                    </button>
                     <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>{m.machine_type}</p>
                   </td>
 
@@ -504,6 +512,10 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
           ))}
         </div>,
         document.body
+      )}
+
+      {detailMachineId && (
+        <MachineDetailModal machineId={detailMachineId} onClose={() => setDetailMachineId(null)} />
       )}
     </div>
   );

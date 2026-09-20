@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { MapPin, Building2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import MachineDetailModal from './MachineDetailModal';
 
 type SortKey = 'name' | 'location' | 'asset_online' | 'stock_level' | 'totalTransactions' | 'totalRevenue';
 type SortDir = 'asc' | 'desc';
@@ -40,6 +41,7 @@ export function CustomerMachinesTable({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [detailMachineId, setDetailMachineId] = useState<string | null>(null);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -118,7 +120,15 @@ export function CustomerMachinesTable({
                 className="row-hover"
                 style={{ borderBottom: '1px solid #f5f5f7' }}
               >
-                <td className="py-3.5 px-4 font-medium text-[#1d1d1f]">{machine.name}</td>
+                <td className="py-3.5 px-4">
+                  <button
+                    onClick={() => setDetailMachineId(machine.id)}
+                    className="font-medium hover:underline"
+                    style={{ color: '#0071e3' }}
+                  >
+                    {machine.name}
+                  </button>
+                </td>
                 <td className="py-3.5 px-4 hidden sm:table-cell" style={{ color: '#6e6e73' }}>
                   <div className="flex items-center gap-1.5">
                     <MapPin className="w-3 h-3" />
@@ -175,6 +185,10 @@ export function CustomerMachinesTable({
           </tbody>
         </table>
       </div>
+
+      {detailMachineId && (
+        <MachineDetailModal machineId={detailMachineId} onClose={() => setDetailMachineId(null)} />
+      )}
     </div>
   );
 }
