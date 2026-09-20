@@ -899,7 +899,7 @@ export default function RfidCardsClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
           <div className="w-full max-w-md rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1d1d1f]">Add RFID Card</h3>
+              <h3 className="text-lg font-bold text-white">Add RFID Card</h3>
               <button onClick={() => setShowAdd(false)}><X className="w-5 h-5" style={muted} /></button>
             </div>
             <form onSubmit={addCard} className="space-y-3">
@@ -974,7 +974,7 @@ export default function RfidCardsClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
           <div className="w-full max-w-md rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1d1d1f]">Edit Card {editCard.uid}</h3>
+              <h3 className="text-lg font-bold text-white">Edit Card {editCard.uid}</h3>
               <button onClick={() => setEditCard(null)}><X className="w-5 h-5" style={muted} /></button>
             </div>
             <form onSubmit={submitEdit} className="space-y-3">
@@ -1016,7 +1016,7 @@ export default function RfidCardsClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(5,3,18,0.72)' }}>
           <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1d1d1f]">Top Up Credits</h3>
+              <h3 className="text-lg font-bold text-white">Top Up Credits</h3>
               <button onClick={() => setTopUpId(null)}><X className="w-5 h-5" style={muted} /></button>
             </div>
             <form onSubmit={submitTopUp} className="space-y-3">
@@ -1047,13 +1047,13 @@ export default function RfidCardsClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
           <div className="w-full max-w-lg rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#1d1d1f]">Import RFID Cards from CSV</h3>
+              <h3 className="text-lg font-bold text-white">Import RFID Cards from CSV</h3>
               <button onClick={closeImportModal}><X className="w-5 h-5" style={muted} /></button>
             </div>
 
             {!importResults ? (
               <div className="space-y-3">
-                <p className="text-sm" style={{ color: '#1d1d1f' }}>
+                <p className="text-sm text-white">
                   Upload a CSV to register many cards at once — one row per employee. Only <span className="font-mono">uid</span> is required;
                   everything else is optional and defaults the same way as adding a card by hand.
                 </p>
