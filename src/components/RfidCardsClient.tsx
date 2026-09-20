@@ -107,6 +107,11 @@ export default function RfidCardsClient({
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 100;
 
+  const [filterType, setFilterType] = useState<'all' | CardType>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterMachineId, setFilterMachineId] = useState('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name' | 'uid' | 'credits'>('newest');
+
   const [newUid, setNewUid] = useState('');
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<CardType>('prepaid');
@@ -359,6 +364,10 @@ export default function RfidCardsClient({
     setSelectedOrgId(orgId);
     setSelectedIds(new Set());
     setPage(1);
+    setFilterType('all');
+    setFilterStatus('all');
+    setFilterMachineId('all');
+    setSortBy('newest');
   }
 
   async function bulkDeleteCards(ids: string[]) {
@@ -429,9 +438,48 @@ export default function RfidCardsClient({
   const selectedGroup = selectedOrgId
     ? allGroups.find(g => g.id === selectedOrgId) || null
     : null;
-  const selectedGroupCards = selectedOrgId
+  const selectedGroupCardsRaw = selectedOrgId
     ? (filteredGroups.get(selectedOrgId)?.cards || [])
     : [];
+
+  // Machines actually in use within this customer's cards -- narrower and
+  // more useful than the full machine list, which may include machines that
+  // belong to this org but have no cards assigned yet.
+  const groupMachineOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; location: string }>();
+    for (const card of selectedGroup?.cards || []) {
+      if (card.machine) byId.set(card.machine.id, card.machine);
+    }
+    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedGroup]);
+
+  const selectedGroupCards = useMemo(() => {
+    let list = selectedGroupCardsRaw;
+    if (filterType !== 'all') list = list.filter(c => c.card_type === filterType);
+    if (filterStatus !== 'all') list = list.filter(c => filterStatus === 'active' ? c.is_active : !c.is_active);
+    if (filterMachineId === '__any') list = list.filter(c => !c.machine_id);
+    else if (filterMachineId !== 'all') list = list.filter(c => c.machine_id === filterMachineId);
+
+    const sorted = [...list];
+    switch (sortBy) {
+      case 'oldest': sorted.sort((a, b) => a.created_at.localeCompare(b.created_at)); break;
+      case 'name': sorted.sort((a, b) => (a.holder_name || '').localeCompare(b.holder_name || '')); break;
+      case 'uid': sorted.sort((a, b) => a.uid.localeCompare(b.uid)); break;
+      case 'credits': sorted.sort((a, b) => b.credits_remaining - a.credits_remaining); break;
+      default: sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
+    }
+    return sorted;
+  }, [selectedGroupCardsRaw, filterType, filterStatus, filterMachineId, sortBy]);
+
+  const filtersActive = filterType !== 'all' || filterStatus !== 'all' || filterMachineId !== 'all';
+
+  function resetFilters() {
+    setFilterType('all');
+    setFilterStatus('all');
+    setFilterMachineId('all');
+    setSortBy('newest');
+    setPage(1);
+  }
 
   const totalPages = Math.max(1, Math.ceil(selectedGroupCards.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -504,6 +552,65 @@ export default function RfidCardsClient({
         style={inputStyle}
       />
 
+      {selectedGroup && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={filterType}
+            onChange={e => { setFilterType(e.target.value as any); setPage(1); }}
+            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            style={inputStyle}
+          >
+            <option value="all" style={{ color: '#111' }}>All types</option>
+            <option value="prepaid" style={{ color: '#111' }}>Prepaid</option>
+            <option value="postpaid" style={{ color: '#111' }}>No limit</option>
+          </select>
+          <select
+            value={filterStatus}
+            onChange={e => { setFilterStatus(e.target.value as any); setPage(1); }}
+            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            style={inputStyle}
+          >
+            <option value="all" style={{ color: '#111' }}>All statuses</option>
+            <option value="active" style={{ color: '#111' }}>Active</option>
+            <option value="inactive" style={{ color: '#111' }}>Inactive</option>
+          </select>
+          <select
+            value={filterMachineId}
+            onChange={e => { setFilterMachineId(e.target.value); setPage(1); }}
+            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            style={inputStyle}
+          >
+            <option value="all" style={{ color: '#111' }}>All machines</option>
+            <option value="__any" style={{ color: '#111' }}>Any machine (unrestricted)</option>
+            {groupMachineOptions.map(m => (
+              <option key={m.id} value={m.id} style={{ color: '#111' }}>{m.name} — {m.location}</option>
+            ))}
+          </select>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as any)}
+            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            style={inputStyle}
+          >
+            <option value="newest" style={{ color: '#111' }}>Newest first</option>
+            <option value="oldest" style={{ color: '#111' }}>Oldest first</option>
+            <option value="name" style={{ color: '#111' }}>Holder name (A–Z)</option>
+            <option value="uid" style={{ color: '#111' }}>UID (A–Z)</option>
+            <option value="credits" style={{ color: '#111' }}>Credits (high to low)</option>
+          </select>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium"
+              style={{ color: '#c8102e' }}
+            >
+              <X className="w-3.5 h-3.5" /> Clear filters
+            </button>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }}>
           {error}
@@ -568,10 +675,10 @@ export default function RfidCardsClient({
         <div className="rounded-2xl p-16 text-center" style={card_style}>
           <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
           <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>
-            {search ? 'No cards match your search' : 'No RFID cards for this customer yet'}
+            {search || filtersActive ? 'No cards match your search/filters' : 'No RFID cards for this customer yet'}
           </p>
           <p className="text-sm" style={{ color: '#a1a1a6' }}>
-            {search ? 'Try a different search term' : 'Add a card to enable RFID payments for them'}
+            {search || filtersActive ? 'Try a different search term or clear the filters' : 'Add a card to enable RFID payments for them'}
           </p>
         </div>
       ) : (
