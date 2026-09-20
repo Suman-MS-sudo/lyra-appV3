@@ -42,12 +42,19 @@ async function requireCustomerAndMachines() {
 async function assertOwnsCard(service: any, id: string, machineIds: Set<string>, organizationId: string | null) {
   const { data: card } = await service
     .from('rfid_cards')
-    .select('id, machine_id, organization_id, credits_remaining, vend_count, total_spent_paisa, rfid_card_machines ( machine_id )')
+    .select('id, machine_id, organization_id, credits_remaining, vend_count, total_spent_paisa')
     .eq('id', id)
     .single();
   if (!card) return null;
 
-  const assignedMachineIds: string[] = (card.rfid_card_machines || []).map((r: any) => r.machine_id);
+  // Flat query rather than a nested embed -- see fetchAdminRfidCards in
+  // src/lib/rfid-cards.ts for why.
+  const { data: assignedRows } = await service
+    .from('rfid_card_machines')
+    .select('machine_id')
+    .eq('card_id', id);
+
+  const assignedMachineIds: string[] = (assignedRows || []).map((r: any) => r.machine_id);
   if (assignedMachineIds.length > 0) {
     return assignedMachineIds.some(mid => machineIds.has(mid)) ? card : null;
   }

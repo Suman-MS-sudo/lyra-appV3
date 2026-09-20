@@ -49,29 +49,48 @@ export async function GET(request: NextRequest) {
     const CARD_FIELDS = 'id, uid, credits_remaining, is_active, card_type, product_id, monthly_vend_count, monthly_vend_month';
 
     // Pass 1: cards specifically restricted to this machine, via the join
-    // table (a card can be restricted to several machines now, not just one).
-    const { data: restrictedRows, error: restrictedError } = await supabase
+    // table (a card can be restricted to several machines now, not just
+    // one). Flat queries rather than a nested embed -- see
+    // fetchAdminRfidCards in src/lib/rfid-cards.ts for why.
+    const { data: restrictedHereRows, error: restrictedHereError } = await supabase
       .from('rfid_card_machines')
-      .select(`card_id, rfid_cards ( ${CARD_FIELDS} )`)
+      .select('card_id')
       .eq('machine_id', machineId);
 
-    if (restrictedError) {
-      return errorResponse(restrictedError.message, 'INTERNAL_ERROR', 500);
+    if (restrictedHereError) {
+      return errorResponse(restrictedHereError.message, 'INTERNAL_ERROR', 500);
     }
 
+    const cardIdsForThisMachine = [...new Set((restrictedHereRows || []).map(r => r.card_id))];
     const cardMap = new Map<string, any>();
-    const restrictedCardIds = new Set<string>();
-    for (const row of restrictedRows || []) {
-      const c = row.rfid_cards as any;
-      if (!c) continue;
-      restrictedCardIds.add(c.id);
-      cardMap.set(c.id, c);
+
+    if (cardIdsForThisMachine.length > 0) {
+      const { data: restrictedCards, error: restrictedCardsError } = await supabase
+        .from('rfid_cards')
+        .select(CARD_FIELDS)
+        .in('id', cardIdsForThisMachine);
+
+      if (restrictedCardsError) {
+        return errorResponse(restrictedCardsError.message, 'INTERNAL_ERROR', 500);
+      }
+      for (const c of restrictedCards || []) cardMap.set(c.id, c);
     }
+
+    // Every card ID that has ANY restriction row at all (not just for this
+    // machine) -- needed so Pass 2 doesn't let a card restricted to some
+    // OTHER machine leak in just because its organization_id also matches.
+    const { data: allRestrictedRows, error: allRestrictedError } = await supabase
+      .from('rfid_card_machines')
+      .select('card_id');
+
+    if (allRestrictedError) {
+      return errorResponse(allRestrictedError.message, 'INTERNAL_ERROR', 500);
+    }
+    const allRestrictedCardIds = new Set((allRestrictedRows || []).map(r => r.card_id));
 
     // Pass 2: org-wide / true-wildcard cards -- zero restriction rows, and
     // either belong to this machine's owning customer or have no
-    // organization at all. A card that HAS restriction rows (elsewhere)
-    // must not also leak in here just because its organization_id matches.
+    // organization at all.
     let orgQuery = supabase.from('rfid_cards').select(CARD_FIELDS);
     orgQuery = machine.customer_id
       ? orgQuery.or(`organization_id.eq.${machine.customer_id},organization_id.is.null`)
@@ -84,7 +103,7 @@ export async function GET(request: NextRequest) {
     }
 
     for (const c of orgCandidates || []) {
-      if (!restrictedCardIds.has(c.id)) cardMap.set(c.id, c);
+      if (!allRestrictedCardIds.has(c.id)) cardMap.set(c.id, c);
     }
 
     const cards = Array.from(cardMap.values());
