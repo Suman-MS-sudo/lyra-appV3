@@ -104,6 +104,8 @@ export default function RfidCardsClient({
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 100;
 
   const [newUid, setNewUid] = useState('');
   const [newName, setNewName] = useState('');
@@ -356,6 +358,7 @@ export default function RfidCardsClient({
   function selectOrg(orgId: string | null) {
     setSelectedOrgId(orgId);
     setSelectedIds(new Set());
+    setPage(1);
   }
 
   async function bulkDeleteCards(ids: string[]) {
@@ -430,6 +433,12 @@ export default function RfidCardsClient({
     ? (filteredGroups.get(selectedOrgId)?.cards || [])
     : [];
 
+  const totalPages = Math.max(1, Math.ceil(selectedGroupCards.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedCards = selectedGroupCards.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const allOnPageSelected = pagedCards.length > 0 && pagedCards.every(c => selectedIds.has(c.id));
+  const allAcrossPagesSelected = selectedGroupCards.length > 0 && selectedGroupCards.every(c => selectedIds.has(c.id));
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -489,7 +498,7 @@ export default function RfidCardsClient({
 
       <input
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={e => { setSearch(e.target.value); setPage(1); }}
         placeholder={selectedGroup ? 'Search by UID, holder, or machine...' : 'Search by UID, holder, customer, or machine...'}
         className="w-full px-4 py-2.5 rounded-xl text-sm text-[#1d1d1f] outline-none"
         style={inputStyle}
@@ -569,11 +578,23 @@ export default function RfidCardsClient({
         <div className="space-y-3">
           {selectedIds.size > 0 && (
             <div
-              className="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm"
+              className="flex items-center justify-between flex-wrap gap-2 px-4 py-2.5 rounded-xl text-sm"
               style={{ background: 'rgba(200,16,46,0.08)', border: '1px solid rgba(200,16,46,0.18)' }}
             >
               <span style={{ color: '#c8102e' }} className="font-medium">
                 {selectedIds.size} card{selectedIds.size === 1 ? '' : 's'} selected
+                {allOnPageSelected && !allAcrossPagesSelected && totalPages > 1 && (
+                  <>
+                    {' — '}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIds(new Set(selectedGroupCards.map(c => c.id)))}
+                      className="underline font-semibold"
+                    >
+                      Select all {selectedGroupCards.length} cards across {totalPages} pages
+                    </button>
+                  </>
+                )}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -605,8 +626,8 @@ export default function RfidCardsClient({
                   <th className="px-4 py-2.5 w-8">
                     <input
                       type="checkbox"
-                      checked={selectedGroupCards.length > 0 && selectedGroupCards.every(c => selectedIds.has(c.id))}
-                      onChange={() => toggleSelectAll(selectedGroupCards.map(c => c.id))}
+                      checked={allOnPageSelected}
+                      onChange={() => toggleSelectAll(pagedCards.map(c => c.id))}
                     />
                   </th>
                   <th className="text-left px-4 py-2.5 font-medium text-xs" style={muted}>UID</th>
@@ -620,7 +641,7 @@ export default function RfidCardsClient({
                 </tr>
               </thead>
               <tbody>
-                {selectedGroupCards.map(card => (
+                {pagedCards.map(card => (
                           <tr key={card.id} style={{ borderTop: '1px solid #f5f5f7', background: selectedIds.has(card.id) ? 'rgba(0,113,227,0.04)' : undefined }}>
                             <td className="px-4 py-3">
                               <input type="checkbox" checked={selectedIds.has(card.id)} onChange={() => toggleSelected(card.id)} />
@@ -708,6 +729,35 @@ export default function RfidCardsClient({
             </table>
           </div>
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+              <p className="text-xs" style={muted}>
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, selectedGroupCards.length)} of {selectedGroupCards.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-40"
+                  style={card_style}
+                >
+                  Previous
+                </button>
+                <span className="text-xs" style={muted}>Page {currentPage} of {totalPages}</span>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-40"
+                  style={card_style}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
