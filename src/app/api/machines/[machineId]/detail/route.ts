@@ -14,7 +14,7 @@ const CHART_DAYS = 14;
  * Open to both admins (any machine) and customers (only their own machines
  * -- direct owner, or any machine in their org if they're a super_customer).
  */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ machineId: string }> }) {
   try {
     return await handleGet(params);
   } catch (error: any) {
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-async function handleGet(params: Promise<{ id: string }>) {
-  const { id: machineId } = await params;
+async function handleGet(params: Promise<{ machineId: string }>) {
+  const { machineId } = await params;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
