@@ -20,6 +20,7 @@ type RfidCard = {
   product_id: string | null;
   organization: { id: string; name: string } | null;
   machine: { id: string; name: string; location: string } | null;
+  machines: { id: string; name: string; location: string }[];
   product: { id: string; name: string; price: string } | null;
   created_at: string;
 };
@@ -44,12 +45,12 @@ function rupees(paisa: number) {
 function AssignmentFields({
   organizations, machines, products,
   organizationId, setOrganizationId,
-  machineId, setMachineId,
+  machineIds, setMachineIds,
   productId, setProductId,
 }: {
   organizations: Organization[]; machines: Machine[]; products: Product[];
   organizationId: string; setOrganizationId: (v: string) => void;
-  machineId: string; setMachineId: (v: string) => void;
+  machineIds: string[]; setMachineIds: (v: string[]) => void;
   productId: string; setProductId: (v: string) => void;
 }) {
   // Narrow the machine list to the selected org, same convention as MachineForm
@@ -57,24 +58,41 @@ function AssignmentFields({
     ? machines.filter(m => m.customer_id === organizationId)
     : machines;
 
+  function toggleMachine(id: string) {
+    setMachineIds(machineIds.includes(id) ? machineIds.filter(m => m !== id) : [...machineIds, id]);
+  }
+
   return (
     <>
       <div>
         <label className="block text-xs font-medium mb-1" style={muted}>Customer / Organization (optional)</label>
-        <select value={organizationId} onChange={e => { setOrganizationId(e.target.value); setMachineId(''); }}
+        <select value={organizationId} onChange={e => { setOrganizationId(e.target.value); setMachineIds([]); }}
           className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle}>
           <option value="" style={{ color: '#111' }}>Any / unassigned</option>
           {organizations.map(o => <option key={o.id} value={o.id} style={{ color: '#111' }}>{o.name}</option>)}
         </select>
       </div>
       <div>
-        <label className="block text-xs font-medium mb-1" style={muted}>Restrict to Machine (optional)</label>
-        <select value={machineId} onChange={e => setMachineId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle}>
-          <option value="" style={{ color: '#111' }}>Any machine</option>
-          {scopedMachines.map(m => <option key={m.id} value={m.id} style={{ color: '#111' }}>{m.name} — {m.location}</option>)}
-        </select>
-        <p className="text-xs mt-1" style={muted}>Leave as &quot;Any machine&quot; unless this card should only work on one specific machine.</p>
+        <label className="block text-xs font-medium mb-1" style={muted}>Restrict to Machines (optional)</label>
+        {scopedMachines.length === 0 ? (
+          <p className="text-xs" style={muted}>No machines to choose from{organizationId ? ' for this customer' : ''}.</p>
+        ) : (
+          <div className="max-h-40 overflow-y-auto rounded-lg p-2 space-y-1" style={inputStyle}>
+            {scopedMachines.map(m => (
+              <label key={m.id} className="flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer text-sm text-[#1d1d1f]">
+                <input type="checkbox" checked={machineIds.includes(m.id)} onChange={() => toggleMachine(m.id)} />
+                {m.name} — {m.location}
+              </label>
+            ))}
+          </div>
+        )}
+        <p className="text-xs mt-1" style={muted}>
+          {machineIds.length === 0
+            ? organizationId
+              ? 'None selected — card works on every machine belonging to this customer.'
+              : 'None selected — card works on any machine (admin-wide wildcard).'
+            : `Selected ${machineIds.length} machine${machineIds.length === 1 ? '' : 's'} — card works ONLY on ${machineIds.length === 1 ? 'that one' : 'these'}.`}
+        </p>
       </div>
       <div>
         <label className="block text-xs font-medium mb-1" style={muted}>Product (optional)</label>
@@ -117,11 +135,11 @@ export default function RfidCardsClient({
   const [newType, setNewType] = useState<CardType>('prepaid');
   const [newCredits, setNewCredits] = useState('0');
   const [newOrgId, setNewOrgId] = useState('');
-  const [newMachineId, setNewMachineId] = useState('');
+  const [newMachineIds, setNewMachineIds] = useState<string[]>([]);
   const [newProductId, setNewProductId] = useState('');
 
   const [editOrgId, setEditOrgId] = useState('');
-  const [editMachineId, setEditMachineId] = useState('');
+  const [editMachineIds, setEditMachineIds] = useState<string[]>([]);
   const [editProductId, setEditProductId] = useState('');
   const [editName, setEditName] = useState('');
   const [editUid, setEditUid] = useState('');
@@ -166,7 +184,7 @@ export default function RfidCardsClient({
           card_type: newType,
           initial_credits: newType === 'prepaid' ? (parseInt(newCredits, 10) || 0) : 0,
           organization_id: newOrgId || null,
-          machine_id: newMachineId || null,
+          machine_ids: newMachineIds,
           product_id: newProductId || null,
         }),
       });
@@ -174,7 +192,7 @@ export default function RfidCardsClient({
       if (!res.ok) throw new Error(data.error || 'Failed to add card');
       setShowAdd(false);
       setNewUid(''); setNewName(''); setNewCredits('0'); setNewType('prepaid');
-      setNewOrgId(''); setNewMachineId(''); setNewProductId('');
+      setNewOrgId(''); setNewMachineIds([]); setNewProductId('');
       loadCards();
     } catch (e: any) {
       setError(e.message);
@@ -259,7 +277,7 @@ export default function RfidCardsClient({
     setEditUid(card.uid);
     setEditName(card.holder_name || '');
     setEditOrgId(card.organization_id || '');
-    setEditMachineId(card.machine_id || '');
+    setEditMachineIds(card.machines.map(m => m.id));
     setEditProductId(card.product_id || '');
   }
 
@@ -276,7 +294,7 @@ export default function RfidCardsClient({
           uid: editUid.trim(),
           holder_name: editName.trim() || null,
           organization_id: editOrgId || null,
-          machine_id: editMachineId || null,
+          machine_ids: editMachineIds,
           product_id: editProductId || null,
         }),
       });
@@ -394,7 +412,7 @@ export default function RfidCardsClient({
 
   function openAddForOrg(orgId: string) {
     setNewOrgId(orgId);
-    setNewMachineId('');
+    setNewMachineIds([]);
     setNewProductId('');
     setShowAdd(true);
   }
@@ -448,7 +466,7 @@ export default function RfidCardsClient({
   const groupMachineOptions = useMemo(() => {
     const byId = new Map<string, { id: string; name: string; location: string }>();
     for (const card of selectedGroup?.cards || []) {
-      if (card.machine) byId.set(card.machine.id, card.machine);
+      for (const m of card.machines) byId.set(m.id, m);
     }
     return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedGroup]);
@@ -457,8 +475,8 @@ export default function RfidCardsClient({
     let list = selectedGroupCardsRaw;
     if (filterType !== 'all') list = list.filter(c => c.card_type === filterType);
     if (filterStatus !== 'all') list = list.filter(c => filterStatus === 'active' ? c.is_active : !c.is_active);
-    if (filterMachineId === '__any') list = list.filter(c => !c.machine_id);
-    else if (filterMachineId !== 'all') list = list.filter(c => c.machine_id === filterMachineId);
+    if (filterMachineId === '__any') list = list.filter(c => c.machines.length === 0);
+    else if (filterMachineId !== 'all') list = list.filter(c => c.machines.some(m => m.id === filterMachineId));
 
     const sorted = [...list];
     switch (sortBy) {
@@ -755,7 +773,15 @@ export default function RfidCardsClient({
                             </td>
                             <td className="px-4 py-3 font-mono text-[#1d1d1f]">{card.uid}</td>
                             <td className="px-4 py-3 text-[#1d1d1f]">{card.holder_name || <span style={muted}>—</span>}</td>
-                            <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{card.machine?.name || <span style={muted}>Any</span>}</td>
+                            <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>
+                              {card.machines.length === 0 ? (
+                                <span style={muted}>Any</span>
+                              ) : card.machines.length === 1 ? (
+                                card.machines[0].name
+                              ) : (
+                                <span title={card.machines.map(m => m.name).join(', ')}>{card.machines.length} machines</span>
+                              )}
+                            </td>
                             <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{card.product?.name || <span style={muted}>Default</span>}</td>
                             <td className="px-4 py-3">
                               <span
@@ -891,7 +917,7 @@ export default function RfidCardsClient({
               <AssignmentFields
                 organizations={organizations} machines={machines} products={products}
                 organizationId={newOrgId} setOrganizationId={setNewOrgId}
-                machineId={newMachineId} setMachineId={setNewMachineId}
+                machineIds={newMachineIds} setMachineIds={setNewMachineIds}
                 productId={newProductId} setProductId={setNewProductId}
               />
 
@@ -966,7 +992,7 @@ export default function RfidCardsClient({
               <AssignmentFields
                 organizations={organizations} machines={machines} products={products}
                 organizationId={editOrgId} setOrganizationId={setEditOrgId}
-                machineId={editMachineId} setMachineId={setEditMachineId}
+                machineIds={editMachineIds} setMachineIds={setEditMachineIds}
                 productId={editProductId} setProductId={setEditProductId}
               />
               <div className="flex gap-2 pt-2">

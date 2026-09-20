@@ -38,10 +38,12 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Resolve the card
+    // Resolve the card, plus whichever machines it's specifically restricted
+    // to (rfid_card_machines is the source of truth for that now; machine_id
+    // is kept in sync for legacy readers but not used for scoping below).
     const { data: card, error: cardError } = await supabase
       .from('rfid_cards')
-      .select('id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa, machine_id, organization_id, product_id, monthly_vend_count, monthly_vend_month')
+      .select('id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa, organization_id, product_id, monthly_vend_count, monthly_vend_month, rfid_card_machines ( machine_id )')
       .eq('uid', card_uid.toUpperCase())
       .single();
 
@@ -53,13 +55,15 @@ export async function POST(request: NextRequest) {
       return errorResponse('Card is inactive', 'CARD_INACTIVE', 403);
     }
 
-    // A card locked to one machine must match it exactly. Otherwise, a card
-    // assigned to an organization is scoped to that organization's machines
-    // only (mirrors assertOwnsCard() in customer/rfid-cards/[id]/route.ts and
-    // the offline cache scoping in machine-cards-sync/route.ts). A card with
-    // neither set is a true "any machine" card.
-    if (card.machine_id) {
-      if (card.machine_id !== machine_id) {
+    // A card restricted to one or more specific machines must match one of
+    // them exactly. Otherwise, a card assigned to an organization is scoped
+    // to that organization's machines only (mirrors assertOwnsCard() in
+    // customer/rfid-cards/[id]/route.ts and the offline cache scoping in
+    // machine-cards-sync/route.ts). A card with neither set is a true
+    // "any machine" card.
+    const assignedMachineIds: string[] = (card.rfid_card_machines || []).map((r: any) => r.machine_id);
+    if (assignedMachineIds.length > 0) {
+      if (!assignedMachineIds.includes(machine_id)) {
         return errorResponse('This card is not valid on this machine', 'WRONG_MACHINE', 403);
       }
     } else if (card.organization_id) {

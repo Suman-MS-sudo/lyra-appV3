@@ -14,9 +14,11 @@ import { MONTHLY_VEND_LIMIT, effectiveMonthlyCount } from '@/lib/rfid-monthly-ca
  *
  * Scoping mirrors assertOwnsCard() in
  * src/app/api/customer/rfid-cards/[id]/route.ts: a card belongs to this
- * machine if it's locked to it directly (card.machine_id = machine_id), or
- * it's an org-wide "any machine" card (card.machine_id IS NULL) whose
- * organization_id matches the machine's owning customer.
+ * machine if it has a row in rfid_card_machines for this machine_id
+ * (possibly alongside other machines -- a card can be restricted to several
+ * machines at once now, not just zero or one), or it has ZERO restriction
+ * rows and is an org-wide "any machine" card whose organization_id matches
+ * the machine's owning customer.
  *
  * Payload is intentionally minimal (no holder_name/org/machine info) — the
  * device only needs enough to answer "is this UID valid, and how many
@@ -44,31 +46,54 @@ export async function GET(request: NextRequest) {
       return errorResponse('Machine not found', 'MACHINE_NOT_FOUND', 404);
     }
 
-    const CARD_FIELDS = 'uid, credits_remaining, is_active, card_type, product_id, monthly_vend_count, monthly_vend_month';
+    const CARD_FIELDS = 'id, uid, credits_remaining, is_active, card_type, product_id, monthly_vend_count, monthly_vend_month';
 
-    let cardsQuery = supabase
-      .from('rfid_cards')
-      .select(CARD_FIELDS)
+    // Pass 1: cards specifically restricted to this machine, via the join
+    // table (a card can be restricted to several machines now, not just one).
+    const { data: restrictedRows, error: restrictedError } = await supabase
+      .from('rfid_card_machines')
+      .select(`card_id, rfid_cards ( ${CARD_FIELDS} )`)
       .eq('machine_id', machineId);
 
-    if (machine.customer_id) {
-      cardsQuery = supabase
-        .from('rfid_cards')
-        .select(CARD_FIELDS)
-        .or(`machine_id.eq.${machineId},and(machine_id.is.null,organization_id.eq.${machine.customer_id})`);
+    if (restrictedError) {
+      return errorResponse(restrictedError.message, 'INTERNAL_ERROR', 500);
     }
 
-    const { data: cards, error: cardsError } = await cardsQuery;
-
-    if (cardsError) {
-      return errorResponse(cardsError.message, 'INTERNAL_ERROR', 500);
+    const cardMap = new Map<string, any>();
+    const restrictedCardIds = new Set<string>();
+    for (const row of restrictedRows || []) {
+      const c = row.rfid_cards as any;
+      if (!c) continue;
+      restrictedCardIds.add(c.id);
+      cardMap.set(c.id, c);
     }
+
+    // Pass 2: org-wide / true-wildcard cards -- zero restriction rows, and
+    // either belong to this machine's owning customer or have no
+    // organization at all. A card that HAS restriction rows (elsewhere)
+    // must not also leak in here just because its organization_id matches.
+    let orgQuery = supabase.from('rfid_cards').select(CARD_FIELDS);
+    orgQuery = machine.customer_id
+      ? orgQuery.or(`organization_id.eq.${machine.customer_id},organization_id.is.null`)
+      : orgQuery.is('organization_id', null);
+
+    const { data: orgCandidates, error: orgError } = await orgQuery;
+
+    if (orgError) {
+      return errorResponse(orgError.message, 'INTERNAL_ERROR', 500);
+    }
+
+    for (const c of orgCandidates || []) {
+      if (!restrictedCardIds.has(c.id)) cardMap.set(c.id, c);
+    }
+
+    const cards = Array.from(cardMap.values());
 
     // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
     // card_type — the machine enforces this itself while offline, so it
     // needs the current remaining count, not the raw counter columns.
     const now = new Date();
-    const cardsWithMonthly = (cards || []).map(({ monthly_vend_count, monthly_vend_month, ...rest }) => ({
+    const cardsWithMonthly = (cards || []).map(({ id, monthly_vend_count, monthly_vend_month, ...rest }) => ({
       ...rest,
       monthly_remaining: Math.max(0, MONTHLY_VEND_LIMIT - effectiveMonthlyCount(monthly_vend_month, monthly_vend_count, now)),
     }));

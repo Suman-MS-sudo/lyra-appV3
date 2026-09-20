@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchAdminRfidCards } from '@/lib/rfid-cards';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -30,19 +31,12 @@ export async function GET() {
   const auth = await requireAdmin();
   if (auth.error) return auth.error;
 
-  const { data: cards, error } = await auth.service!
-    .from('rfid_cards')
-    .select(`
-      id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa,
-      organization_id, machine_id, product_id, created_at, updated_at,
-      organization:organizations ( id, name ),
-      machine:vending_machines ( id, name, location ),
-      product:products ( id, name, price )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ cards });
+  try {
+    const cards = await fetchAdminRfidCards(auth.service!);
+    return NextResponse.json({ cards });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 // POST /api/rfid-cards — register a new card
@@ -51,13 +45,14 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
 
   const body = await request.json();
-  const { uid, holder_name, organization_id, machine_id, product_id, initial_credits, card_type } = body;
+  const { uid, holder_name, organization_id, machine_ids, product_id, initial_credits, card_type } = body;
 
   if (!uid) {
     return NextResponse.json({ error: 'uid is required' }, { status: 400 });
   }
 
   const resolvedType = card_type === 'postpaid' ? 'postpaid' : 'prepaid';
+  const resolvedMachineIds: string[] = Array.isArray(machine_ids) ? machine_ids.filter(Boolean) : [];
 
   const { data: card, error } = await auth.service!
     .from('rfid_cards')
@@ -65,7 +60,10 @@ export async function POST(request: NextRequest) {
       uid: String(uid).toUpperCase(),
       holder_name: holder_name || null,
       organization_id: organization_id || null,
-      machine_id: machine_id || null,
+      // Legacy single-machine column: kept in sync only for the simple
+      // (0 or 1 machine) case so any old code still reading it directly
+      // isn't left stale; rfid_card_machines is the real source of truth.
+      machine_id: resolvedMachineIds.length === 1 ? resolvedMachineIds[0] : null,
       product_id: product_id || null,
       card_type: resolvedType,
       // Postpaid cards don't use credits — always store 0 regardless of what was passed.
@@ -79,6 +77,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A card with this UID already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (resolvedMachineIds.length > 0) {
+    const { error: linkError } = await auth.service!
+      .from('rfid_card_machines')
+      .insert(resolvedMachineIds.map(machine_id => ({ card_id: card.id, machine_id })));
+    if (linkError) {
+      console.error('Failed to link card to machines:', linkError.message);
+    }
   }
 
   return NextResponse.json({ card });

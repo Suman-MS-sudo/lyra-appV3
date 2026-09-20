@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import CustomerRfidCardsClient from '@/components/CustomerRfidCardsClient';
+import { fetchCustomerRfidCards } from '@/lib/rfid-cards';
 
 export const revalidate = 0;
 
@@ -32,29 +33,14 @@ export default async function CustomerRfidCardsPage() {
     .eq('rfid_enabled', true)
     .order('name');
 
-  const machineIds = (machines || []).map(m => m.id);
-
-  // Includes org-wide ("any machine") cards, which have machine_id = NULL and
-  // so wouldn't match a plain .in(machine_id) filter.
-  const cardFilters: string[] = [];
-  if (machineIds.length > 0) cardFilters.push(`machine_id.in.(${machineIds.join(',')})`);
-  if (profile?.organization_id) cardFilters.push(`and(machine_id.is.null,organization_id.eq.${profile.organization_id})`);
-
-  const { data: cards } = cardFilters.length > 0
-    ? await serviceSupabase
-        .from('rfid_cards')
-        .select(`
-          id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa,
-          machine_id, created_at,
-          machine:vending_machines ( id, name, location )
-        `)
-        .or(cardFilters.join(','))
-        .order('created_at', { ascending: false })
-    : { data: [] };
+  const cards = await fetchCustomerRfidCards(serviceSupabase, {
+    machines: machines || [],
+    organizationId: profile?.organization_id ?? null,
+  });
 
   return (
     <CustomerRfidCardsClient
-      initialCards={(cards as any) || []}
+      initialCards={cards as any}
       machines={machines || []}
     />
   );

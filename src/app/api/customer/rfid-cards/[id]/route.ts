@@ -33,20 +33,30 @@ async function requireCustomerAndMachines() {
   return { service, profile, machineIds: new Set((machines || []).map(m => m.id)) };
 }
 
-// A card is manageable by this customer if it's locked to one of their own
-// RFID-enabled machines, OR it's an org-wide ("any machine") card — those
-// have machine_id = NULL and are scoped by organization_id instead.
+// A card is manageable by this customer if it's restricted to one or more
+// of their own RFID-enabled machines (via rfid_card_machines -- at least one
+// overlap is enough, since a customer with a partial view of an org-wide
+// multi-machine assignment should still be able to manage it), OR it's an
+// org-wide ("any machine") card with zero machine restrictions, scoped by
+// organization_id instead.
 async function assertOwnsCard(service: any, id: string, machineIds: Set<string>, organizationId: string | null) {
-  const { data: card } = await service.from('rfid_cards').select('id, machine_id, organization_id, credits_remaining, vend_count, total_spent_paisa').eq('id', id).single();
+  const { data: card } = await service
+    .from('rfid_cards')
+    .select('id, machine_id, organization_id, credits_remaining, vend_count, total_spent_paisa, rfid_card_machines ( machine_id )')
+    .eq('id', id)
+    .single();
   if (!card) return null;
-  if (card.machine_id) {
-    return machineIds.has(card.machine_id) ? card : null;
+
+  const assignedMachineIds: string[] = (card.rfid_card_machines || []).map((r: any) => r.machine_id);
+  if (assignedMachineIds.length > 0) {
+    return assignedMachineIds.some(mid => machineIds.has(mid)) ? card : null;
   }
   return organizationId && card.organization_id === organizationId ? card : null;
 }
 
 // PATCH /api/customer/rfid-cards/[id] — top up credits, rename, toggle active,
-// or settle a postpaid card's tab. Only for cards on the customer's own machines.
+// reassign which of the customer's own machines the card works on, or settle
+// a postpaid card's tab. Only for cards on the customer's own machines.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,7 +69,7 @@ export async function PATCH(
   if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
 
   const body = await request.json();
-  const { top_up_credits, settle_tab, holder_name, is_active } = body;
+  const { top_up_credits, settle_tab, holder_name, is_active, machine_ids } = body;
 
   const updates: Record<string, unknown> = {};
   if (holder_name !== undefined) updates.holder_name = holder_name;
@@ -70,6 +80,18 @@ export async function PATCH(
   if (settle_tab) {
     updates.vend_count = 0;
     updates.total_spent_paisa = 0;
+  }
+
+  let resolvedMachineIds: string[] | undefined;
+  if (Array.isArray(machine_ids)) {
+    resolvedMachineIds = machine_ids.filter(Boolean);
+    if (resolvedMachineIds.length === 0) {
+      return NextResponse.json({ error: 'Please select at least one machine' }, { status: 400 });
+    }
+    if (resolvedMachineIds.some(mid => !auth.machineIds!.has(mid))) {
+      return NextResponse.json({ error: 'You do not have access to one of the selected machines' }, { status: 403 });
+    }
+    updates.machine_id = resolvedMachineIds.length === 1 ? resolvedMachineIds[0] : null;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -84,6 +106,17 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (resolvedMachineIds !== undefined) {
+    await auth.service!.from('rfid_card_machines').delete().eq('card_id', id);
+    const { error: linkError } = await auth.service!
+      .from('rfid_card_machines')
+      .insert(resolvedMachineIds.map(machine_id => ({ card_id: id, machine_id })));
+    if (linkError) {
+      console.error('Failed to update card machine assignments:', linkError.message);
+    }
+  }
+
   return NextResponse.json({ card: updated });
 }
 

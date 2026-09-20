@@ -26,11 +26,11 @@ async function requireAdmin() {
 }
 
 // PATCH /api/rfid-cards/[id] — top up credits, rename, toggle active state,
-// reassign customer/machine/product, or settle a postpaid card's accrued tab.
+// reassign customer/machines/product, or settle a postpaid card's accrued tab.
 // Body may include any of: top_up_credits (prepaid: adds to credits_remaining),
 // settle_tab (postpaid: zeroes vend_count/total_spent_paisa once billed),
-// uid, holder_name, is_active, organization_id, machine_id, product_id
-// (pass null/'' on the assignment fields to clear them)
+// uid, holder_name, is_active, organization_id, machine_ids (array; pass []
+// to clear back to org-wide/wildcard), product_id (pass null/'' to clear)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,7 +40,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { uid, top_up_credits, settle_tab, holder_name, is_active, organization_id, machine_id, product_id } = body;
+  const { uid, top_up_credits, settle_tab, holder_name, is_active, organization_id, machine_ids, product_id } = body;
 
   const updates: Record<string, unknown> = {};
   if (uid !== undefined) {
@@ -52,8 +52,15 @@ export async function PATCH(
   if (holder_name !== undefined) updates.holder_name = holder_name;
   if (is_active !== undefined) updates.is_active = is_active;
   if (organization_id !== undefined) updates.organization_id = organization_id || null;
-  if (machine_id !== undefined) updates.machine_id = machine_id || null;
   if (product_id !== undefined) updates.product_id = product_id || null;
+
+  const resolvedMachineIds: string[] | undefined = Array.isArray(machine_ids)
+    ? machine_ids.filter(Boolean)
+    : undefined;
+  if (resolvedMachineIds !== undefined) {
+    // Keep the legacy single-machine column in sync for the simple case only.
+    updates.machine_id = resolvedMachineIds.length === 1 ? resolvedMachineIds[0] : null;
+  }
 
   if (top_up_credits !== undefined) {
     const { data: card, error: fetchError } = await auth.service!
@@ -91,6 +98,21 @@ export async function PATCH(
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  if (resolvedMachineIds !== undefined) {
+    // Replace wholesale rather than diffing -- simplest correct approach,
+    // and this table is tiny per card (a handful of rows at most).
+    await auth.service!.from('rfid_card_machines').delete().eq('card_id', id);
+    if (resolvedMachineIds.length > 0) {
+      const { error: linkError } = await auth.service!
+        .from('rfid_card_machines')
+        .insert(resolvedMachineIds.map(machine_id => ({ card_id: id, machine_id })));
+      if (linkError) {
+        console.error('Failed to update card machine assignments:', linkError.message);
+      }
+    }
+  }
+
   return NextResponse.json({ card });
 }
 

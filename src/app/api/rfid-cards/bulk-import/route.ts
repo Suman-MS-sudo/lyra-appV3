@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     const { data: inserted, error: insertError } = await auth.service!
       .from('rfid_cards')
       .upsert(Array.from(pendingByUid.values()), { onConflict: 'uid', ignoreDuplicates: true })
-      .select('uid');
+      .select('id, uid, machine_id');
 
     if (insertError) {
       for (const uid of pendingByUid.keys()) {
@@ -198,6 +198,21 @@ export async function POST(request: NextRequest) {
       }
     } else {
       const newlyInserted = new Set((inserted ?? []).map((r: any) => r.uid));
+
+      // CSV import only ever assigns at most one machine per row -- mirror
+      // that single machine_id into rfid_card_machines too, so these cards
+      // are validated the same way as one added by hand with one machine
+      // selected (the join table is the real source of truth now).
+      const linkRows = (inserted ?? [])
+        .filter((r: any) => r.machine_id)
+        .map((r: any) => ({ card_id: r.id, machine_id: r.machine_id }));
+      if (linkRows.length > 0) {
+        const { error: linkError } = await auth.service!.from('rfid_card_machines').insert(linkRows);
+        if (linkError) {
+          console.error('Bulk import: failed to link cards to machines:', linkError.message);
+        }
+      }
+
       for (const uid of pendingByUid.keys()) {
         const rowNum = rowNumByUid.get(uid) ?? 0;
         if (newlyInserted.has(uid)) {

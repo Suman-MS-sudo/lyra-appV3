@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchCustomerRfidCards } from '@/lib/rfid-cards';
 
 // Resolves the RFID-enabled machine IDs this logged-in customer is allowed
 // to assign cards to: super_customers see every machine in their org,
@@ -37,39 +38,23 @@ async function requireCustomerAndMachines() {
 }
 
 // GET /api/customer/rfid-cards — cards assigned to machines this customer can
-// see, plus any org-wide ("any machine") cards belonging to their organization
-// — those have machine_id = NULL, which a plain .in() filter would silently
-// exclude, so they're matched via a separate .or() clause.
+// see, plus any org-wide ("any machine") cards belonging to their organization.
 export async function GET() {
   const auth = await requireCustomerAndMachines();
   if (auth.error) return auth.error;
 
-  const machineIds = auth.machines!.map(m => m.id);
-  const orgId = auth.profile!.organization_id;
-
-  const filters: string[] = [];
-  if (machineIds.length > 0) filters.push(`machine_id.in.(${machineIds.join(',')})`);
-  if (orgId) filters.push(`and(machine_id.is.null,organization_id.eq.${orgId})`);
-
-  if (filters.length === 0) {
-    return NextResponse.json({ cards: [] });
+  try {
+    const cards = await fetchCustomerRfidCards(auth.service!, {
+      machines: auth.machines!,
+      organizationId: auth.profile!.organization_id,
+    });
+    return NextResponse.json({ cards });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  const { data: cards, error } = await auth.service!
-    .from('rfid_cards')
-    .select(`
-      id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa,
-      machine_id, created_at,
-      machine:vending_machines ( id, name, location )
-    `)
-    .or(filters.join(','))
-    .order('created_at', { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ cards });
 }
 
-// POST /api/customer/rfid-cards — register a new card, must be scoped to one
+// POST /api/customer/rfid-cards — register a new card, scoped to one or more
 // of this customer's own RFID-enabled machines (no "any machine" cards —
 // that's an admin-only capability since it spans customers).
 export async function POST(request: NextRequest) {
@@ -77,18 +62,19 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
 
   const body = await request.json();
-  const { uid, holder_name, machine_id, initial_credits, card_type } = body;
+  const { uid, holder_name, machine_ids, initial_credits, card_type } = body;
 
   if (!uid) {
     return NextResponse.json({ error: 'uid is required' }, { status: 400 });
   }
-  if (!machine_id) {
-    return NextResponse.json({ error: 'Please select a machine' }, { status: 400 });
+  const resolvedMachineIds: string[] = Array.isArray(machine_ids) ? machine_ids.filter(Boolean) : [];
+  if (resolvedMachineIds.length === 0) {
+    return NextResponse.json({ error: 'Please select at least one machine' }, { status: 400 });
   }
 
   const allowedMachineIds = new Set(auth.machines!.map(m => m.id));
-  if (!allowedMachineIds.has(machine_id)) {
-    return NextResponse.json({ error: 'You do not have access to that machine' }, { status: 403 });
+  if (resolvedMachineIds.some(id => !allowedMachineIds.has(id))) {
+    return NextResponse.json({ error: 'You do not have access to one of the selected machines' }, { status: 403 });
   }
 
   const resolvedType = card_type === 'postpaid' ? 'postpaid' : 'prepaid';
@@ -99,7 +85,7 @@ export async function POST(request: NextRequest) {
       uid: String(uid).toUpperCase(),
       holder_name: holder_name || null,
       organization_id: auth.profile!.organization_id || null,
-      machine_id,
+      machine_id: resolvedMachineIds.length === 1 ? resolvedMachineIds[0] : null,
       card_type: resolvedType,
       credits_remaining: resolvedType === 'postpaid' ? 0 : Math.max(0, Math.round(initial_credits || 0)),
     })
@@ -111,6 +97,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A card with this UID already exists' }, { status: 409 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const { error: linkError } = await auth.service!
+    .from('rfid_card_machines')
+    .insert(resolvedMachineIds.map(machine_id => ({ card_id: card.id, machine_id })));
+  if (linkError) {
+    console.error('Failed to link card to machines:', linkError.message);
   }
 
   return NextResponse.json({ card });

@@ -16,6 +16,7 @@ type RfidCard = {
   total_spent_paisa: number;
   machine_id: string | null;
   machine: { id: string; name: string; location: string } | null;
+  machines: { id: string; name: string; location: string }[];
   created_at: string;
 };
 
@@ -45,7 +46,11 @@ export default function CustomerRfidCardsClient({
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<CardType>('prepaid');
   const [newCredits, setNewCredits] = useState('0');
-  const [newMachineId, setNewMachineId] = useState(machines[0]?.id || '');
+  const [newMachineIds, setNewMachineIds] = useState<string[]>(machines[0] ? [machines[0].id] : []);
+
+  function toggleNewMachine(id: string) {
+    setNewMachineIds(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+  }
 
   const [topUpCredits, setTopUpCredits] = useState('');
   const [saving, setSaving] = useState(false);
@@ -67,7 +72,7 @@ export default function CustomerRfidCardsClient({
 
   async function addCard(e: React.FormEvent) {
     e.preventDefault();
-    if (!newUid.trim() || !newMachineId) return;
+    if (!newUid.trim() || newMachineIds.length === 0) return;
     setSaving(true);
     setError('');
     try {
@@ -78,7 +83,7 @@ export default function CustomerRfidCardsClient({
           uid: newUid.trim(),
           holder_name: newName.trim() || null,
           card_type: newType,
-          machine_id: newMachineId,
+          machine_ids: newMachineIds,
           initial_credits: newType === 'prepaid' ? (parseInt(newCredits, 10) || 0) : 0,
         }),
       });
@@ -237,7 +242,15 @@ export default function CustomerRfidCardsClient({
                   <tr key={card.id} style={{ borderTop: '1px solid #f5f5f7' }}>
                     <td className="px-4 py-3 font-mono text-[#1d1d1f]">{card.uid}</td>
                     <td className="px-4 py-3 text-[#1d1d1f]">{card.holder_name || <span style={muted}>—</span>}</td>
-                    <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{card.machine?.name || <span style={muted}>—</span>}</td>
+                    <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>
+                      {card.machines.length === 0 ? (
+                        <span style={muted}>—</span>
+                      ) : card.machines.length === 1 ? (
+                        card.machines[0].name
+                      ) : (
+                        <span title={card.machines.map(m => m.name).join(', ')}>{card.machines.length} machines</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
@@ -332,12 +345,24 @@ export default function CustomerRfidCardsClient({
                   className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle} />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1" style={muted}>Machine</label>
-                <select value={newMachineId} onChange={e => setNewMachineId(e.target.value)} required
-                  className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle}>
-                  {machines.map(m => <option key={m.id} value={m.id} style={{ color: '#111' }}>{m.name} — {m.location}</option>)}
-                </select>
-                <p className="text-xs mt-1" style={muted}>This card will only work on the machine you select.</p>
+                <label className="block text-xs font-medium mb-1" style={muted}>Machines</label>
+                {machines.length > 1 ? (
+                  <div className="max-h-40 overflow-y-auto rounded-lg p-2 space-y-1" style={inputStyle}>
+                    {machines.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer text-sm text-[#1d1d1f]">
+                        <input type="checkbox" checked={newMachineIds.includes(m.id)} onChange={() => toggleNewMachine(m.id)} />
+                        {m.name} — {m.location}
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#1d1d1f] px-1">{machines[0]?.name} — {machines[0]?.location}</p>
+                )}
+                <p className="text-xs mt-1" style={muted}>
+                  {newMachineIds.length > 1
+                    ? `This card will work on the ${newMachineIds.length} machines you selected.`
+                    : 'This card will only work on the machine(s) you select.'}
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={muted}>Card Type</label>
