@@ -4,7 +4,7 @@ const ADMIN_CARD_FIELDS = `
   id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa,
   organization_id, machine_id, product_id, created_at, updated_at,
   organization:organizations ( id, name ),
-  machine:vending_machines ( id, name, location ),
+  machine:vending_machines!rfid_cards_machine_id_fkey ( id, name, location ),
   product:products ( id, name, price )
 `;
 
@@ -29,7 +29,7 @@ export async function fetchAdminRfidCards(service: SupabaseClient) {
       .order('created_at', { ascending: false }),
     service
       .from('rfid_card_machines')
-      .select('card_id, machine:vending_machines ( id, name, location )'),
+      .select('card_id, machine:vending_machines!rfid_card_machines_machine_id_fkey ( id, name, location )'),
   ]);
 
   if (error) throw error;

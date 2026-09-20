@@ -406,7 +406,7 @@ export default async function CustomerDashboard() {
         .select(`
           id, uid, holder_name, credits_remaining, is_active, card_type, vend_count, total_spent_paisa,
           machine_id, created_at,
-          machine:vending_machines ( id, name, location )
+          machine:vending_machines!rfid_cards_machine_id_fkey ( id, name, location )
         `)
         .or(rfidCardFilters.join(','))
         .order('created_at', { ascending: false })
