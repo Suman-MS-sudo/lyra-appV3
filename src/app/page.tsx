@@ -1035,10 +1035,10 @@ function HomeContent() {
                           <img src={item.products.image_url} alt={item.products.name} className="relative z-0 w-full h-full object-cover" />
                         ) : (
                           <Image
-                            src="/icons/Gemini_Generated_Image_mypgjumypgjumypg-removebg-preview.png"
+                            src="/icons/napkin-image.png"
                             alt={item.products.name}
-                            width={677}
-                            height={369}
+                            width={987}
+                            height={899}
                             className="relative z-0 w-64 h-auto select-none pointer-events-none"
                             style={{ filter: 'drop-shadow(0 14px 20px rgba(0,0,0,0.35))' }}
                           />
@@ -1343,10 +1343,10 @@ function HomeContent() {
                                 style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.22), transparent)' }}
                               />
                               <Image
-                                src="/icons/Gemini_Generated_Image_mypgjumypgjumypg-removebg-preview.png"
+                                src="/icons/napkin-image.png"
                                 alt=""
-                                width={677}
-                                height={369}
+                                width={987}
+                                height={899}
                                 className="relative z-10 w-11 h-auto"
                                 style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))' }}
                               />
