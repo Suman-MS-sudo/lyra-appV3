@@ -30,18 +30,25 @@
 //
 // MQTT-based variant of the Lyra vending machine firmware. Payments are
 // PUSHED to this machine over MQTT the instant they succeed, instead of
-// this machine polling /api/payment_success every few seconds like the
-// original ESP32_IOT Code.txt does. Everything else (dispensing, stock
-// sync, OTA, offline queue, provisioning) is identical to that file --
-// this only replaces the payment-detection mechanism.
+// polling /api/payment_success every 4 seconds like the original
+// ESP32_IOT Code.txt does -- MQTT is the fast path, backed by a slow
+// (60s) fallback poll as a safety net rather than a hard replacement, so
+// a broker outage or a misconfigured env var can't silently strand a paid
+// customer with no napkin (see the fallback poll's comment in loop()).
+// Everything else (dispensing, stock sync, OTA, offline queue,
+// provisioning) is identical to that file -- this only replaces the
+// payment-detection mechanism.
 //
 // Requires: the DB row for this machine has vending_machines.mqtt_payment_push
-// set to true (see /api/razorpay/verify), and the "PubSubClient" library
-// (Nick O'Leary) installed via Arduino Library Manager.
+// set to true (see /api/razorpay/verify) for payments to be pushed
+// instantly, and the "PubSubClient" library (Nick O'Leary) installed via
+// Arduino Library Manager.
 //
-// Do NOT flash this onto a machine whose DB row still has
-// mqtt_payment_push = false -- it would stop polling for payments with no
-// push arriving either, silently never dispensing anything paid for.
+// If that DB flag is left false (or the broker/env vars aren't set up
+// yet), this firmware still works correctly -- the 60s fallback poll in
+// loop() picks up any payment MQTT never pushed. It just runs slower
+// (up to 60s detection latency instead of instant) until the flag/broker
+// side is sorted out; nothing gets silently stranded either way.
 // ============================================================================
 
 // Ethernet library selection
@@ -60,9 +67,11 @@
 
 // ==================== MQTT PAYMENT PUSH ====================
 // Always on in this file (unlike ESP32_IOT Code.txt, where this same code
-// exists behind a flag that defaults off). Scoped to the Ethernet
-// transport, which is every real machine in this fleet today; add a WiFi
-// PubSubClient instance later if that ever changes.
+// exists behind a flag that defaults off). Works over either Ethernet or
+// WiFi fallback (maintainMqttConnection() below binds mqttClient to
+// whichever transport actually came up this boot). Not the sole payment
+// path though -- see the 60s fallback poll in loop() for why MQTT alone
+// isn't trusted to be the only way a payment gets picked up.
 #define USE_MQTT_PAYMENT_PUSH
 #if defined(USE_MQTT_PAYMENT_PUSH)
   #include <PubSubClient.h>
@@ -2356,10 +2365,31 @@ void loop() {
     }
     
 #if defined(USE_MQTT_PAYMENT_PUSH)
-    // Payments arrive via MQTT push instead -- no polling at all for a
-    // machine built with this flag on. maintainMqttConnection() picks
+    // Payments arrive via MQTT push -- maintainMqttConnection() picks
     // whichever transport (Ethernet or WiFi) is actually up this boot.
     maintainMqttConnection();
+
+    // Safety-net fallback poll, much slower than the old 4s loop (still a
+    // ~93% traffic cut). MQTT is the normal path and handles the vast
+    // majority of payments instantly, but this machine's push depends on
+    // several pieces staying correctly aligned at once -- the broker
+    // running, MQTT_BROKER_URL/credentials set in Vercel, this specific
+    // machine's DB row having mqtt_payment_push=true, network conditions
+    // not dropping the one persistent MQTT connection unnoticed. Any one
+    // of those silently misconfigured/broken means a paid customer's
+    // napkin never dispenses, with nothing on the device side ever
+    // detecting or surfacing the failure. Running this poll is safe to do
+    // unconditionally alongside MQTT: the server marks a transaction
+    // dispensed the instant either path claims it, so there's no
+    // double-dispense risk from having both active at once -- whichever
+    // gets there first wins, the other just finds nothing pending.
+    static unsigned long lastFallbackPaymentCheck = 0;
+    if (millis() - lastFallbackPaymentCheck > 60000) {
+        if (isNetworkConnected()) {
+            listenForOnlinePayment();
+        }
+        lastFallbackPaymentCheck = millis();
+    }
 #else
     // Payment polling every 4 seconds
     static unsigned long lastPaymentCheck = 0;
