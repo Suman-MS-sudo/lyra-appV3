@@ -55,11 +55,8 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (machineError || !machine) {
-      console.log(`Machine not found for MAC: ${macAddress}`);
       return noPendingPaymentResponse('Machine not registered');
     }
-
-    console.log(`💓 Payment poll: mac=${macAddress} machineId=${machine.machine_id} name="${machine.name}"`);
 
     // Payment polling is also proof that the machine is reachable. Refresh the
     // dashboard heartbeat here because the payment response may be served from
@@ -128,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     // Step 4: Mark transaction as dispensed
     // This prevents the ESP32 from dispensing the same payment multiple times
-    const { data: updateResult, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('transactions')
       .update({ 
         dispensed: true,
@@ -138,12 +135,8 @@ export async function GET(request: NextRequest) {
       .select();
 
     if (updateError) {
-      console.error('❌ CRITICAL: Failed to mark transaction as dispensed:', updateError);
-      console.error('Transaction ID:', pendingPayment.id);
+      console.error('❌ CRITICAL: Failed to mark transaction as dispensed:', pendingPayment.id, updateError);
       // Still return success to ESP32 - we'll fix the flag issue later
-    } else {
-      console.log('✅ Transaction marked as dispensed:', pendingPayment.id);
-      console.log('Update result:', updateResult);
     }
 
     // Step 5: Return payment success response
@@ -160,8 +153,8 @@ export async function GET(request: NextRequest) {
       timestamp: pendingPayment.created_at,
     };
 
-    console.log('💰 Returning payment to ESP32:', JSON.stringify(responseData, null, 2));
-    
+    console.log(`💰 Returning payment to ESP32: ${responseData.machineId} tx=${responseData.transactionId} amount=${responseData.amount}`);
+
     const response = successResponse(responseData);
     response.headers.set('Cache-Control', 'no-store');
     return response;

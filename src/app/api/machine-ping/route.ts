@@ -30,13 +30,6 @@ export async function POST(request: NextRequest) {
       stock_count
     } = body;
 
-    console.log('📡 Machine ping received:', {
-      machine_id,
-      firmware_version,
-      wifi_rssi,
-      stock_count
-    });
-
     // Update machine record with latest ping data
     if (machine_id && machine_id !== 'UNKNOWN') {
       // If machine_id is not a UUID, resolve it via the machine_id string column first
@@ -71,7 +64,6 @@ export async function POST(request: NextRequest) {
       // Update stock count if provided (sync from ESP32's EEPROM)
       if (stock_count !== undefined && stock_count !== null) {
         updateData.stock_level = stock_count;
-        console.log(`📦 Updating stock_level from machine: ${stock_count}`);
       }
 
       const { error: updateError } = await supabase
