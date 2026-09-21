@@ -375,8 +375,9 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
         
         <div className="bg-[#f5f5f7] border border-[#e5e5e7] rounded-lg p-4">
           <p className="text-sm text-[#3a3a3c]">
-            <strong>Note:</strong> Selected products will be mapped with default stock (0) and price (₹0). 
-            Update stock and pricing after machine creation.
+            <strong>Note:</strong> Selected products start with 0 stock — set the actual count after machine creation.
+            They charge each product&apos;s own price (shown above) by default; the <code>machine_products.price</code> column
+            stays empty unless you want this specific machine to charge a different price for a product than everywhere else.
           </p>
         </div>
       </div>
