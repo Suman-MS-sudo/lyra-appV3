@@ -124,7 +124,12 @@ const server = net.createServer((socket) => {
       broker.pipe(socket);
     });
     broker.setNoDelay(true);
-    socket.setKeepAlive(true, 30000);
+    // No TCP keepalive on the machine leg: the ENC28J60/uIP stack in the
+    // machines never answers zero-length keepalive probes, so the kernel
+    // (libuv sets a 1s probe interval) reset every MQTT connection ~43s after
+    // it went idle -- each reconnect then cost a catch-up poll to Vercel.
+    // MQTT's own keepalive (90s, enforced by Mosquitto) detects dead peers and
+    // closes the broker leg, which tears this socket down via 'close' below.
     broker.on('error', (err) => {
       console.error('[Relay] MQTT broker error:', err.message);
       socket.destroy();
