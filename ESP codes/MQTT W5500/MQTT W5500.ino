@@ -57,11 +57,40 @@
 #ifdef USE_ETHERNET
   // For HANRUN HR911105A (ENC28J60), use UIPEthernet
   // For W5x00 chips, use standard Ethernet.h
-  #define USE_UIPETHERNET
+  // TESTING: switched to W5500 bench unit -- flip back to UIPEthernet for
+  // ENC28J60 (HR911105A) production units.
+  // #define USE_UIPETHERNET
   #ifdef USE_UIPETHERNET
     #include <UIPEthernet.h>
   #else
-    #include <Ethernet.h>
+    // EthernetLarge (not stock Ethernet.h) -- TLS handshakes need a much
+    // bigger per-socket buffer than the W5x00's default 2KB (see
+    // SSLClient's README, "SSLClient with Ethernet"); EthernetLarge is a
+    // drop-in fork with the same API that raises MAX_SOCK_NUM/buffer size
+    // for exactly this. Install from
+    // https://github.com/OPEnSLab-OSU/EthernetLarge (Sketch > Include
+    // Library > Add .ZIP Library) -- it is not in the Library Manager
+    // index. If it's ever swapped back for stock Ethernet.h, TLS over
+    // Ethernet (ETHERNET_USE_TLS below) will fail the handshake on
+    // anything but a trivially small response.
+    #include <EthernetLarge.h>
+  #endif
+  // TESTING: TLS over the Ethernet path -- see makeEthernetHTTPRequest()
+  // and performOTAUpdateEthernet(). Requires the SSLClient library
+  // (OPEnSLab-OSU/SSLClient, install via Add .ZIP Library same as
+  // EthernetLarge above) and lyra_trust_anchors.h (pinned to ISRG Root
+  // X2, the root that currently signs lyra-app.co.in -- see that file's
+  // header comment for why root-pinning survives routine cert renewal).
+  // UNTESTED ON HARDWARE as of this writing -- validate with a minimal
+  // standalone sketch first (same approach used to bring up the W5500
+  // itself) before trusting this on a live payment machine: TLS
+  // handshakes are RAM- and time-heavy (5-15s, >7KB RAM per the
+  // SSLClient README) in a way plain HTTP never was, stacked on top of
+  // MQTT/HTTPClient/ArduinoJson already running in this firmware.
+  #define ETHERNET_USE_TLS
+  #ifdef ETHERNET_USE_TLS
+    #include <SSLClient.h>
+    #include "lyra_trust_anchors.h"
   #endif
 #endif
 
@@ -282,7 +311,13 @@ void maintainMqttConnection() {
 
 // Server configuration
 String SERVER_BASE = "https://lyra-app.co.in";  // Production HTTPS server
-String ETHERNET_SERVER_BASE = "http://lyra-app.co.in:8080";  // Production HTTP proxy for Ethernet
+// TESTING (ETHERNET_USE_TLS): now points at the same HTTPS origin WiFi
+// machines use, port 443, instead of the old :8080 plaintext proxy --
+// makeEthernetHTTPRequest() TLS-wraps ethClient via ethSslClient for this.
+// If TLS-over-Ethernet turns out unworkable on hardware (RAM/handshake
+// issues), revert this one line to "http://lyra-app.co.in:8080" to go back
+// to the old plaintext-proxy behavior without touching anything else.
+String ETHERNET_SERVER_BASE = "https://lyra-app.co.in";
 
 // Ethernet globals
 #ifdef USE_ETHERNET
@@ -290,6 +325,13 @@ bool useEthernet = false;
 bool ethernetConnected = false;
 byte ethernetMAC[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 EthernetClient ethClient;
+#ifdef ETHERNET_USE_TLS
+// Analog pin used only as an entropy source for the TLS handshake (per
+// SSLClient's README) -- A0 (GPIO36 on most ESP32 dev boards, ADC1_CH0,
+// input-only) isn't used anywhere else in this firmware, so it's safe to
+// borrow for this.
+SSLClient ethSslClient(ethClient, TAs, (size_t)TAs_NUM, A0);
+#endif
 #endif
 
 // ==================== FORWARD DECLARATIONS ====================
@@ -811,23 +853,46 @@ HTTPClient* getHTTPClient(const String& url) {
 #ifdef USE_ETHERNET
 int makeEthernetHTTPRequest(const String& url, const String& method, const String& payload, String* outBody) {
     String u = url;
+    bool useTls = false;
+#ifdef ETHERNET_USE_TLS
+    if (u.startsWith("https://")) {
+        u = u.substring(8);
+        useTls = true;
+    } else if (u.startsWith("http://")) {
+        u = u.substring(7);
+    }
+#else
     if (u.startsWith("http://")) {
         u = u.substring(7);
     } else if (u.startsWith("https://")) {
-        Serial.println("❌ HTTPS not supported over Ethernet");
+        Serial.println("❌ HTTPS not supported over Ethernet (ETHERNET_USE_TLS not defined)");
         return -1;
     }
+#endif
 
     int slashIdx = u.indexOf('/');
     String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
     String path = (slashIdx >= 0) ? u.substring(slashIdx) : "/";
 
     int colonIdx = host.indexOf(':');
-    int port = 80;
+    int port = useTls ? 443 : 80;
     if (colonIdx >= 0) {
         port = host.substring(colonIdx + 1).toInt();
         host = host.substring(0, colonIdx);
     }
+
+    // TESTING (ETHERNET_USE_TLS): every ethClient.* call below used to be
+    // hardcoded to the raw (plaintext) EthernetClient -- now goes through
+    // whichever Client this request actually needs, TLS-wrapped or not,
+    // via this reference. SSLClient implements the same Client interface
+    // (connect/print/available/read/stop/connected), so none of the
+    // request-building or response-parsing logic below needed to change,
+    // only what it's called on.
+#ifdef ETHERNET_USE_TLS
+    Client& net = useTls ? (Client&)ethSslClient : (Client&)ethClient;
+#else
+    Client& net = ethClient;
+#endif
 
     // Verify Ethernet is still connected
     IPAddress ip = Ethernet.localIP();
@@ -847,14 +912,14 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
     bool connected = false;
     
     for (int attempt = 0; attempt < 3; attempt++) {
-        if (ethClient.connect(host.c_str(), port)) {
+        if (net.connect(host.c_str(), port)) {
             connected = true;
             Serial.println("✅");
             break;
         }
-        
+
         if (attempt < 2) {
-            ethClient.stop();
+            net.stop();
             delay(500);
         }
     }
@@ -896,17 +961,22 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
         req += "\r\n";
     }
 
-    ethClient.print(req);
+    net.print(req);
 
+    // TESTING (ETHERNET_USE_TLS): kept at 5s for plain HTTP; SSLClient's
+    // connect() above already blocks until the TLS handshake itself
+    // finishes (5-15s per its README), so this timeout only needs to
+    // cover the plaintext HTTP round-trip on top of an already-established
+    // TLS session, same as before.
     unsigned long timeout = millis() + 5000;
-    while (ethClient.available() == 0) {
+    while (net.available() == 0) {
         if (millis() > timeout) {
-            ethClient.stop();
+            net.stop();
             return -1;
         }
     }
 
-    String statusLine = ethClient.readStringUntil('\n');
+    String statusLine = net.readStringUntil('\n');
     statusLine.trim();
     int code = -1;
     int firstSpace = statusLine.indexOf(' ');
@@ -934,8 +1004,8 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
     unsigned long lastByteTime = millis();
     const unsigned long READ_IDLE_TIMEOUT_MS = 1000;
     while (millis() - lastByteTime < READ_IDLE_TIMEOUT_MS) {
-        if (ethClient.available()) {
-            String line = ethClient.readStringUntil('\n');
+        if (net.available()) {
+            String line = net.readStringUntil('\n');
             lastByteTime = millis();
             if (!headersEnded) {
                 if (line == "\r" || line.length() == 0) {
@@ -944,7 +1014,7 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
             } else {
                 body += line;
             }
-        } else if (!ethClient.connected()) {
+        } else if (!net.connected()) {
             break; // Server closed the connection and nothing left buffered
         }
     }
@@ -954,7 +1024,7 @@ int makeEthernetHTTPRequest(const String& url, const String& method, const Strin
         *outBody = (jsonOnly.length() > 0) ? jsonOnly : body;
     }
 
-    ethClient.stop();
+    net.stop();
     return code;
 }
 #endif
@@ -1366,25 +1436,46 @@ bool performOTAUpdateHTTPS(const String& url, mbedtls_sha256_context* shaCtx) {
 // reads would corrupt binary data at any embedded newline byte anyway.
 bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx) {
     String u = url;
+    bool useTls = false;
+#ifdef ETHERNET_USE_TLS
+    if (u.startsWith("https://")) {
+        u = u.substring(8);
+        useTls = true;
+    } else if (u.startsWith("http://")) {
+        u = u.substring(7);
+    } else {
+        Serial.println("❌ OTA: unrecognized URL scheme over Ethernet");
+        return false;
+    }
+#else
     if (u.startsWith("http://")) {
         u = u.substring(7);
     } else {
-        Serial.println("❌ OTA: HTTPS not supported over Ethernet");
+        Serial.println("❌ OTA: HTTPS not supported over Ethernet (ETHERNET_USE_TLS not defined)");
         return false;
     }
+#endif
 
     int slashIdx = u.indexOf('/');
     String host = (slashIdx >= 0) ? u.substring(0, slashIdx) : u;
     String path = (slashIdx >= 0) ? u.substring(slashIdx) : "/";
 
     int colonIdx = host.indexOf(':');
-    int port = 80;
+    int port = useTls ? 443 : 80;
     if (colonIdx >= 0) {
         port = host.substring(colonIdx + 1).toInt();
         host = host.substring(0, colonIdx);
     }
 
-    if (!ethClient.connect(host.c_str(), port)) {
+    // See makeEthernetHTTPRequest() for why this is a Client& instead of
+    // calling ethClient directly -- same TLS-or-not routing, same reason.
+#ifdef ETHERNET_USE_TLS
+    Client& net = useTls ? (Client&)ethSslClient : (Client&)ethClient;
+#else
+    Client& net = ethClient;
+#endif
+
+    if (!net.connect(host.c_str(), port)) {
         Serial.println("❌ OTA: Ethernet connect failed");
         return false;
     }
@@ -1392,19 +1483,19 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
     String req = "GET " + path + " HTTP/1.1\r\n";
     req += "Host: " + host + "\r\n";
     req += "Connection: close\r\n\r\n";
-    ethClient.print(req);
+    net.print(req);
 
     unsigned long connectTimeout = millis() + 10000;
-    while (ethClient.available() == 0) {
+    while (net.available() == 0) {
         if (millis() > connectTimeout) {
             Serial.println("❌ OTA: Ethernet response timeout");
-            ethClient.stop();
+            net.stop();
             return false;
         }
         feedWatchdog();
     }
 
-    String statusLine = ethClient.readStringUntil('\n');
+    String statusLine = net.readStringUntil('\n');
     statusLine.trim();
     int httpCode = -1;
     int firstSpace = statusLine.indexOf(' ');
@@ -1417,13 +1508,13 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
     }
     if (httpCode != 200) {
         Serial.printf("❌ OTA: Ethernet GET failed, code %d\n", httpCode);
-        ethClient.stop();
+        net.stop();
         return false;
     }
 
     long contentLength = -1;
     while (true) {
-        String line = ethClient.readStringUntil('\n');
+        String line = net.readStringUntil('\n');
         line.trim();
         if (line.length() == 0) break; // blank line = end of headers
         String lower = line;
@@ -1435,13 +1526,13 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
 
     if (contentLength <= 0) {
         Serial.println("❌ OTA: missing/invalid Content-Length");
-        ethClient.stop();
+        net.stop();
         return false;
     }
 
     if (!Update.begin(contentLength)) {
         Serial.printf("❌ OTA: Update.begin failed: %s\n", Update.errorString());
-        ethClient.stop();
+        net.stop();
         return false;
     }
 
@@ -1451,16 +1542,16 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
     unsigned long lastData = millis();
 
     while (written < contentLength) {
-        int avail = ethClient.available();
+        int avail = net.available();
         if (avail > 0) {
             int toRead = (avail < (int)sizeof(buf)) ? avail : (int)sizeof(buf);
-            int readBytes = ethClient.read(buf, toRead);
+            int readBytes = net.read(buf, toRead);
             if (readBytes > 0) {
                 mbedtls_sha256_update(shaCtx, buf, readBytes);
                 if (Update.write(buf, readBytes) != (size_t)readBytes) {
                     Serial.println("❌ OTA: Update.write mismatch");
                     Update.abort();
-                    ethClient.stop();
+                    net.stop();
                     return false;
                 }
                 written += readBytes;
@@ -1470,7 +1561,7 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
             if (millis() - lastData > 15000) {
                 Serial.println("❌ OTA: Ethernet stall timeout");
                 Update.abort();
-                ethClient.stop();
+                net.stop();
                 return false;
             }
             delay(2);
@@ -1481,7 +1572,7 @@ bool performOTAUpdateEthernet(const String& url, mbedtls_sha256_context* shaCtx)
         }
     }
 
-    ethClient.stop();
+    net.stop();
 
     if (written != contentLength) {
         Serial.printf("❌ OTA: incomplete download (%ld/%ld bytes)\n", written, contentLength);
@@ -2483,78 +2574,44 @@ bool initializeEthernet() {
     Serial.printf("📌 Ethernet Pins - CS:%d, MOSI:%d, MISO:%d, SCK:%d\n", 
                  ETHERNET_CS, SPI_MOSI, SPI_MISO, SPI_SCK);
     
-    // CRITICAL: Reset module completely first
-    pinMode(ETHERNET_CS, OUTPUT);
-    digitalWrite(ETHERNET_CS, LOW);
-    delay(10);
-    digitalWrite(ETHERNET_CS, HIGH);
-    delay(500);  // Give module time to reset completely
-    
-    // End any existing SPI session to clear buffers
-    SPI.end();
-    delay(100);
-    
-    // Initialize SPI with explicit pins and CLEAN state
+    // TESTING (W5500): the CS pre-toggle + SPI.end()/manual
+    // setBitOrder/setDataMode/setFrequency sequence that used to live here
+    // was tuned for the ENC28J60/UIPEthernet module and left the W5500
+    // undetected (hardwareStatus() == EthernetNoHardware) even with
+    // wiring verified good via a bare-minimum SPI.begin()+Ethernet.init()
+    // sketch. Standard Ethernet.h drives SPI itself via
+    // SPI.beginTransaction()/SPISettings per-call, so none of that manual
+    // setup was required -- mirroring the minimal sketch's plain
+    // SPI.begin(pins) -> Ethernet.init(cs) sequence is what got it
+    // detected. Revert to the old block above (from version control) if
+    // switching back to UIPEthernet/ENC28J60.
     Serial.println("🔧 Initializing SPI bus...");
     SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, ETHERNET_CS);
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setDataMode(SPI_MODE0);
-    SPI.setFrequency(4000000);  // Reduce to 4MHz for more reliable communication
-    delay(200);
-    
-    // Initialize Ethernet controller with clean buffers
+
+    // Initialize Ethernet controller
     Serial.println("🔧 Initializing Ethernet controller...");
     Ethernet.init(ETHERNET_CS);
-    delay(200);
-    
-    // Hardware detection (informational only)
-    Serial.print("🔍 Detecting Ethernet hardware... ");
+
+    // TESTING (W5500): hardwareStatus() and linkStatus() called here,
+    // before Ethernet.begin() has ever run, reported EthernetNoHardware /
+    // LinkOFF even on wiring already proven good by a bare-minimum
+    // SPI.begin()+Ethernet.init()+Ethernet.begin() sketch that never
+    // checked either of these before begin() and got a DHCP lease first
+    // try. On this Ethernet library version those two calls apparently
+    // need a completed begin() cycle to report accurately for W5500 --
+    // standalone, pre-begin(), they're not a reliable gate. So: no longer
+    // gating on them here. hardwareStatus()/linkStatus() are still read
+    // and logged for diagnostics below (and after a successful DHCP), just
+    // not used to bail out before ever attempting DHCP.
     uint8_t hwStatus = Ethernet.hardwareStatus();
-    
-    if (hwStatus == EthernetNoHardware) {
-        Serial.println("❌ No hardware detected");
-        Serial.println("   Check wiring and power (3.3V)");
-        return false;
-    } else {
-        switch (hwStatus) {
-            case EthernetW5100:
-                Serial.println("✅ ENC28J60 Detected");
-                break;
-            case EthernetW5200:
-                Serial.println("✅ W5200 Detected");
-                break;
-            case EthernetW5500:
-                Serial.println("✅ W5500 Detected");
-                break;
-            default:
-                Serial.printf("⚠️ Unknown chip (status: %d) - Continuing anyway\n", hwStatus);
-                break;
-        }
+    Serial.print("🔍 Hardware status (pre-DHCP, informational): ");
+    switch (hwStatus) {
+        case EthernetNoHardware: Serial.println("No Hardware (may still be inaccurate pre-begin -- proceeding anyway)"); break;
+        case EthernetW5100: Serial.println("ENC28J60/W5100"); break;
+        case EthernetW5200: Serial.println("W5200"); break;
+        case EthernetW5500: Serial.println("W5500"); break;
+        default: Serial.printf("Unknown (%d)\n", hwStatus); break;
     }
-    
-    // CRITICAL: Clear any stale data in buffers before DHCP
-    // Reset the ENC28J60 chip completely
-    Serial.println("🧹 Clearing buffers and resetting chip...");
-    digitalWrite(ETHERNET_CS, LOW);
-    delay(50);
-    digitalWrite(ETHERNET_CS, HIGH);
-    delay(200);
-    
-    // Reinitialize after reset
-    Ethernet.init(ETHERNET_CS);
-    delay(200);
-    
-    // Check for physical link before attempting DHCP
-    Serial.println("🔍 Checking for Ethernet cable...");
-    EthernetLinkStatus linkStatus = Ethernet.linkStatus();
-    
-    if (linkStatus == LinkOFF) {
-        Serial.println("❌ No Ethernet cable detected - skipping DHCP");
-        Serial.println("📶 Will use WiFi fallback");
-        return false;
-    }
-    
-    Serial.println("✅ Ethernet cable connected");
     
     // Start DHCP with LONGER timeouts and CLEAN state
     Serial.println("🌐 Requesting DHCP with extended timeout...");

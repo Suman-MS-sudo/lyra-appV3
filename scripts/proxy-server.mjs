@@ -17,9 +17,16 @@
 
 import http from 'http';
 import https from 'https';
+import net from 'net';
 
 const PROXY_PORT = process.env.PROXY_PORT || 8080;
 const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-chi.vercel.app';
+// MQTT machines can't reach the broker's own port from customer networks that
+// only allow 8080/443, so raw MQTT is accepted on PROXY_PORT too and piped to
+// the broker here. Broker only needs to listen on the VPS itself.
+const MQTT_BROKER_HOST = process.env.MQTT_BROKER_HOST || '127.0.0.1';
+const MQTT_BROKER_PORT = Number(process.env.MQTT_BROKER_PORT || 1883);
+const FIRST_BYTE_TIMEOUT_MS = 30000;
 
 // Ethernet machines poll /api/payment_success every 4s. Caching per-URL here
 // (mirroring the jumphost nginx cache used for WiFi machines) means only 1 in
@@ -28,7 +35,7 @@ const UPSTREAM_HOST = process.env.UPSTREAM_HOST || 'lyra-app-v3-chi.vercel.app';
 const PAYMENT_CACHE_TTL_MS = 15000;
 const paymentCache = new Map(); // url -> { status, headers, body, expiresAt }
 
-const server = http.createServer((req, res) => {
+const httpServer = http.createServer((req, res) => {
   const cacheable = req.method === 'GET' && req.url.startsWith('/api/payment_success');
 
   if (cacheable) {
@@ -94,9 +101,42 @@ const server = http.createServer((req, res) => {
   req.pipe(proxyReq);
 });
 
+// An HTTP request starts with an ASCII method letter; an MQTT CONNECT packet
+// starts with 0x10. Peek at the first byte and hand the socket to whichever
+// side it belongs to, so existing HTTP handling above is untouched.
+const server = net.createServer((socket) => {
+  socket.setNoDelay(true);
+  socket.setTimeout(FIRST_BYTE_TIMEOUT_MS, () => socket.destroy());
+  socket.on('error', () => {});
+
+  socket.once('data', (chunk) => {
+    socket.setTimeout(0);
+
+    if (chunk[0] !== 0x10) {
+      socket.unshift(chunk);
+      httpServer.emit('connection', socket);
+      return;
+    }
+
+    const broker = net.connect(MQTT_BROKER_PORT, MQTT_BROKER_HOST, () => {
+      broker.write(chunk);
+      socket.pipe(broker);
+      broker.pipe(socket);
+    });
+    broker.setNoDelay(true);
+    socket.setKeepAlive(true, 30000);
+    broker.on('error', (err) => {
+      console.error('[Relay] MQTT broker error:', err.message);
+      socket.destroy();
+    });
+    broker.on('close', () => socket.destroy());
+    socket.on('close', () => broker.destroy());
+  });
+});
+
 server.listen(PROXY_PORT, '0.0.0.0', () => {
   console.log(`\nMachine relay listening on http://0.0.0.0:${PROXY_PORT}`);
-  console.log(`Forwarding to https://${UPSTREAM_HOST}\n`);
+  console.log(`Forwarding HTTP to https://${UPSTREAM_HOST}, MQTT to ${MQTT_BROKER_HOST}:${MQTT_BROKER_PORT}\n`);
 });
 
 server.on('error', (err) => {

@@ -30,18 +30,25 @@
 //
 // MQTT-based variant of the Lyra vending machine firmware. Payments are
 // PUSHED to this machine over MQTT the instant they succeed, instead of
-// this machine polling /api/payment_success every few seconds like the
-// original ESP32_IOT Code.txt does. Everything else (dispensing, stock
-// sync, OTA, offline queue, provisioning) is identical to that file --
-// this only replaces the payment-detection mechanism.
+// polling /api/payment_success every 4 seconds like the original
+// ESP32_IOT Code.txt does -- MQTT is the fast path, backed by a slow
+// (60s) fallback poll as a safety net rather than a hard replacement, so
+// a broker outage or a misconfigured env var can't silently strand a paid
+// customer with no napkin (see the fallback poll's comment in loop()).
+// Everything else (dispensing, stock sync, OTA, offline queue,
+// provisioning) is identical to that file -- this only replaces the
+// payment-detection mechanism.
 //
 // Requires: the DB row for this machine has vending_machines.mqtt_payment_push
-// set to true (see /api/razorpay/verify), and the "PubSubClient" library
-// (Nick O'Leary) installed via Arduino Library Manager.
+// set to true (see /api/razorpay/verify) for payments to be pushed
+// instantly, and the "PubSubClient" library (Nick O'Leary) installed via
+// Arduino Library Manager.
 //
-// Do NOT flash this onto a machine whose DB row still has
-// mqtt_payment_push = false -- it would stop polling for payments with no
-// push arriving either, silently never dispensing anything paid for.
+// If that DB flag is left false (or the broker/env vars aren't set up
+// yet), this firmware still works correctly -- the 60s fallback poll in
+// loop() picks up any payment MQTT never pushed. It just runs slower
+// (up to 60s detection latency instead of instant) until the flag/broker
+// side is sorted out; nothing gets silently stranded either way.
 // ============================================================================
 
 // Ethernet library selection
@@ -60,18 +67,22 @@
 
 // ==================== MQTT PAYMENT PUSH ====================
 // Always on in this file (unlike ESP32_IOT Code.txt, where this same code
-// exists behind a flag that defaults off). Scoped to the Ethernet
-// transport, which is every real machine in this fleet today; add a WiFi
-// PubSubClient instance later if that ever changes.
+// exists behind a flag that defaults off). Works over either Ethernet or
+// WiFi fallback (maintainMqttConnection() below binds mqttClient to
+// whichever transport actually came up this boot). Not the sole payment
+// path though -- see the 60s fallback poll in loop() for why MQTT alone
+// isn't trusted to be the only way a payment gets picked up.
 #define USE_MQTT_PAYMENT_PUSH
 #if defined(USE_MQTT_PAYMENT_PUSH)
   #include <PubSubClient.h>
   #define MQTT_BROKER_HOST "lyra-app.co.in"
-  #define MQTT_BROKER_PORT 1883
+  // Customer networks block 1883; the machine relay accepts MQTT on 8080 too
+  // (see scripts/proxy-server.mjs) and pipes it to the broker.
+  #define MQTT_BROKER_PORT 8080
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "V1.0.0"
+#define CURRENT_FIRMWARE_VERSION "V1.0.1"
 
 // ==================== WATCHDOG CONFIGURATION ====================
 #define WDT_TIMEOUT 1800  // Watchdog timeout in seconds (30 minutes)
@@ -564,7 +575,17 @@ void syncOfflineTransactions() {
             syncedCount++;
             continue;
         }
-        
+
+        // Corrupt slot (blank/garbled EEPROM) -- can never be a real ₹5 coin
+        // sale, and the server rejects it, so drop it instead of retrying forever.
+        if (tx.amountPaisa == 0 || tx.amountPaisa > 100000) {
+            EEPROM.write(addr + 9, 1);
+            EEPROM.commit();
+            syncedCount++;
+            Serial.printf("🗑️ Discarded corrupt queued transaction #%d (amount %lu paisa)\n", i + 1, (unsigned long)tx.amountPaisa);
+            continue;
+        }
+
         // Send coin payment to server
         String payload;
         payload.reserve(160);
@@ -585,12 +606,16 @@ void syncOfflineTransactions() {
 
         int code = makeHTTPRequest(url, "POST", payload, nullptr);
         
-        if (code == 200) {
-            // Mark as synced
+        if (code == 200 || code == 400) {
+            // 400 = server rejected the payload as invalid; retrying can never succeed
             EEPROM.write(addr + 9, 1);
             EEPROM.commit();
             syncedCount++;
-            Serial.printf("✅ Synced transaction #%d (₹%.2f)\n", i + 1, tx.amountPaisa / 100.0);
+            if (code == 200) {
+                Serial.printf("✅ Synced transaction #%d (₹%.2f)\n", i + 1, tx.amountPaisa / 100.0);
+            } else {
+                Serial.printf("🗑️ Server rejected transaction #%d as invalid, discarding\n", i + 1);
+            }
         } else {
             Serial.printf("⚠ Failed to sync transaction #%d: %d\n", i + 1, code);
         }
@@ -2075,10 +2100,15 @@ void printStartupSummary(bool networkOk, const String& networkType, bool machine
 
 void setup() {
     Serial.begin(115200);
-    Serial2.begin(9600, SERIAL_8N1, 16, 17);  // UNO SoftwareSerial on pins 2/3
+    Serial2.begin(115200, SERIAL_8N1, 16, 17);  // Must match the UNO/TFT display's Serial.begin(115200) -- a baud mismatch here means the UNO misreads every command byte and never draws anything
     
     Serial.println("\n🚀 Lyra Vending Machine " + String(CURRENT_FIRMWARE_VERSION));
     Serial.println("✨ Offline Mode Enabled - Works without internet!");
+    // OTA test marker -- V1.0.0 never prints this line, so seeing it after
+    // pushing a V1.0.1 deployment through /admin/firmware is a clear,
+    // unambiguous confirmation the OTA update actually took (not just a
+    // version string that could be misread/stale in the IDE's monitor).
+    Serial.println("🆕 OTA VERIFICATION MARKER: running V1.0.1 -- if you see this, the OTA update succeeded!");
     
     // Initialize watchdog timer for automatic recovery
     initializeWatchdog();
@@ -2290,6 +2320,21 @@ void loop() {
         } else if (command == "sync") {
             Serial.println("🔄 Manually syncing offline transactions...");
             syncOfflineTransactions();
+#if defined(USE_MQTT_PAYMENT_PUSH) && defined(USE_ETHERNET)
+        } else if (command == "mqtttest") {
+            Serial.printf("🧪 MQTT socket test (Ethernet=%d, IP=%s)\n", useEthernet && ethernetConnected, Ethernet.localIP().toString().c_str());
+            mqttEthClient.stop();
+            delay(200);
+            unsigned long t0 = millis();
+            int byName = mqttEthClient.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
+            Serial.printf("   by hostname: %d (%lu ms)\n", byName, millis() - t0);
+            mqttEthClient.stop();
+            delay(500);
+            t0 = millis();
+            int byIp = mqttEthClient.connect(IPAddress(34, 30, 78, 57), MQTT_BROKER_PORT);
+            Serial.printf("   by IP 34.30.78.57: %d (%lu ms)\n", byIp, millis() - t0);
+            mqttEthClient.stop();
+#endif
         } else if (command == "dispense") {
             Serial.println("🎰 Manual dispense triggered");
             dispenseProductByMotor();
@@ -2351,10 +2396,31 @@ void loop() {
     }
     
 #if defined(USE_MQTT_PAYMENT_PUSH)
-    // Payments arrive via MQTT push instead -- no polling at all for a
-    // machine built with this flag on. maintainMqttConnection() picks
+    // Payments arrive via MQTT push -- maintainMqttConnection() picks
     // whichever transport (Ethernet or WiFi) is actually up this boot.
     maintainMqttConnection();
+
+    // Safety-net fallback poll, much slower than the old 4s loop (still a
+    // ~93% traffic cut). MQTT is the normal path and handles the vast
+    // majority of payments instantly, but this machine's push depends on
+    // several pieces staying correctly aligned at once -- the broker
+    // running, MQTT_BROKER_URL/credentials set in Vercel, this specific
+    // machine's DB row having mqtt_payment_push=true, network conditions
+    // not dropping the one persistent MQTT connection unnoticed. Any one
+    // of those silently misconfigured/broken means a paid customer's
+    // napkin never dispenses, with nothing on the device side ever
+    // detecting or surfacing the failure. Running this poll is safe to do
+    // unconditionally alongside MQTT: the server marks a transaction
+    // dispensed the instant either path claims it, so there's no
+    // double-dispense risk from having both active at once -- whichever
+    // gets there first wins, the other just finds nothing pending.
+    static unsigned long lastFallbackPaymentCheck = 0;
+    if (millis() - lastFallbackPaymentCheck > 60000) {
+        if (isNetworkConnected()) {
+            listenForOnlinePayment();
+        }
+        lastFallbackPaymentCheck = millis();
+    }
 #else
     // Payment polling every 4 seconds
     static unsigned long lastPaymentCheck = 0;
@@ -2369,8 +2435,13 @@ void loop() {
     }
 #endif
     
-    // Status ping every 2 minutes
-    if (millis() - lastPingTime > 120000) {
+    // Status ping every 5 minutes -- this runs continuously on every
+    // deployed machine, 24/7, so its interval is the single biggest driver
+    // of steady-state Vercel invocation volume across the whole fleet. The
+    // dashboard's own "offline" cutoff is 10 minutes (see src/app/page.tsx),
+    // so 5-minute pings still land comfortably inside that window with room
+    // to spare for one missed ping.
+    if (millis() - lastPingTime > 300000) {
         if (isNetworkConnected()) {
             Serial.println("\n⏰ [Ping Timer] Sending machine status ping...");
             sendMachineStatusPing();

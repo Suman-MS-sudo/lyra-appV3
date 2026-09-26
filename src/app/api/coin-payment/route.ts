@@ -20,6 +20,13 @@ export async function POST(request: NextRequest) {
       return errorResponse('Missing required fields', 'MISSING_FIELDS', 400);
     }
 
+    // coin_payments.amount_in_paisa is a 32-bit INTEGER; an out-of-range value
+    // (e.g. a corrupt offline-queue slot) would otherwise surface as a 500 that
+    // the machine retries forever instead of a 400 it can discard.
+    if (!Number.isInteger(amount_in_paisa) || amount_in_paisa <= 0 || amount_in_paisa > 100000) {
+      return errorResponse('Invalid amount', 'INVALID_AMOUNT', 400);
+    }
+
     // Use service role to bypass RLS
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
