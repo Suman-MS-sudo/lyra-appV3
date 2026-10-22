@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
       stock_count
     } = body;
 
+    // Reported back so the machine knows whether the server really pushes its
+    // payments over MQTT; only then does it slow its fallback payment poll.
+    let mqttPaymentPush = false;
+
     // Update machine record with latest ping data
     if (machine_id && machine_id !== 'UNKNOWN') {
       // If machine_id is not a UUID, resolve it via the machine_id string column first
@@ -66,10 +70,12 @@ export async function POST(request: NextRequest) {
         updateData.stock_level = stock_count;
       }
 
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('vending_machines')
         .update(updateData)
-        .eq('id', resolvedId);
+        .eq('id', resolvedId)
+        .select('mqtt_payment_push');
+      mqttPaymentPush = !!updatedRows?.[0]?.mqtt_payment_push;
 
       // Sync machine_products.stock to ESP32's EEPROM count (ground truth)
       if (stock_count !== undefined && stock_count !== null) {
@@ -135,6 +141,7 @@ export async function POST(request: NextRequest) {
           message: 'Ping received',
           reboot: false,
           reset_stock: false,
+          mqtt_payment_push: mqttPaymentPush,
           update_available: true,
           deployment_id: pendingDeployment.id,
           firmware_version: fw.version,
@@ -147,6 +154,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Ping received',
+      mqtt_payment_push: mqttPaymentPush,
       // Optional: send commands back to ESP32
       reboot: false,
       reset_stock: false,

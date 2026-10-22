@@ -42,8 +42,6 @@ export async function GET(request: NextRequest) {
       (m) => m.mac_id && m.mac_id.toUpperCase().replace(/[^0-9A-F]/g, '') === normalizedMac
     );
 
-    console.log('📊 Database query result:', { machine, error });
-
     if (error || !machine) {
       console.log('❌ Machine not found');
       return errorResponse('Machine not found', 'MACHINE_NOT_FOUND', 404);

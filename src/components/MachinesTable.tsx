@@ -416,6 +416,7 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
                     <div className="flex items-center justify-end gap-1.5">
                       <Link
                         href={`/admin/machines/${m.id}/edit${searchQuery ? `?q=${encodeURIComponent(searchQuery)}` : ''}`}
+                        prefetch={false}
                         className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                         style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}
                         title="Edit machine"
