@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { isRentalLocked, RENTAL_LOCKED_MESSAGE } from '@/lib/rental-lock';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +38,21 @@ export async function POST(request: NextRequest) {
             { status: 503 } // Service Unavailable
           );
         }
+      }
+    }
+
+    // A rented machine whose rent is past the grace period stops vending until recharged.
+    if (machineId) {
+      const lockSupabase = createServiceClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      const { data: m } = await lockSupabase.from('vending_machines').select('id').eq('machine_id', machineId).maybeSingle();
+      if (await isRentalLocked(lockSupabase, m?.id)) {
+        return NextResponse.json(
+          { success: false, error: RENTAL_LOCKED_MESSAGE, rental_locked: true },
+          { status: 403 }
+        );
       }
     }
 

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
 import { MONTHLY_VEND_LIMIT, effectiveMonthlyCount, vendMonthOf } from '@/lib/rfid-monthly-cap';
+import { isRentalLocked, RENTAL_LOCKED_MESSAGE } from '@/lib/rental-lock';
 
 /**
  * RFID Payment API for ESP32
@@ -83,6 +84,11 @@ export async function POST(request: NextRequest) {
       if (machineError || !machine || machine.customer_id !== card.organization_id) {
         return errorResponse('This card is not valid on this machine', 'WRONG_MACHINE', 403);
       }
+    }
+
+    // A rented machine whose rent is past the grace period stops vending until recharged.
+    if (await isRentalLocked(supabase, machine_id)) {
+      return errorResponse(RENTAL_LOCKED_MESSAGE, 'RENTAL_EXPIRED', 403);
     }
 
     // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of

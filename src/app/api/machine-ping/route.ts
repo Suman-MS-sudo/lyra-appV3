@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isRentalLocked } from '@/lib/rental-lock';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,8 @@ export async function POST(request: NextRequest) {
     // Reported back so the machine knows whether the server really pushes its
     // payments over MQTT; only then does it slow its fallback payment poll.
     let mqttPaymentPush = false;
+    // True when this machine's rental is overdue past its grace period (see lib/rental-lock).
+    let rentalLocked = false;
 
     // Update machine record with latest ping data
     if (machine_id && machine_id !== 'UNKNOWN') {
@@ -76,6 +79,7 @@ export async function POST(request: NextRequest) {
         .eq('id', resolvedId)
         .select('mqtt_payment_push');
       mqttPaymentPush = !!updatedRows?.[0]?.mqtt_payment_push;
+      rentalLocked = await isRentalLocked(supabase, resolvedId);
 
       // Sync machine_products.stock to ESP32's EEPROM count (ground truth)
       if (stock_count !== undefined && stock_count !== null) {
@@ -142,6 +146,7 @@ export async function POST(request: NextRequest) {
           reboot: false,
           reset_stock: false,
           mqtt_payment_push: mqttPaymentPush,
+          rental_locked: rentalLocked,
           update_available: true,
           deployment_id: pendingDeployment.id,
           firmware_version: fw.version,
@@ -155,6 +160,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Ping received',
       mqtt_payment_push: mqttPaymentPush,
+      rental_locked: rentalLocked,
       // Optional: send commands back to ESP32
       reboot: false,
       reset_stock: false,

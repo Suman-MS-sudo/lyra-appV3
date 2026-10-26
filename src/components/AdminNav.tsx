@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Building2, Package, Users, Activity,
-  CreditCard, TrendingUp, UserCog, LogOut, Menu, X, Nfc, Cpu
+  CreditCard, TrendingUp, UserCog, LogOut, Menu, X, Nfc, Cpu, KeyRound
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/admin/users',           label: 'Users',        icon: Users           },
   { href: '/admin/transactions',    label: 'Transactions', icon: Activity        },
   { href: '/admin/billing',         label: 'Billing',      icon: CreditCard      },
+  { href: '/admin/rentals',         label: 'Rentals',      icon: KeyRound        },
   { href: '/admin/analytics',       label: 'Analytics',    icon: TrendingUp      },
   { href: '/admin/firmware',        label: 'Firmware',     icon: Cpu             },
 ];

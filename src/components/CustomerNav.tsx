@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Nfc } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Nfc, KeyRound } from 'lucide-react';
 
 interface CustomerNavProps {
   userEmail: string;
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/customer/machines',   label: 'Machines',   icon: Building2,  superOnly: true },
   { href: '/customer/rfid-cards', label: 'RFID Cards', icon: Nfc         },
   { href: '/customer/billing',    label: 'Billing',    icon: CreditCard  },
+  { href: '/customer/rental',     label: 'Rental',     icon: KeyRound    },
   { href: '/customer/users',      label: 'Users',      icon: Users,      superOnly: true },
 ];
 
