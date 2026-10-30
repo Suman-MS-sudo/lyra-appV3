@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
-import { MONTHLY_VEND_LIMIT, effectiveMonthlyCount, vendMonthOf } from '@/lib/rfid-monthly-cap';
+import { effectiveMonthlyCount, vendMonthOf } from '@/lib/rfid-monthly-cap';
 
 /**
  * RFID Payment API for ESP32
@@ -85,15 +85,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
-    // card_type — on top of, not instead of, credits/postpaid billing below.
+    // Cards of an organization with rfid_monthly_limit set are capped at
+    // that many taps/month regardless of card_type — on top of, not instead
+    // of, credits/postpaid billing below. The counter is kept for every card
+    // so setting a limit mid-month starts from real usage.
     const now = new Date();
     const currentMonth = vendMonthOf(now);
     const currentMonthlyCount = effectiveMonthlyCount(card.monthly_vend_month, card.monthly_vend_count, now);
 
-    if (currentMonthlyCount >= MONTHLY_VEND_LIMIT) {
+    let monthlyLimit: number | null = null;
+    if (card.organization_id) {
+      const { data: cardOrg } = await supabase
+        .from('organizations')
+        .select('rfid_monthly_limit')
+        .eq('id', card.organization_id)
+        .single();
+      monthlyLimit = cardOrg?.rfid_monthly_limit ?? null;
+    }
+
+    if (monthlyLimit !== null && currentMonthlyCount >= monthlyLimit) {
       return errorResponse(
-        `Monthly tap limit reached (${MONTHLY_VEND_LIMIT}/month)`,
+        `Monthly tap limit reached (${monthlyLimit}/month)`,
         'MONTHLY_LIMIT_REACHED',
         429
       );
@@ -239,7 +251,7 @@ export async function POST(request: NextRequest) {
       amount: amountInPaisa / 100,
       card_type: card.card_type,
       credits_remaining: isPostpaid ? null : newCredits,
-      monthly_taps_remaining: MONTHLY_VEND_LIMIT - newMonthlyCount,
+      monthly_taps_remaining: monthlyLimit !== null ? monthlyLimit - newMonthlyCount : null,
       holder_name: card.holder_name,
     });
   } catch (error: any) {

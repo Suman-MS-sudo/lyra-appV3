@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
-import { MONTHLY_VEND_LIMIT, effectiveMonthlyCount } from '@/lib/rfid-monthly-cap';
+import { UNCAPPED_MONTHLY_REMAINING, effectiveMonthlyCount, fetchOrgMonthlyLimits } from '@/lib/rfid-monthly-cap';
 
 /**
  * GET /api/machine-cards-sync?machine_id=<uuid>
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       return errorResponse('Machine not found', 'MACHINE_NOT_FOUND', 404);
     }
 
-    const CARD_FIELDS = 'id, uid, credits_remaining, is_active, card_type, product_id, monthly_vend_count, monthly_vend_month';
+    const CARD_FIELDS = 'id, uid, credits_remaining, is_active, card_type, product_id, organization_id, monthly_vend_count, monthly_vend_month';
 
     // Pass 1: cards specifically restricted to this machine, via the join
     // table (a card can be restricted to several machines now, not just
@@ -108,14 +108,22 @@ export async function GET(request: NextRequest) {
 
     const cards = Array.from(cardMap.values());
 
-    // Every card is capped at MONTHLY_VEND_LIMIT taps/month regardless of
-    // card_type — the machine enforces this itself while offline, so it
-    // needs the current remaining count, not the raw counter columns.
+    // Cards of an organization with rfid_monthly_limit set are capped at
+    // that many taps/month regardless of card_type — the machine enforces
+    // this itself while offline, so it needs the current remaining count,
+    // not the raw counter columns. Uncapped cards get a count the machine
+    // won't run down between syncs.
+    const orgLimits = await fetchOrgMonthlyLimits(supabase);
     const now = new Date();
-    const cardsWithMonthly = (cards || []).map(({ id, monthly_vend_count, monthly_vend_month, ...rest }) => ({
-      ...rest,
-      monthly_remaining: Math.max(0, MONTHLY_VEND_LIMIT - effectiveMonthlyCount(monthly_vend_month, monthly_vend_count, now)),
-    }));
+    const cardsWithMonthly = (cards || []).map(({ id, organization_id, monthly_vend_count, monthly_vend_month, ...rest }) => {
+      const limit = organization_id ? orgLimits.get(organization_id) : undefined;
+      return {
+        ...rest,
+        monthly_remaining: limit
+          ? Math.max(0, limit - effectiveMonthlyCount(monthly_vend_month, monthly_vend_count, now))
+          : UNCAPPED_MONTHLY_REMAINING,
+      };
+    });
 
     return successResponse({ cards: cardsWithMonthly });
   } catch (error) {

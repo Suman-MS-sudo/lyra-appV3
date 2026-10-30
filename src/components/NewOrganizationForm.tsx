@@ -51,8 +51,15 @@ export default function NewOrganizationForm() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to create organization');
+        // A proxy in front of the app can replace error bodies with an HTML
+        // page, so don't assume the response is JSON.
+        const text = await response.text();
+        let message = '';
+        try {
+          const data = JSON.parse(text);
+          message = data.error?.message || data.message || '';
+        } catch {}
+        throw new Error(message || `Failed to create organization (HTTP ${response.status})`);
       }
 
       router.push('/admin/organizations');
