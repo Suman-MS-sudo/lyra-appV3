@@ -1,6 +1,6 @@
 'use client';
 
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { AuthShell } from '@/components/landing/AuthShell';
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -103,26 +103,7 @@ function LoginForm() {
   const forgotHref = email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password';
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-[var(--surface)]">
-      <ThemeToggle floating />
-      <div className="max-w-md w-full">
-        {/* Brand */}
-        <div className="text-center mb-8 animate-float-up" style={{ animationDelay: '0.05s' }}>
-          <Link href="/" className="inline-block">
-            <span className="text-2xl font-semibold tracking-tight text-[var(--fg)]">
-              Lyra Enterprises
-            </span>
-          </Link>
-          <p className="text-xs font-medium tracking-widest uppercase mt-1 text-[var(--subtle)]">
-            Smart Hygiene Access
-          </p>
-        </div>
-
-        {/* Card */}
-        <div
-          className="rounded-2xl p-8 bg-[var(--surface)] animate-card-enter border border-[var(--line)]"
-          style={{ animationDelay: '0.10s', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}
-        >
+    <AuthShell badge="Operator console">
           <h2 className="text-2xl font-semibold tracking-tight text-[var(--fg)] mb-1">Welcome back</h2>
           <p className="text-[15px] mb-6 text-[var(--muted)]">Sign in to manage your machines</p>
 
@@ -214,15 +195,7 @@ function LoginForm() {
               {isLoading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link href="/" className="text-xs text-[var(--subtle)] hover:text-[var(--fg)] transition-colors">
-            ← Back to home
-          </Link>
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 

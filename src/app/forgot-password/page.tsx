@@ -1,6 +1,6 @@
 'use client';
 
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { AuthShell } from '@/components/landing/AuthShell';
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -64,26 +64,7 @@ function ForgotPasswordForm() {
   ) : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--surface)]">
-      <ThemeToggle floating />
-      <div className="max-w-md w-full">
-        {/* Brand */}
-        <div className="text-center mb-8 animate-float-up" style={{ animationDelay: '0.05s' }}>
-          <Link href="/" className="inline-block">
-            <span className="text-2xl font-semibold tracking-tight text-[var(--fg)]">
-              Lyra Enterprises
-            </span>
-          </Link>
-          <p className="text-xs font-medium tracking-widest uppercase mt-1 text-[var(--subtle)]">
-            Smart Hygiene Access
-          </p>
-        </div>
-
-        {/* Card */}
-        <div
-          className="rounded-2xl p-8 animate-card-enter border border-[var(--line)]"
-          style={{ animationDelay: '0.10s' }}
-        >
+    <AuthShell badge="Account recovery">
           {sentTo ? (
             <div className="text-center py-2" role="status">
               <div className="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center bg-[var(--success-bg)]">
@@ -166,15 +147,7 @@ function ForgotPasswordForm() {
               </form>
             </>
           )}
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link href="/" className="text-xs text-[var(--subtle)] hover:text-[var(--fg)] transition-colors">
-            ← Back to home
-          </Link>
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 

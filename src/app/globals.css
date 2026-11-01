@@ -2047,3 +2047,47 @@ p.ui-list-more { color: var(--muted); }
 .app-shell .bg-\[var\(--accent\)\] { color: var(--on-accent) !important; }
 .app-shell .bg-\[var\(--accent\)\]:hover:not(:disabled) { background: var(--accent-hover) !important; }
 .app-shell .file\:bg-\[var\(--accent\)\]::file-selector-button { color: var(--on-accent); }
+
+/* ─────────────────────────────────────────────
+   Sign-in / password pages: home-page sky + glass card (AuthShell)
+───────────────────────────────────────────── */
+.auth-space {
+  position: relative; isolation: isolate; overflow: hidden; min-height: 100svh;
+  display: flex; align-items: center; justify-content: center; padding: 48px 16px;
+  background: var(--bg); color: var(--fg);
+}
+.auth-wrap { position: relative; z-index: 1; width: 100%; max-width: 440px; }
+.auth-brand { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 28px; }
+.auth-title { margin-top: 14px; font-family: var(--font-display-grotesk), sans-serif; font-size: 30px; font-weight: 600; letter-spacing: -0.03em; color: var(--fg); text-decoration: none; }
+.auth-tag { margin: 6px 0 0; font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--subtle); }
+.auth-card-wrap { position: relative; }
+.auth-glow {
+  position: absolute; left: 50%; top: -1px; width: 130%; height: 2px; transform: translateX(-50%); z-index: 2; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(77, 141, 255, 0.9) 30%, #e3edff 50%, rgba(77, 141, 255, 0.9) 70%, transparent);
+  box-shadow: 0 0 18px 3px rgba(31, 107, 255, 0.75), 0 0 60px 12px rgba(31, 107, 255, 0.35);
+  border-radius: 9999px; opacity: 0.9; filter: none; mix-blend-mode: normal; max-width: none;
+}
+.auth-glow::after {
+  content: ""; position: absolute; left: 15%; right: 15%; top: 0; height: 140px;
+  background: radial-gradient(60% 100% at 50% 0%, rgba(31, 107, 255, 0.28), transparent 70%);
+}
+:root:not(.dark) .auth-glow { opacity: 0.55; }
+.auth-card {
+  position: relative; z-index: 1; padding: 32px; border-radius: 22px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 40px 90px -40px rgba(31, 107, 255, 0.55), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+}
+:root:not(.dark) .auth-card { background: rgba(255, 255, 255, 0.82); box-shadow: 0 30px 70px -36px rgba(31, 107, 255, 0.45), 0 10px 30px -20px rgba(15, 21, 32, 0.25); }
+.auth-foot { margin-top: 22px; text-align: center; }
+/* Inputs read on glass */
+.auth-card :is(input:not([type=checkbox]):not([type=radio])) { background: color-mix(in srgb, var(--bg) 55%, transparent); }
+/* Entrance: same easing as the home hero */
+.zl-anim .auth-title .zl-line > span { animation-delay: 0.18s; }
+.zl-anim .auth-tag       { animation: zl-settle 0.6s 0.4s cubic-bezier(0.22,1,0.36,1) both; }
+.zl-anim .auth-card-wrap { animation: zl-rise 1s 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+.zl-anim .auth-glow      { animation: auth-glow-in 1.6s 0.9s ease both; }
+.zl-anim .auth-foot      { animation: zl-settle 0.6s 1s cubic-bezier(0.22,1,0.36,1) both; }
+@keyframes auth-glow-in { from { opacity: 0; transform: translateX(-50%) scaleX(0.2); } to { transform: translateX(-50%) scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .zl-anim .auth-tag, .zl-anim .auth-card-wrap, .zl-anim .auth-glow, .zl-anim .auth-foot { animation: none !important; } }
