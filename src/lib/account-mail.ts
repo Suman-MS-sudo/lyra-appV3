@@ -14,7 +14,7 @@ export async function sendWelcomeEmail(
   const link = await generatePasswordResetLink(admin, email, 'invite');
   if (!link) return { ok: false, error: 'Could not generate a set-password link' };
   const mail = welcomeEmail(link, opts);
-  const r = await sendEmail({ to: email, ...mail });
+  const r = await sendEmail({ to: email, ...mail, sensitive: true });
   return r.success ? { ok: true } : { ok: false, error: r.error || 'Email failed' };
 }
 
@@ -22,7 +22,7 @@ export async function sendWelcomeEmail(
 export async function sendPasswordResetEmail(admin: SupabaseClient, email: string): Promise<Result> {
   const link = await generatePasswordResetLink(admin, email);
   if (!link) return { ok: false, error: 'Could not generate a reset link' };
-  const r = await sendEmail({ to: email, ...passwordResetEmail(link) });
+  const r = await sendEmail({ to: email, ...passwordResetEmail(link), sensitive: true });
   return r.success ? { ok: true } : { ok: false, error: r.error || 'Email failed' };
 }
 
