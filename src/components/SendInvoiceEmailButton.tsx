@@ -14,7 +14,7 @@ export function SendInvoiceEmailButton({ invoiceId }: SendInvoiceEmailButtonProp
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleSend = async () => {
-    if (!confirm('Send invoice email to organization?')) {
+    if (!confirm('Email this coin collection statement to the Lyra billing inbox?')) {
       return;
     }
 
@@ -57,7 +57,7 @@ export function SendInvoiceEmailButton({ invoiceId }: SendInvoiceEmailButtonProp
             ? 'bg-[var(--success)] text-white' 
             : 'bg-[var(--accent)] text-white hover:bg-black'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
-        title="Send Invoice Email"
+        title="Email statement to Lyra"
       >
         {loading ? (
           <>
@@ -72,7 +72,7 @@ export function SendInvoiceEmailButton({ invoiceId }: SendInvoiceEmailButtonProp
         ) : (
           <>
             <Send className="h-3.5 w-3.5" />
-            Email
+            Email to Lyra
           </>
         )}
       </button>

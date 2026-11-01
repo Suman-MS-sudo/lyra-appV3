@@ -1,7 +1,7 @@
 ﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { TrendingUp, AlertCircle, Users, Nfc, Calendar, Trophy } from 'lucide-react';
+import { TrendingUp, Users, Nfc, Calendar, Trophy } from 'lucide-react';
 import { PageHeader } from '@/components/ui/kit';
 import type { GlanceAlert, GlanceMachine } from '@/components/customer/CustomerGlance';
 import { DAY_MS, IST_OFFSET_MS, istClock, timeAgo } from '@/lib/time';
@@ -314,22 +314,6 @@ export default async function CustomerDashboard({ searchParams }: { searchParams
         .order('created_at', { ascending: false })
     : { data: [] };
 
-  // Pending invoices for the banner
-  const { data: pendingInvoices } = await serviceSupabase
-    .from('organization_invoices')
-    .select('id, invoice_number, total_amount_paisa, period_end')
-    .eq('organization_id', profile?.organization_id)
-    .in('status', ['pending'])
-    .gt('total_amount_paisa', 0)
-    .order('period_end', { ascending: true });
-
-  const totalPendingAmount = pendingInvoices?.reduce((sum, inv) => sum + inv.total_amount_paisa, 0) || 0;
-  const overdueInvoices = pendingInvoices?.filter(inv => {
-    const dueDate = new Date(inv.period_end);
-    dueDate.setDate(dueDate.getDate() + 30);
-    return dueDate < new Date();
-  }) || [];
-
   // Helpers
   // ── At-a-glance: today, alerts, machine board ──
   const { now: glanceNow, todayStart, yesterdayStart } = istClock();
@@ -381,7 +365,6 @@ export default async function CustomerDashboard({ searchParams }: { searchParams
   for (const m of glanceMachines) {
     if (m.stock !== null && m.stock > 0 && m.stock < 5) glanceAlerts.push({ level: 'warning', kind: 'stock', title: `${m.name} low on stock`, detail: `${m.stock} left`, href: '/customer/machines' });
   }
-  for (const inv of overdueInvoices) glanceAlerts.push({ level: 'warning', kind: 'invoice', title: `Invoice ${inv.invoice_number} overdue`, detail: `₹${((inv.total_amount_paisa || 0) / 100).toFixed(2)} · pay to keep your account in good standing`, href: '/customer/billing' });
 
   // ── Analytics-console data (reference layout) ──
   const params = await searchParams;
@@ -446,34 +429,6 @@ export default async function CustomerDashboard({ searchParams }: { searchParams
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-      {/* Invoice Banner */}
-      {isSuperCustomer && totalPendingAmount > 0 && (
-        <div
-          className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
-          style={overdueInvoices.length > 0
-            ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: 'var(--danger)' }
-            : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)', color: 'var(--warning)' }
-          }
-        >
-          <div className="flex items-center gap-2 text-sm">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>
-              {overdueInvoices.length > 0
-                ? `${overdueInvoices.length} overdue invoice${overdueInvoices.length > 1 ? 's' : ''} — `
-                : `${pendingInvoices?.length} pending invoice${(pendingInvoices?.length || 0) > 1 ? 's' : ''} — `}
-              <strong>₹{(totalPendingAmount / 100).toFixed(2)}</strong> due
-            </span>
-          </div>
-          <Link
-            href="/customer/billing"
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-opacity hover:opacity-80 whitespace-nowrap"
-            style={{ background: 'var(--line)', border: '1px solid var(--line)', color: 'var(--fg)' }}
-          >
-            View &amp; Pay →
-          </Link>
-        </div>
-      )}
 
       <PageHeader
         eyebrow="Overview"

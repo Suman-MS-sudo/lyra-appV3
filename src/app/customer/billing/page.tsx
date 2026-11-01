@@ -1,291 +1,198 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { FileText, Coins, ArrowUpRight, Nfc } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient, type SupabaseClient } from '@supabase/supabase-js';
+import { ArrowUpRight, CheckCircle2, Coins, FileText, Nfc, PiggyBank } from 'lucide-react';
+import { PageHeader, Panel, StatGrid, StatTile, inr } from '@/components/ui/kit';
+import { visibleOwnerIds } from '@/lib/machine-scope';
+import { istMonth, periodLabel } from '@/lib/billing';
 
-import { StatTile, PageHeader } from '@/components/ui/kit';
 export const revalidate = 0;
 
-const CARD: React.CSSProperties = {
-  background: 'var(--surface)',
-  border: '1px solid var(--line)',
-  borderRadius: 20,
-  boxShadow: 'var(--shadow-card)',
-};
+const RANGES = {
+  this: { label: 'This month', from: 0, to: 0 },
+  last: { label: 'Last month', from: -1, to: -1 },
+  '3m': { label: '3 months', from: -2, to: 0 },
+} as const;
+type RangeKey = keyof typeof RANGES;
 
-export default async function CustomerBillingPage() {
+const clock = () => Date.now();
+const istDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+
+/** Count and sum every dispensed payment in [from, to) — paged, so totals never stop at the 1000-row API cap. */
+async function totals(db: SupabaseClient, table: 'coin_payments' | 'rfid_payments', machineIds: string[], from: Date, to: Date) {
+  let count = 0, paisa = 0;
+  if (!machineIds.length) return { count, paisa };
+  for (let page = 0; page < 100; page++) {
+    const { data } = await db.from(table).select('amount_in_paisa')
+      .in('machine_id', machineIds).eq('dispensed', true)
+      .gte('created_at', from.toISOString()).lt('created_at', to.toISOString())
+      .order('created_at', { ascending: true })
+      .range(page * 1000, page * 1000 + 999);
+    if (!data?.length) break;
+    count += data.length;
+    paisa += data.reduce((t, r) => t + (r.amount_in_paisa || 0), 0);
+    if (data.length < 1000) break;
+  }
+  return { count, paisa };
+}
+
+export default async function CustomerBillingPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+  const params = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const serviceSupabase = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const { data: profile } = await serviceSupabase
-    .from('profiles')
-    .select('id, email, role, account_type, organization_id, organizations!organization_id(id, name)')
-    .eq('id', user.id)
-    .single();
-
+  const db = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const { data: profile } = await db.from('profiles').select('id, role, account_type, organization_id').eq('id', user.id).single();
   if (profile?.role === 'admin') redirect('/admin/dashboard');
+  const isSuper = profile?.account_type === 'super_customer' && !!profile.organization_id;
 
-  const { data: invoices } = await serviceSupabase
-    .from('organization_invoices')
-    .select('*, organizations!organization_id(id, name)')
-    .eq('organization_id', profile?.organization_id)
-    .in('status', ['pending', 'paid'])
-    .order('created_at', { ascending: false });
+  const now = clock();
+  const rangeKey: RangeKey = params.range && params.range in RANGES ? (params.range as RangeKey) : 'this';
+  const range = RANGES[rangeKey];
+  const from = istMonth(range.from, now).start;
+  const to = new Date(Math.min(istMonth(range.to, now).end.getTime(), now + 1));
 
-  const { data: machines } = await serviceSupabase
-    .from('vending_machines')
-    .select('id, name, location')
-    .eq('customer_id', user.id);
+  // Super customers: every company machine (incl. ones assigned to team members); others: their own
+  const ownerIds = await visibleOwnerIds(db, user.id, profile);
+  const { data: machines } = await db.from('vending_machines').select('id').in('customer_id', ownerIds);
+  const machineIds = (machines || []).map((m) => m.id);
 
-  const machineIds = machines?.map(m => m.id) || [];
+  const recent = (table: 'coin_payments' | 'rfid_payments') => machineIds.length
+    ? db.from(table).select('id, amount_in_paisa, created_at, vending_machines(name, location)')
+      .in('machine_id', machineIds).eq('dispensed', true)
+      .gte('created_at', from.toISOString()).lt('created_at', to.toISOString())
+      .order('created_at', { ascending: false }).limit(50)
+    : Promise.resolve({ data: [] as never[] });
 
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  const [coin, rfid, coinRecent, rfidRecent, statementsQ] = await Promise.all([
+    totals(db, 'coin_payments', machineIds, from, to),
+    totals(db, 'rfid_payments', machineIds, from, to),
+    recent('coin_payments'),
+    recent('rfid_payments'),
+    // Coin statements are company-level: shown to the super customer
+    isSuper
+      ? db.from('organization_invoices')
+        .select('id, invoice_number, period_start, total_coin_transactions, total_amount_paisa, amount_due_paisa, status, paid_at')
+        .eq('organization_id', profile!.organization_id)
+        .in('status', ['pending', 'paid', 'overdue'])
+        .order('period_start', { ascending: false }).limit(24)
+      : Promise.resolve({ data: [] as never[] }),
+  ]);
 
-  const { data: coinPayments } = await serviceSupabase
-    .from('coin_payments')
-    .select('*, vending_machines(name, location)')
-    .in('machine_id', machineIds)
-    .gte('created_at', startOfMonth.toISOString())
-    .eq('dispensed', true)
-    .order('created_at', { ascending: false })
-    .limit(100);
+  type Activity = { id: string; type: 'coin' | 'rfid'; at: string; amount: number; machine: string; location: string };
+  const toActivity = (type: Activity['type']) => (r: { id: string; amount_in_paisa: number | null; created_at: string; vending_machines: unknown }): Activity => {
+    const vm = r.vending_machines as { name?: string; location?: string } | null;
+    return { id: `${type}-${r.id}`, type, at: r.created_at, amount: r.amount_in_paisa || 0, machine: vm?.name || 'Machine', location: vm?.location || '' };
+  };
+  const activity = [...(coinRecent.data || []).map(toActivity('coin')), ...(rfidRecent.data || []).map(toActivity('rfid'))]
+    .sort((a, b) => b.at.localeCompare(a.at)).slice(0, 50);
 
-  const { data: rfidPayments } = await serviceSupabase
-    .from('rfid_payments')
-    .select('*, vending_machines(name, location)')
-    .in('machine_id', machineIds)
-    .gte('created_at', startOfMonth.toISOString())
-    .eq('dispensed', true)
-    .order('created_at', { ascending: false })
-    .limit(100);
-
-  const totalCoinRevenue = coinPayments?.reduce((sum, payment) => sum + (payment.amount_in_paisa || 0), 0) || 0;
-  const totalRfidRevenue = rfidPayments?.reduce((sum, payment) => sum + (payment.amount_in_paisa || 0), 0) || 0;
-  const pendingAmount = invoices
-    ?.filter(inv => inv.status !== 'paid')
-    .reduce((sum, inv) => sum + inv.total_amount_paisa, 0) || 0;
+  const statements = statementsQ.data || [];
+  const awaiting = statements.filter((s) => s.status !== 'paid' && s.total_amount_paisa > 0);
+  const awaitingPaisa = awaiting.reduce((t, s) => t + s.amount_due_paisa, 0);
+  const collectedPaisa = statements.filter((s) => s.status === 'paid').reduce((t, s) => t + s.total_amount_paisa, 0);
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-      {/* Page title */}
-      <PageHeader title="Billing" subtitle="Invoices and payment history" />
+    <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+      <PageHeader title="Billing" subtitle="Coin and RFID payments on your machines, and the coins Lyra collects" />
 
-      {/* Summary Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 ui-statrow">
-        {/* Pending Amount */}
-        <StatTile tone="sky" icon={FileText} label={`Pending Amount`} value={`₹${(pendingAmount / 100).toFixed(2)}`} />
+      <nav className="ui-pills" aria-label="Period">
+        {(Object.keys(RANGES) as RangeKey[]).map((k) => (
+          <Link key={k} href={`?range=${k}`} scroll={false} className={k === rangeKey ? 'is-active' : ''} aria-current={k === rangeKey ? 'page' : undefined}>{RANGES[k].label}</Link>
+        ))}
+      </nav>
 
-        {/* Coin Revenue */}
-        <StatTile tone="mint" icon={Coins} label={`Coin Revenue (Month)`} value={`₹${(totalCoinRevenue / 100).toFixed(2)}`} />
+      <StatGrid>
+        <StatTile tone="butter" icon={Coins} label="Coin payments" value={inr(coin.paisa / 100)} sub={`${coin.count.toLocaleString('en-IN')} coins · ${range.label.toLowerCase()}`} />
+        <StatTile tone="lilac" icon={Nfc} label="RFID taps" value={rfid.count.toLocaleString('en-IN')} sub={`${inr(rfid.paisa / 100)} in card credit`} />
+        {isSuper ? (
+          <>
+            <StatTile tone="peach" icon={PiggyBank} label="Awaiting collection" value={inr(awaitingPaisa / 100)} sub={awaiting.length ? `${awaiting.length} statement${awaiting.length === 1 ? '' : 's'} · Lyra collects` : 'nothing pending'} />
+            <StatTile tone="mint" icon={CheckCircle2} label="Collected by Lyra" value={inr(collectedPaisa / 100)} sub={`last ${statements.length} statement${statements.length === 1 ? '' : 's'}`} />
+          </>
+        ) : (
+          <StatTile tone="sky" icon={FileText} label="Machines" value={String(machineIds.length)} sub="assigned to you" />
+        )}
+      </StatGrid>
 
-        {/* RFID Revenue */}
-        <StatTile tone="butter" icon={Nfc} label={`RFID Revenue (Month)`} value={`₹${(totalRfidRevenue / 100).toFixed(2)}`} />
+      {isSuper && (
+        <Panel title="Coin collection statements" flush>
+          <p className="px-5 -mt-2 pb-3 text-xs text-[var(--muted)]">Coins in your machines are cash that Lyra staff collect each month. Nothing is due from you.</p>
+          <ul className="m-cards sm:hidden">
+            {statements.map((s) => {
+              const nil = s.total_amount_paisa === 0, done = s.status === 'paid' && !nil;
+              return (
+                <li key={s.id} className="m-card">
+                  <Link href={`/customer/billing/${s.id}`} className="block">
+                    <div className="m-card-row"><p className="m-card-title">{periodLabel(s.period_start)}</p><p className="m-card-num">{inr(s.total_amount_paisa / 100, 2)}</p></div>
+                    <div className="m-card-row mt-2">
+                      <span className={`ui-pill ${done || nil ? 'is-ok' : 'is-warn'}`}><span className="ui-pill-dot" />{nil ? 'No coins' : done ? 'Collected' : 'Awaiting collection'}</span>
+                      <span className="m-card-meta">{s.invoice_number}</span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+            {statements.length === 0 && <li className="py-10 text-center text-sm text-[var(--muted)]">No statements yet</li>}
+          </ul>
+          <div className="overflow-x-auto hidden sm:block">
+            <table className="w-full text-sm tx-table">
+              <thead><tr><th className="text-left">Month</th><th className="text-left">Statement</th><th className="text-right">Coins</th><th className="text-right">Amount</th><th className="text-left">Status</th><th /></tr></thead>
+              <tbody>
+                {statements.map((s) => {
+                  const nil = s.total_amount_paisa === 0, done = s.status === 'paid' && !nil;
+                  return (
+                    <tr key={s.id}>
+                      <td className="font-medium text-[var(--fg)]">{periodLabel(s.period_start)}</td>
+                      <td className="text-[var(--muted)]">{s.invoice_number}</td>
+                      <td className="text-right">{(s.total_coin_transactions || 0).toLocaleString('en-IN')}</td>
+                      <td className="text-right font-semibold text-[var(--fg)]">{inr(s.total_amount_paisa / 100, 2)}</td>
+                      <td><span className={`ui-pill ${done || nil ? 'is-ok' : 'is-warn'}`}><span className="ui-pill-dot" />{nil ? 'No coins' : done ? 'Collected' : 'Awaiting collection'}</span></td>
+                      <td className="text-right"><Link href={`/customer/billing/${s.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-ink)] hover:underline">View <ArrowUpRight className="w-3 h-3" /></Link></td>
+                    </tr>
+                  );
+                })}
+                {statements.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-[var(--muted)]">No statements yet. The first one appears on the 1st of next month.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
 
-        {/* Total Invoices */}
-        <StatTile tone="peach" icon={FileText} label={`Total Invoices`} value={String(invoices?.length || 0)} />
-      </div>
-
-      {/* Invoices Table */}
-      <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
-          <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
-            <FileText className="w-4 h-4" style={{ color: 'var(--accent-ink)' }} />
-            Invoices
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Invoice #</th>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: 'var(--subtle)' }}>Period</th>
-                <th className="py-2.5 px-5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Amount</th>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: 'var(--subtle)' }}>Due Date</th>
-                <th className="py-2.5 px-5 text-center text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Status</th>
-                <th className="py-2.5 px-5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Actions</th>
-              </tr>
-            </thead>
+      <Panel title="Coin & RFID payments" flush>
+        <p className="px-5 -mt-2 pb-3 text-xs text-[var(--muted)]">{range.label} · latest {activity.length} of {(coin.count + rfid.count).toLocaleString('en-IN')} · times in IST</p>
+        <ul className="m-cards sm:hidden">
+          {activity.map((a) => (
+            <li key={a.id} className="m-card">
+              <div className="m-card-row"><p className="m-card-title">{a.machine}</p><p className="m-card-num">{inr(a.amount / 100, 2)}</p></div>
+              <div className="m-card-row mt-2">
+                <span className={`tx-type ${a.type === 'coin' ? 'db-tone-butter' : 'db-tone-peach'}`}>{a.type === 'coin' ? <Coins className="w-3.5 h-3.5" /> : <Nfc className="w-3.5 h-3.5" />}{a.type === 'coin' ? 'Coin' : 'RFID'}</span>
+                <span className="m-card-meta">{istDateTime(a.at)}</span>
+              </div>
+            </li>
+          ))}
+          {activity.length === 0 && <li className="py-10 text-center text-sm text-[var(--muted)]">No coin or RFID payments in this period</li>}
+        </ul>
+        <div className="overflow-x-auto hidden sm:block">
+          <table className="w-full text-sm tx-table">
+            <thead><tr><th className="text-left">Date & time</th><th className="text-left">Machine</th><th className="text-left">Type</th><th className="text-right">Amount</th></tr></thead>
             <tbody>
-              {invoices && invoices.length > 0 ? invoices.map((invoice) => {
-                const dueDate = new Date(invoice.created_at);
-                dueDate.setDate(dueDate.getDate() + 30);
-                const isOverdue = dueDate < new Date() && invoice.status !== 'paid';
-                const isPaid = invoice.status === 'paid' || invoice.total_amount_paisa === 0;
-                return (
-                  <tr
-                    key={invoice.id}
-                    className="row-hover"
-                    style={{ borderBottom: '1px solid var(--surface-2)' }}
-                  >
-                    <td className="py-3.5 px-5 font-medium text-[var(--fg)]">{invoice.invoice_number}</td>
-                    <td className="py-3.5 px-5 hidden sm:table-cell" style={{ color: 'var(--muted)' }}>
-                      {invoice.period_start && invoice.period_end
-                        ? `${new Date(invoice.period_start).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} – ${new Date(invoice.period_end).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                        : 'N/A'}
-                    </td>
-                    <td className="py-3.5 px-5 text-right font-semibold text-[var(--fg)]">
-                      ₹{(invoice.total_amount_paisa / 100).toFixed(2)}
-                    </td>
-                    <td className="py-3.5 px-5 hidden md:table-cell" style={{ color: isOverdue ? 'var(--accent)' : 'var(--muted)' }}>
-                      {dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {isOverdue && <span className="ml-1 text-xs">(overdue)</span>}
-                    </td>
-                    <td className="py-3.5 px-5 text-center">
-                      <span
-                        className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                        style={
-                          isPaid
-                            ? { background: 'rgba(29,122,60,0.12)', color: 'var(--success)' }
-                            : invoice.status === 'pending'
-                            ? { background: 'rgba(154,100,0,0.12)', color: 'var(--warning)' }
-                            : { background: 'var(--surface-2)', color: 'var(--muted)' }
-                        }
-                      >
-                        {invoice.total_amount_paisa === 0 ? 'Nil' : invoice.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/customer/billing/${invoice.id}`}
-                          className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[var(--fg)]"
-                          style={{ color: 'var(--accent-ink)' }}
-                        >
-                          View <ArrowUpRight className="w-3 h-3" />
-                        </Link>
-                        {invoice.status !== 'paid' && invoice.status !== 'draft' && invoice.total_amount_paisa > 0 && (
-                          <Link
-                            href={`/customer/billing/${invoice.id}/pay`}
-                            className="px-2.5 py-1 text-xs font-medium lyra-chamfer text-white transition-opacity hover:opacity-90"
-                            style={{ background: 'var(--accent)' }}
-                          >
-                            Pay Now
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              }) : (
-                <tr>
-                  <td colSpan={6} className="py-16 text-center text-sm" style={{ color: 'var(--subtle)' }}>No invoices found</td>
+              {activity.map((a) => (
+                <tr key={a.id}>
+                  <td className="whitespace-nowrap text-[var(--muted)]">{istDateTime(a.at)}</td>
+                  <td><p className="font-medium text-[var(--fg)]">{a.machine}</p>{a.location && <p className="text-xs text-[var(--subtle)]">{a.location}</p>}</td>
+                  <td><span className={`tx-type ${a.type === 'coin' ? 'db-tone-butter' : 'db-tone-peach'}`}>{a.type === 'coin' ? <Coins className="w-3.5 h-3.5" /> : <Nfc className="w-3.5 h-3.5" />}{a.type === 'coin' ? 'Coin' : 'RFID'}</span></td>
+                  <td className="text-right font-semibold text-[var(--fg)]">{inr(a.amount / 100, 2)}</td>
                 </tr>
-              )}
+              ))}
+              {activity.length === 0 && <tr><td colSpan={4} className="py-12 text-center text-[var(--muted)]">No coin or RFID payments in this period</td></tr>}
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Coin Payments */}
-      <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
-          <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
-            <Coins className="w-4 h-4" style={{ color: 'var(--warning)' }} />
-            Recent Coin Payments
-          </h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--subtle)' }}>This month&apos;s dispensed coin transactions</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Date</th>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Machine</th>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: 'var(--subtle)' }}>Location</th>
-                <th className="py-2.5 px-5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coinPayments && coinPayments.length > 0 ? coinPayments.map((payment) => (
-                <tr
-                  key={payment.id}
-                  className="row-hover"
-                  style={{ borderBottom: '1px solid var(--surface-2)' }}
-                >
-                  <td className="py-3.5 px-5 whitespace-nowrap">
-                    <span className="text-[var(--fg)]">
-                      {new Date(payment.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </span>
-                    {' '}
-                    <span style={{ color: 'var(--subtle)' }}>
-                      {new Date(payment.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-5 font-medium text-[var(--fg)]">{payment.vending_machines?.name || 'N/A'}</td>
-                  <td className="py-3.5 px-5 hidden sm:table-cell" style={{ color: 'var(--muted)' }}>{payment.vending_machines?.location || 'N/A'}</td>
-                  <td className="py-3.5 px-5 text-right font-semibold text-[var(--fg)]">
-                    ₹{((payment.amount_in_paisa || 0) / 100).toFixed(2)}
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={4} className="py-16 text-center text-sm" style={{ color: 'var(--subtle)' }}>No coin payments found this month</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* RFID Payments */}
-      <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
-          <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
-            <Nfc className="w-4 h-4" style={{ color: 'var(--muted)' }} />
-            Recent RFID Payments
-          </h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--subtle)' }}>This month&apos;s dispensed RFID card taps</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Date</th>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Machine</th>
-                <th className="py-2.5 px-5 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: 'var(--subtle)' }}>Location</th>
-                <th className="py-2.5 px-5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rfidPayments && rfidPayments.length > 0 ? rfidPayments.map((payment) => (
-                <tr
-                  key={payment.id}
-                  className="row-hover"
-                  style={{ borderBottom: '1px solid var(--surface-2)' }}
-                >
-                  <td className="py-3.5 px-5 whitespace-nowrap">
-                    <span className="text-[var(--fg)]">
-                      {new Date(payment.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </span>
-                    {' '}
-                    <span style={{ color: 'var(--subtle)' }}>
-                      {new Date(payment.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-5 font-medium text-[var(--fg)]">{payment.vending_machines?.name || 'N/A'}</td>
-                  <td className="py-3.5 px-5 hidden sm:table-cell" style={{ color: 'var(--muted)' }}>{payment.vending_machines?.location || 'N/A'}</td>
-                  <td className="py-3.5 px-5 text-right font-semibold text-[var(--fg)]">
-                    ₹{((payment.amount_in_paisa || 0) / 100).toFixed(2)}
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={4} className="py-16 text-center text-sm" style={{ color: 'var(--subtle)' }}>No RFID payments found this month</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </Panel>
     </main>
   );
 }

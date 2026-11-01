@@ -22,7 +22,7 @@ interface Layout {
 }
 
 function layout({ title, preheader, heading, paragraphs, cta, note }: Layout) {
-  const p = (t: string) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3f3f46;">${t}</p>`;
+  const p = (t: string) => t.startsWith("<table") ? t : `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3f3f46;">${t}</p>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -114,5 +114,63 @@ export function passwordChangedEmail(opts: { when: string }): AuthEmail {
       cta: { label: 'Reset password', href: `${APP_URL}/forgot-password` },
     }),
     text: `Your Lyra password was changed on ${opts.when}.\n\nIf this wasn't you, reset it now at ${APP_URL}/forgot-password and contact ${SUPPORT}.`,
+  };
+}
+
+export interface CollectionRow {
+  organization: string;
+  statement: string;
+  machines: number;
+  coins: number;
+  amount: string;
+  status?: string;
+  collectBy?: string;
+}
+
+function collectionTable(rows: CollectionRow[], withStatus: boolean) {
+  const th = (t: string, right = false) => `<th style="padding:8px 6px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;text-align:${right ? 'right' : 'left'};border-bottom:1px solid #e4e4e7;">${t}</th>`;
+  const td = (t: string, right = false, bold = false) => `<td style="padding:8px 6px;font-size:13px;color:#27272a;text-align:${right ? 'right' : 'left'};border-bottom:1px solid #f1f1f3;${bold ? 'font-weight:700;' : ''}">${t}</td>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:4px 0 8px;">
+    <tr>${th('Organization')}${th('Statement')}${th('Machines', true)}${th('Coins', true)}${th('Amount', true)}${withStatus ? th('Collect by', true) : ''}</tr>
+    ${rows.map((r) => `<tr>${td(esc(r.organization))}${td(esc(r.statement))}${td(String(r.machines), true)}${td(r.coins.toLocaleString('en-IN'), true)}${td(esc(r.amount), true, true)}${withStatus ? td(esc(r.collectBy || '—'), true) : ''}</tr>`).join('')}
+  </table>`;
+}
+
+/** Internal: monthly coin collection sheet for Lyra (coins are cash Lyra collects from the machines). */
+export function collectionReportEmail(o: { month: string; rows: CollectionRow[]; total: string; totalCoins: number; collectBy: string }): AuthEmail {
+  const due = o.rows.filter((r) => r.amount !== '₹0.00');
+  return {
+    subject: `Coin collection sheet — ${o.month}: ${o.total} across ${due.length} organization${due.length === 1 ? '' : 's'}`,
+    html: layout({
+      title: `Coin collection — ${o.month}`,
+      preheader: `${o.total} in coins to collect from ${due.length} organizations.`,
+      heading: `Coins to collect — ${esc(o.month)}`,
+      paragraphs: [
+        `Statements for <strong>${esc(o.month)}</strong> are ready. Collect the coins from these machines by <strong>${esc(o.collectBy)}</strong>, then record each collection in the admin console.`,
+        due.length ? collectionTable(due, false) : '<table role="presentation"><tr><td style="font-size:14px;color:#52525b;">No coin payments were made on any machine this month.</td></tr></table>',
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;"><tr><td style="padding:10px 0;font-size:15px;font-weight:700;color:#0a0a0a;">Total to collect</td><td style="padding:10px 0;text-align:right;font-size:15px;font-weight:700;color:#0a0a0a;">${esc(o.total)} · ${o.totalCoins.toLocaleString('en-IN')} coins</td></tr></table>`,
+      ],
+      cta: { label: 'Open billing console', href: `${APP_URL}/admin/billing` },
+      note: 'The full sheet is attached as CSV. Organizations with no coin payments are not listed.',
+    }),
+    text: `Coins to collect — ${o.month} (by ${o.collectBy})\n\n${due.map((r) => `${r.organization} · ${r.statement} · ${r.machines} machines · ${r.coins} coins · ${r.amount}`).join('\n') || 'No coin payments this month.'}\n\nTotal: ${o.total} (${o.totalCoins} coins)\n${APP_URL}/admin/billing`,
+  };
+}
+
+/** Internal: statements whose coins still haven't been collected. */
+export function uncollectedDigestEmail(o: { rows: CollectionRow[]; total: string }): AuthEmail {
+  return {
+    subject: `Uncollected coins: ${o.total} across ${o.rows.length} statement${o.rows.length === 1 ? '' : 's'}`,
+    html: layout({
+      title: 'Uncollected coin statements',
+      preheader: `${o.total} still to collect.`,
+      heading: 'Coins still to collect',
+      paragraphs: [
+        'These statements are past their collection date and no collection has been recorded yet.',
+        collectionTable(o.rows, true),
+      ],
+      cta: { label: 'Record collections', href: `${APP_URL}/admin/billing?status=overdue` },
+    }),
+    text: `Uncollected coin statements (${o.total}):\n${o.rows.map((r) => `${r.organization} · ${r.statement} · ${r.amount} · collect by ${r.collectBy}`).join('\n')}`,
   };
 }

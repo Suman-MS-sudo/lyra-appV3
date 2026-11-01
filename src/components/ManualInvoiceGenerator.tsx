@@ -23,6 +23,8 @@ const INPUT: React.CSSProperties = {
 
 const LABEL: React.CSSProperties = { color: 'var(--fg)' };
 
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export function ManualInvoiceGenerator() {
   const [isOpen, setIsOpen] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -39,8 +41,8 @@ export function ManualInvoiceGenerator() {
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      setPeriodStart(start.toISOString().split('T')[0]);
-      setPeriodEnd(end.toISOString().split('T')[0]);
+      setPeriodStart(ymd(start));
+      setPeriodEnd(ymd(end));
     }
   }, [isOpen]);
 
@@ -69,23 +71,20 @@ export function ManualInvoiceGenerator() {
       const response = await fetch('/api/billing/generate-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId: selectedOrg,
-          periodStart: new Date(periodStart).toISOString(),
-          periodEnd: new Date(periodEnd + 'T23:59:59').toISOString(),
-        }),
+        // Plain dates: the server bills full IST days, end date inclusive
+        body: JSON.stringify({ organizationId: selectedOrg, startDate: periodStart, endDate: periodEnd }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`✅ Invoice ${data.invoice.invoice_number} generated successfully!`);
+        setMessage(`✅ ${data.message}`);
         setTimeout(() => {
           setIsOpen(false);
           window.location.reload();
         }, 2000);
       } else {
-        setMessage(`❌ ${data.error || 'Failed to generate invoice'}`);
+        setMessage(`❌ ${data.error || 'Could not create the statement'}`);
       }
     } catch (error: any) {
       setMessage(`❌ ${error.message || 'An error occurred'}`);
@@ -102,7 +101,7 @@ export function ManualInvoiceGenerator() {
         style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
       >
         <FileText size={16} />
-        Generate Manual Invoice
+        Custom statement
       </button>
     );
   }
@@ -118,7 +117,7 @@ export function ManualInvoiceGenerator() {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md p-6" style={MODAL}>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-[var(--fg)]">Generate Invoice</h2>
+            <h2 className="text-xl font-bold text-[var(--fg)]">Custom coin statement</h2>
             <button
               onClick={() => setIsOpen(false)}
               className="transition-opacity hover:opacity-70"
@@ -178,8 +177,8 @@ export function ManualInvoiceGenerator() {
                   const now = new Date();
                   const start = new Date(now.getFullYear(), now.getMonth(), 1);
                   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                  setPeriodStart(start.toISOString().split('T')[0]);
-                  setPeriodEnd(end.toISOString().split('T')[0]);
+                  setPeriodStart(ymd(start));
+                  setPeriodEnd(ymd(end));
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
                 style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-soft)', color: 'var(--accent-ink)' }}
@@ -192,8 +191,8 @@ export function ManualInvoiceGenerator() {
                   const now = new Date();
                   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
                   const end = new Date(now.getFullYear(), now.getMonth(), 0);
-                  setPeriodStart(start.toISOString().split('T')[0]);
-                  setPeriodEnd(end.toISOString().split('T')[0]);
+                  setPeriodStart(ymd(start));
+                  setPeriodEnd(ymd(end));
                 }}
                 className="text-xs px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg-2)' }}
@@ -222,7 +221,7 @@ export function ManualInvoiceGenerator() {
                 className="flex-1 px-4 py-2.5 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
               >
-                {loading ? 'Generating...' : 'Generate Invoice'}
+                {loading ? 'Creating…' : 'Create statement'}
               </button>
               <button
                 onClick={() => setIsOpen(false)}

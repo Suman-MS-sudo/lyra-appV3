@@ -29,6 +29,9 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
   const [showModal, setShowModal] = useState(false);
   const [amount, setAmount] = useState((amountDue / 100).toFixed(2));
   const [notes, setNotes] = useState('');
+  const [closeShortfall, setCloseShortfall] = useState(false);
+  const counted = Math.round((parseFloat(amount) || 0) * 100);
+  const shortBy = amountDue - counted;
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,11 +44,12 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
       const result = await recordManualPayment({
         invoiceId,
         amountPaisa,
-        notes: notes || undefined
+        notes: notes || undefined,
+        closeShortfall,
       });
 
       if (result.success) {
-        alert('Payment recorded successfully!');
+        alert(`Collection recorded (${result.variance}).`);
         setShowModal(false);
         window.location.reload();
       }
@@ -62,7 +66,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
         onClick={() => setShowModal(true)}
         className="p-2 rounded-lg transition-colors hover:opacity-80"
         style={{ color: 'var(--success)' }}
-        title="Record Payment"
+        title="Record collection"
       >
         <IndianRupee className="h-4 w-4" />
       </button>
@@ -74,7 +78,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
         >
           <div className="w-full max-w-md" style={MODAL}>
             <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid var(--surface-2)' }}>
-              <h3 className="text-lg font-semibold text-[var(--fg)]">Record Payment</h3>
+              <h3 className="text-lg font-semibold text-[var(--fg)]">Record coin collection</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg transition-colors hover:opacity-70"
@@ -97,12 +101,11 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1" style={LABEL}>Amount (₹)</label>
+                <label className="block text-sm font-medium mb-1" style={LABEL}>Cash counted (₹)</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  max={amountDue / 100}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
@@ -110,8 +113,19 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   style={INPUT}
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>
-                  Amount due: ₹{(amountDue / 100).toFixed(2)}
+                  Expected from the machines: ₹{(amountDue / 100).toFixed(2)}
+                  {counted > 0 && counted !== amountDue && (
+                    <span style={{ color: shortBy > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                      {' '}· {shortBy > 0 ? `₹${(shortBy / 100).toFixed(2)} short` : `₹${(-shortBy / 100).toFixed(2)} extra`}
+                    </span>
+                  )}
                 </p>
+                {shortBy > 0 && counted > 0 && (
+                  <label className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'var(--fg-2)' }}>
+                    <input type="checkbox" checked={closeShortfall} onChange={(e) => setCloseShortfall(e.target.checked)} />
+                    Close the statement with this shortfall (otherwise the rest stays to collect)
+                  </label>
+                )}
               </div>
 
               <div>
@@ -120,7 +134,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  placeholder="Payment reference, transaction ID, etc."
+                  placeholder="Collected by, date, remarks"
                   className="w-full px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
                   style={INPUT}
                 />
@@ -141,7 +155,7 @@ export function RecordPaymentButton({ invoiceId, amountDue, organizationName }: 
                   className="flex-1 px-4 py-2 rounded-xl text-sm font-medium text-[var(--fg)] transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #059669, var(--success))', boxShadow: '0 2px 12px rgba(29,122,60,0.12)' }}
                 >
-                  {loading ? 'Recording...' : 'Record Payment'}
+                  {loading ? 'Recording…' : 'Record collection'}
                 </button>
               </div>
             </form>

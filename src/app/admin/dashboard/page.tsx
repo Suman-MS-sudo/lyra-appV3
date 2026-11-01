@@ -145,7 +145,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     if (st === 'grace') attention.push({ level: 'warning', kind: 'rental', title: `Rental ${r.rental_code} overdue`, detail: `${machineName.get(r.machine_id) || 'Machine'} · in grace period`, href: '/admin/rentals' });
   }
   for (const m of lowList) attention.push({ level: 'warning', kind: 'stock', title: `${m.name} low on stock`, detail: `${m.stock} left · ${m.location || 'No location'}`, href: '/admin/machines' });
-  for (const inv of (invoices || []) as any[]) attention.push({ level: 'warning', kind: 'invoice', title: `Invoice ${inv.invoice_number} overdue`, detail: `${inv.organizations?.name || 'Organization'} · ₹${((inv.amount_due_paisa || 0) / 100).toFixed(2)} due`, href: '/admin/billing' });
+  for (const inv of (invoices || []) as any[]) attention.push({ level: 'warning', kind: 'invoice', title: `Coins uncollected — ${inv.organizations?.name || 'Organization'}`, detail: `Statement ${inv.invoice_number} · ₹${((inv.amount_due_paisa || 0) / 100).toFixed(2)} still to collect`, href: `/admin/billing/${inv.id}` });
 
   // Machine table: revenue in range per machine
   const revenueById = new Map<string, number>();
