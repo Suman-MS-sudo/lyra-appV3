@@ -10,15 +10,20 @@
 #define FIRMWARE_VERSION "1.1.0"
 
 // --- Pins ---
-#define VEND_BUTTON 13   // press to dispense a napkin
-#define RESET_PIN 14     // hold ~2s to refill stock
-#define WIFI_BUTTON 32   // press to open WiFi hotspot dashboard
-#define RELAY_PIN 27     // controls the motor
-#define STATUS_LED 4      // internal/admin indicator, not visible to users: on = has stock, off = empty
-#define USER_LED 5        // user-facing indicator: solid = ready, slow blink = empty, fast blink = dispensing
-// DS3231 uses I2C: SDA -> GPIO21, SCL -> GPIO22 (ESP32 default I2C pins)
+// Shared-PCB layout: reuses the same physical pins as the IOT/coin machine firmware
+// (Lyra_Vending_Repo/IOT_Wifi_LAN) so both variants can populate the same board.
+#define VEND_BUTTON 27   // was COIN_PIN on the IOT board - same INPUT_PULLUP pulse pattern
+#define RESET_PIN 21     // was RESET_PIN on the IOT board - already used there to refill stock
+#define WIFI_BUTTON 4    // was WIFI_RESET_BUTTON_PIN on the IOT board
+#define RELAY_PIN 5      // was TRANSISTOR_BASE on the IOT board - same active-HIGH motor pulse
+#define STATUS_LED 2     // was BLUE_LED_PIN on the IOT board - single LED, doubles as the user-facing indicator
+                         // (this board has only one LED; solid/slow-blink/fast-blink all show on it)
+// DS3231 + LCD share I2C on GPIO13 (SDA) / GPIO14 (SCL) - the ESP32 defaults (21/22) are
+// already taken by RESET_PIN and the Ethernet module's CS pin on this shared PCB.
 // NOTE: GPIO6-11 are wired to the internal flash chip - never use them for I/O.
-// GPIO0, 2, 12, 15 are boot-strapping pins - avoided here to prevent boot issues.
+// NOTE: GPIO18/19/22/23 are hardwired to the Ethernet module on this PCB - never reassign them.
+// GPIO0, 12, 15 are boot-strapping pins, avoided here. GPIO2 is also a strapping pin but is
+// safe as a simple output post-boot - this matches the IOT firmware's own proven use of it.
 
 // --- Settings ---
 #define MAX_STOCK 25
@@ -42,7 +47,7 @@ const char* AP_SSID = MACHINE_ID; // tags the hotspot itself so multiple units a
 const char* AP_PASSWORD = "napkin123"; // change this
 
 RTC_DS3231 rtc;
-LiquidCrystal_I2C lcd(0x27, 16, 2); // shares the RTC's I2C bus (SDA21/SCL22); try 0x3F if 0x27 shows nothing
+LiquidCrystal_I2C lcd(0x27, 16, 2); // shares the RTC's I2C bus (SDA=13/SCL=14 on this board); try 0x3F if 0x27 shows nothing
 Preferences prefs;
 WebServer server(80);
 
@@ -78,10 +83,9 @@ void setup() {
     pinMode(WIFI_BUTTON, INPUT_PULLUP);
     pinMode(RELAY_PIN, OUTPUT);
     pinMode(STATUS_LED, OUTPUT);
-    pinMode(USER_LED, OUTPUT);
     digitalWrite(RELAY_PIN, LOW);
 
-    Wire.begin();
+    Wire.begin(13, 14); // SDA=13, SCL=14 - explicit, since defaults (21/22) are taken on this PCB
     lcd.init();
     lcd.backlight();
     lcdMsg("LYRA ENTERPRISES", "Napkin Dispenser");
@@ -137,13 +141,35 @@ void lcdMsg(const char* line1, const char* line2) {
     lcd.print(line2);
 }
 
+// Live countdown while a vend lockout is active: "LYRA - Locked" / "Wait Xs", ticking down
+// once per second on its own, no button press needed. Falls back to the idle screen once it expires.
+bool lcdWasLocked = false;
+int lcdLastStock = -1;
+bool lcdLastEmpty = false;
+bool lcdIdleDirty = true; // set true on boot so lcdIdle()'s first call always draws
+
+void lcdLockoutCountdown() {
+    bool locked = millis() < vendLockedUntil;
+    if (!locked) {
+        if (lcdWasLocked) lcdIdleDirty = true; // just expired - force the idle screen to redraw
+        lcdWasLocked = false;
+        return;
+    }
+    lcdWasLocked = true;
+
+    static unsigned long lastShownSec = 0xFFFFFFFF;
+    unsigned long remaining = (vendLockedUntil - millis()) / 1000 + 1;
+    if (remaining == lastShownSec) return;
+    lastShownSec = remaining;
+
+    char line2[17];
+    snprintf(line2, sizeof(line2), "Wait %lus", remaining);
+    lcdMsg("LYRA - Locked", line2);
+}
+
 // Branded idle screen: "LYRA - Ready"/stock, or "LYRA Enterprises"/"OUT OF STOCK" when empty.
 // Only rewrites when something actually changed, so it doesn't flicker every loop() tick.
 // lcdIdleDirty forces a redraw once (e.g. right after the WiFi screen was showing something else).
-int lcdLastStock = -1;
-bool lcdLastEmpty = false;
-bool lcdIdleDirty = true;
-
 void lcdIdle() {
     bool empty = (stock == 0);
     if (!lcdIdleDirty && stock == lcdLastStock && empty == lcdLastEmpty) return;
@@ -160,19 +186,24 @@ void lcdIdle() {
     }
 }
 
-// User-facing LED: solid = ready, slow blink = empty, (fast blink is driven separately during dispensing).
+// Single shared LED (this board has only one): solid = ready, slow blink = empty,
+// (fast blink is driven separately during dispensing, inside vendNapkin()).
 void updateUserLed() {
     if (stock == 0) {
-        digitalWrite(USER_LED, (millis() / 500) % 2);
+        digitalWrite(STATUS_LED, (millis() / 500) % 2);
     } else {
-        digitalWrite(USER_LED, HIGH);
+        digitalWrite(STATUS_LED, HIGH);
     }
 }
 
 void loop() {
     checkDayRollover();
     updateUserLed();
-    lcdIdle();
+    if (millis() < vendLockedUntil) {
+        lcdLockoutCountdown();
+    } else {
+        lcdIdle();
+    }
     handlePhysicalButtons();
 
     if (wasPressed(WIFI_BUTTON)) {
@@ -304,12 +335,7 @@ void runMotorTest() {
 
 void vendNapkin() {
     unsigned long now = millis();
-    if (now < vendLockedUntil) {
-        char line2[17];
-        snprintf(line2, sizeof(line2), "Wait %lus", (vendLockedUntil - now) / 1000 + 1);
-        lcdMsg("LYRA - Locked", line2);
-        return;
-    }
+    if (now < vendLockedUntil) return; // abuse lockout active - live countdown is already on the LCD
     if (now - lastVendMillis < VEND_COOLDOWN_MS) return; // cooldown guard
     if (stock == 0) {
         lcdMsg("LYRA Enterprises", "OUT OF STOCK");
@@ -335,7 +361,7 @@ void vendNapkin() {
     digitalWrite(RELAY_PIN, HIGH);
     unsigned long vendStart = millis();
     while (millis() - vendStart < VEND_RUN_MS) {
-        digitalWrite(USER_LED, (millis() / 150) % 2); // fast blink = dispensing, please wait
+        digitalWrite(STATUS_LED, (millis() / 150) % 2); // fast blink = dispensing, please wait
         delay(10);
     }
     digitalWrite(RELAY_PIN, LOW);
@@ -702,6 +728,11 @@ void runWifiExport() {
         server.handleClient();
         checkDayRollover();
         updateUserLed();
+        if (millis() < vendLockedUntil) {
+            lcdLockoutCountdown();
+        } else {
+            lcdIdle(); // no-ops unless something changed (e.g. lockout just expired), so it won't
+        }              // disturb the "WiFi On" screen during a normal dashboard session
         handlePhysicalButtons(); // machine keeps vending normally while the dashboard is open
         if (wasPressed(WIFI_BUTTON)) break;
     }

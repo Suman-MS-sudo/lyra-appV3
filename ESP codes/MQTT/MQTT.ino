@@ -82,10 +82,19 @@
 #endif
 
 // ==================== FIRMWARE VERSION ====================
-#define CURRENT_FIRMWARE_VERSION "V1.0.1"
+#define CURRENT_FIRMWARE_VERSION "V1.0.4"
 
 // ==================== WATCHDOG CONFIGURATION ====================
-#define WDT_TIMEOUT 1800  // Watchdog timeout in seconds (30 minutes)
+// 3 minutes, not 30: a hung network call (e.g. an Ethernet connect with no
+// timeout) would otherwise freeze coin/dispense handling for half an hour.
+// Every long blocking sequence (dispense, offline sync, OTA) feeds the
+// watchdog, so nothing legitimate should come close to this.
+#define WDT_TIMEOUT 180  // Watchdog timeout in seconds
+
+// Hopper capacity. The refill button, resetAllMotorStocks() and the EEPROM
+// read clamp all use this one value so they can't disagree. Change here if a
+// machine's hopper genuinely holds more.
+#define MAX_STOCK 25
 
 // ==================== PIN DEFINITIONS ====================
 #define EEPROM_SIZE 256
@@ -186,6 +195,43 @@ void markOtaBootValidIfNeeded() {
 // Defined much later in the file (with the rest of the payment-handling
 // code); declared here because the MQTT block below needs to call it and
 // sits earlier in the file than that definition.
+// Strips separators and case so "4c:c3:82:0b:ef:cc", "4C-C3-82-0B-EF-CC" and
+// "4CC3820BEFCC" all compare equal.
+String normalizeMac(const String& mac) {
+    String out;
+    for (size_t i = 0; i < mac.length(); i++) {
+        char c = mac[i];
+        if (isxdigit((unsigned char)c)) out += (char)toupper((unsigned char)c);
+    }
+    return out;
+}
+
+// Ring of the last few handled payment transaction IDs, kept in NVS so it
+// survives a reboot. MQTT delivery is at-least-once, so the same payment can
+// arrive twice; this is what stops a second dispense.
+Preferences txPrefs;
+#define TX_DEDUPE_SLOTS 8
+
+bool wasTransactionProcessed(const String& id) {
+    if (id.length() == 0 || id == "unknown") return false;
+    txPrefs.begin("lyra_tx", false);
+    bool found = false;
+    for (int i = 0; i < TX_DEDUPE_SLOTS && !found; i++) {
+        found = (txPrefs.getString(("t" + String(i)).c_str(), "") == id);
+    }
+    txPrefs.end();
+    return found;
+}
+
+void markTransactionProcessed(const String& id) {
+    if (id.length() == 0 || id == "unknown") return;
+    txPrefs.begin("lyra_tx", false);
+    uint8_t next = txPrefs.getUChar("next", 0) % TX_DEDUPE_SLOTS;
+    txPrefs.putString(("t" + String(next)).c_str(), id);
+    txPrefs.putUChar("next", (next + 1) % TX_DEDUPE_SLOTS);
+    txPrefs.end();
+}
+
 void handlePaymentDocument(JsonObject doc);
 
 #if defined(USE_MQTT_PAYMENT_PUSH)
@@ -208,6 +254,7 @@ EthernetClient mqttEthClient;
 WiFiClient mqttWifiClient;
 PubSubClient mqttClient(mqttWifiClient); // rebound to the right transport in maintainMqttConnection()
 unsigned long lastMqttReconnectAttempt = 0;
+unsigned long lastFallbackPaymentCheck = 0; // see the fallback poll in loop()
 
 void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     Serial.printf("📩 MQTT message on %s (%u bytes)\n", topic, length);
@@ -258,6 +305,11 @@ void maintainMqttConnection() {
     // into, so nothing we could receive gets dropped before it even
     // reaches JSON parsing.
     mqttClient.setBufferSize(2048);
+    // The default 15s keepalive lets the broker drop us after ~22s of silence,
+    // and a single dispense blocks for ~12s -- long enough that the connection
+    // can die mid-dispense and the payment gets redelivered. 90s leaves room
+    // for a multi-item order.
+    mqttClient.setKeepAlive(90);
 
     Serial.println("🔌 Connecting to MQTT broker...");
     // Persistent session (cleanSession=false, the final `false` below) so
@@ -276,6 +328,9 @@ void maintainMqttConnection() {
         String topic = "lyra/machines/" + machineId + "/payment";
         mqttClient.subscribe(topic.c_str(), 1); // QoS 1
         Serial.println("✅ MQTT connected, subscribed to " + topic);
+        // Catch-up poll right after every (re)connect, in case anything was
+        // missed while the link was down. Costs one request per reconnect.
+        lastFallbackPaymentCheck = millis() - 300001UL;
     } else {
         Serial.printf("⚠ MQTT connect failed, rc=%d (will retry)\n", mqttClient.state());
     }
@@ -298,7 +353,7 @@ EthernetClient ethClient;
 void notifyProductStockUpdate(const String& machine_id, const String& product_id, int quantity = 1, String mode = "");
 String fetchMachineInfoFromBackend(const String& mac);
 void fetchMachineProducts();
-void dispenseProductByMotor(String productId = "");
+bool dispenseProductByMotor(String productId = "");
 void listenForOnlinePayment();
 bool sendMachineStatusPing();
 bool isHTTPS(const String& url);
@@ -310,7 +365,6 @@ void sendStockAwareStatus();
 void sendStockAwareErrorStatus();
 void resetAllMotorStocks();
 bool macStringToBytes(const String &macStr, byte out[6]);
-float measureNetworkSpeed();
 void initializeWatchdog();
 void feedWatchdog();
 void maintainWiFiConnection();
@@ -343,6 +397,7 @@ void printPartitionInfo();
 int makeEthernetHTTPRequest(const String& url, const String& method = "GET", const String& payload = "", String* outBody = nullptr);
 bool initializeEthernet();
 void checkEthernetLinkStatus();
+void recoverEthernetIfDown();
 void printEthernetDiagnostics();
 void scanEthernetPins();
 void resetEthernetModule();
@@ -455,7 +510,7 @@ int readMotorStockFromEEPROM() {
         // is already stored there instead of losing it to a fresh, empty
         // byte at the new address.
         int legacyCount = EEPROM.read(MOTOR1_ADDR_LEGACY);
-        if (legacyCount < 0 || legacyCount > 25) legacyCount = 25;
+        if (legacyCount < 0 || legacyCount > MAX_STOCK) legacyCount = MAX_STOCK;
         EEPROM.write(MOTOR1_ADDR, legacyCount);
         EEPROM.write(MOTOR1_MIGRATED_ADDR, 0xAA);
         EEPROM.commit();
@@ -463,7 +518,7 @@ int readMotorStockFromEEPROM() {
     }
 
     int count = EEPROM.read(MOTOR1_ADDR);
-    if (count < 0 || count > 25) count = 25;
+    if (count < 0 || count > MAX_STOCK) count = MAX_STOCK;
     return count;
 }
 
@@ -472,8 +527,8 @@ String getCurrentFirmwareVersion() {
 }
 
 void resetAllMotorStocks() {
-    saveMotorStockToEEPROM(25, defaultProductId);
-    Serial.println("📦 All motor stocks reset to 25!");
+    saveMotorStockToEEPROM(MAX_STOCK, defaultProductId);
+    Serial.printf("📦 All motor stocks reset to %d!\n", MAX_STOCK);
     sendMachineStatusPing();  // Sync new stock to database
 }
 
@@ -620,6 +675,7 @@ void syncOfflineTransactions() {
             Serial.printf("⚠ Failed to sync transaction #%d: %d\n", i + 1, code);
         }
         
+        feedWatchdog();
         delay(500);  // Avoid overwhelming server
     }
     
@@ -1144,76 +1200,36 @@ float getESP32Temperature() {
     return tempC;
 }
 
-float measureNetworkSpeed() {
-    if (!isNetworkConnected()) return 0.0;
+// Speed shown on the dashboard is taken from the previous ping's own round
+// trip, so measuring it costs no extra request.
+float lastNetworkSpeedKBps = 0.0;
 
-    // Measure download speed with a lightweight test endpoint
-    // Use GET to fetch machine info (doesn't create side effects)
-    String testUrl = SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(deviceMacAddress);
-
-#ifdef USE_ETHERNET
-    if (useEthernet && ethernetConnected) {
-        testUrl = ETHERNET_SERVER_BASE + "/api/get-machine-id-from-mac?mac=" + urlEncode(deviceMacAddress);
-    }
-#endif
-
-    unsigned long startTime = millis();
-    String responseBody = "";
-    int code = makeHTTPRequest(testUrl, "GET", "", &responseBody);
-    unsigned long endTime = millis();
-
-    if (code <= 0 || responseBody.length() == 0) return 0.0;
-
-    // This endpoint's response also resolves machineId -- if the one-shot
-    // resolution at boot never succeeded, machineId gets stuck at "UNKNOWN"
-    // forever (nothing else retries it), which makes the server silently
-    // drop this machine's status pings, including stock_count. Since we're
-    // already making this call every ping cycle anyway, piggyback the
-    // resolution here at no extra network cost instead of discarding the body.
-    if (machineId == "UNKNOWN" || machineId.length() == 0) {
-        DynamicJsonDocument doc(640);
-        DeserializationError err = deserializeJson(doc, responseBody);
-        if (err) {
-            Serial.printf("⚠ Self-heal machineId resolution FAILED: JSON parse error (%s), will retry next ping cycle\n", err.c_str());
-        } else if (doc.containsKey("data") && doc["data"].containsKey("machine_id")) {
-            machineId = doc["data"]["machine_id"].as<String>();
-            machineName = doc["data"]["machine_name"].as<String>();
-            Serial.println("✅ Resolved machineId via speed-test response: " + machineId);
-            if (doc["data"].containsKey("device_secret")) {
-                saveDeviceSecret(doc["data"]["device_secret"].as<String>());
-            }
-            fetchMachineProducts();
-        } else {
-            Serial.println("⚠ Self-heal machineId resolution FAILED: response had no machine_id field, will retry next ping cycle");
-        }
-    }
-
-    // Calculate speed: bytes / time(s) / 1024 = KB/s
-    float timeMs = (float)(endTime - startTime);
-    if (timeMs == 0) timeMs = 1.0;
-
-    float speedKBps = (responseBody.length() / (timeMs / 1000.0)) / 1024.0;
-
-    Serial.printf("📊 Network speed: %.2f KB/s (%d bytes in %d ms)\n",
-                 speedKBps, responseBody.length(), (int)timeMs);
-
-    return speedKBps; // Returns KB/s
-}
+// Set from the ping response: true only when the server has this machine's
+// mqtt_payment_push flag on, i.e. it really pushes this machine's payments.
+// Stays false (fast 60s fallback poll) until the server says otherwise.
+bool mqttPushEnabled = false;
 
 bool sendMachineStatusPing() {
-    // Measure network speed and temperature
-    float networkSpeed = measureNetworkSpeed();
+    // Self-heal: if the boot-time identity lookup never succeeded, machineId
+    // stays UNKNOWN and the server silently ignores pings. Retry it here; this
+    // only costs a request while the identity is still unresolved.
+    if ((machineId == "UNKNOWN" || machineId.length() == 0) && isNetworkConnected()) {
+        fetchMachineInfoFromBackend(deviceMacAddress);
+        if (machineId != "UNKNOWN") fetchMachineProducts();
+    }
+
+    float networkSpeed = lastNetworkSpeedKBps;
     float temperature = getESP32Temperature();
-    
+
     // Read current stock from EEPROM (source of truth)
     int currentStock = readMotorStockFromEEPROM();
-    
+
     String payload;
     payload.reserve(224); // Called every ping cycle, forever -- avoid repeated regrows
     payload += "{";
     payload += "\"machine_id\":\"" + machineId + "\",";
     payload += "\"firmware_version\":\"" + String(CURRENT_FIRMWARE_VERSION) + "\",";
-    
+
     // Only send WiFi RSSI if using WiFi, otherwise send null
 #ifdef USE_ETHERNET
     if (useEthernet) {
@@ -1224,7 +1240,7 @@ bool sendMachineStatusPing() {
 #else
     payload += "\"wifi_rssi\":" + String(WiFi.RSSI()) + ",";
 #endif
-    
+
     payload += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
     payload += "\"uptime\":" + String(millis()) + ",";
     payload += "\"network_speed_kbps\":" + String(networkSpeed, 2) + ",";
@@ -1240,10 +1256,18 @@ bool sendMachineStatusPing() {
 #endif
 
     String responseBody = "";
+    unsigned long pingStart = millis();
     int code = makeHTTPRequest(url, "POST", payload, &responseBody);
+    unsigned long pingMs = millis() - pingStart;
 
     if (code == 200) {
         Serial.printf("✅ Machine ping successful (Stock: %d)\n", currentStock);
+
+        if (pingMs > 0 && responseBody.length() > 0) {
+            lastNetworkSpeedKBps = (responseBody.length() / (pingMs / 1000.0)) / 1024.0;
+            Serial.printf("📊 Network speed: %.2f KB/s (%d bytes in %lu ms)\n",
+                          lastNetworkSpeedKBps, responseBody.length(), pingMs);
+        }
 
         // A successful ping proves this boot's firmware can actually reach
         // the server -- safe to cancel the OTA rollback now. If this line
@@ -1253,15 +1277,26 @@ bool sendMachineStatusPing() {
 
         if (responseBody.length() > 0) {
             DynamicJsonDocument doc(768);
-            if (!deserializeJson(doc, responseBody) && doc["update_available"] == true) {
-                String deploymentId = doc["deployment_id"].as<String>();
-                String firmwareVersion = doc["firmware_version"].as<String>();
-                String firmwareSha256 = doc["firmware_sha256"].as<String>();
+            if (!deserializeJson(doc, responseBody)) {
+                if (doc.containsKey("mqtt_payment_push")) {
+                    bool enabled = doc["mqtt_payment_push"] | false;
+                    if (enabled != mqttPushEnabled) {
+                        mqttPushEnabled = enabled;
+                        Serial.println(enabled ? "📡 Server pushes this machine's payments over MQTT"
+                                               : "📡 Server does NOT push payments to this machine -- polling stays fast");
+                    }
+                }
 
-                if (deviceSecret.length() == 0) {
-                    Serial.println("⚠ Update available but no device_secret yet -- skipping until next ping");
-                } else if (deploymentId.length() > 0 && firmwareSha256.length() > 0) {
-                    performOTAUpdate(deploymentId, firmwareVersion, firmwareSha256);
+                if (doc["update_available"] == true) {
+                    String deploymentId = doc["deployment_id"].as<String>();
+                    String firmwareVersion = doc["firmware_version"].as<String>();
+                    String firmwareSha256 = doc["firmware_sha256"].as<String>();
+
+                    if (deviceSecret.length() == 0) {
+                        Serial.println("⚠ Update available but no device_secret yet -- skipping until next ping");
+                    } else if (deploymentId.length() > 0 && firmwareSha256.length() > 0) {
+                        performOTAUpdate(deploymentId, firmwareVersion, firmwareSha256);
+                    }
                 }
             }
         }
@@ -1605,42 +1640,65 @@ void notifyProductStockUpdate(const String& machine_id, const String& product_id
 
 // ==================== DISPENSE FUNCTIONS ====================
 
-void dispenseProductByMotor(String productId) {
+// Sleeps in short slices so a long blocking sequence (a multi-item dispense
+// is ~12s per item) keeps feeding the watchdog instead of tripping it.
+void delayFeed(unsigned long ms) {
+    unsigned long start = millis();
+    unsigned long elapsed;
+    while ((elapsed = millis() - start) < ms) {
+        feedWatchdog();
+        unsigned long remaining = ms - elapsed;
+        delay(remaining < 500 ? remaining : 500);
+    }
+    feedWatchdog();
+}
+
+bool dispenseProductByMotor(String productId) {
     int stock = readMotorStockFromEEPROM();
     if (stock <= 0) {
         Serial.println("❌ Motor out of stock!");
         Serial2.print("9");
-        return;
+        return false;
     }
-    
+
     Serial.printf("🔄 Activating motor... (Stock before: %d)\n", stock);
     pinMode(TRANSISTOR_BASE, OUTPUT);
     digitalWrite(TRANSISTOR_BASE, HIGH);
-    delay(2830);
+    delayFeed(2830);
     digitalWrite(TRANSISTOR_BASE, LOW);
-    
+
     saveMotorStockToEEPROM(stock - 1, productId);
     Serial.printf("✅ Motor stopped! New stock: %d\n", stock - 1);
+    return true;
 }
 
-void dispenseAsCoinSequence(String productId = "") {
+// Returns false (and shows "out of stock" instead of a false "Thank You")
+// when there is nothing to dispense.
+bool dispenseAsCoinSequence(String productId = "") {
+    if (readMotorStockFromEEPROM() <= 0) {
+        Serial.println("❌ Cannot dispense: machine is out of stock");
+        Serial2.print("9");
+        return false;
+    }
+
     Serial.println("📺 Display: Dispensing (3)");
     Serial2.print("3");
     digitalWrite(BLUE_LED_PIN, LOW);
     delay(100);
     digitalWrite(BLUE_LED_PIN, HIGH);
-    delay(2900);
-    
-    dispenseProductByMotor(productId);
-    
+    delayFeed(2900);
+
+    bool ok = dispenseProductByMotor(productId);
+
     Serial.println("📺 Display: Thank You (1)");
     Serial2.print("1");
-    delay(3000);
+    delayFeed(3000);
     Serial.println("📺 Display: Please Take (5)");
     Serial2.print("5");
-    delay(3000);
-    
+    delayFeed(3000);
+
     sendStockAwareStatus();
+    return ok;
 }
 
 // ==================== PAYMENT FUNCTIONS ====================
@@ -1648,19 +1706,30 @@ void dispenseAsCoinSequence(String productId = "") {
 void handlePaymentDocument(JsonObject doc) {
     String status = doc["status"] | "";
     if (status != "success" && status != "ok") return;
-    
+
+    // The server sends mac_id exactly as an admin typed it (any case/separator),
+    // so compare normalized forms -- an exact match would silently drop a paid
+    // order the server has already marked as dispensed.
     String macFromServer = doc["macAddress"] | doc["mac"] | "";
-    if (macFromServer.length() > 0 && macFromServer != deviceMacAddress) {
-        Serial.println("⚠ MAC mismatch");
+    if (macFromServer.length() > 0 && normalizeMac(macFromServer) != normalizeMac(deviceMacAddress)) {
+        Serial.println("⚠ MAC mismatch (payment for " + macFromServer + ", this device is " + deviceMacAddress + ")");
         return;
     }
-    
+
     // Extract payment details for logging
     String transactionId = doc["transactionId"] | "unknown";
     String razorpayOrderId = doc["razorpayOrderId"] | "unknown";
     String razorpayPaymentId = doc["razorpayPaymentId"] | "unknown";
     float amount = doc["amount"] | 0.0;
-    
+
+    // MQTT QoS 1 is at-least-once: the broker re-sends a payment that was never
+    // acknowledged (dropped connection, reboot mid-dispense). Never dispense the
+    // same transaction twice.
+    if (wasTransactionProcessed(transactionId)) {
+        Serial.println("⚠ Duplicate payment ignored, already handled: " + transactionId);
+        return;
+    }
+
     Serial.println("\n========================================");
     Serial.println("✅ ONLINE PAYMENT RECEIVED!");
     Serial.println("========================================");
@@ -1669,40 +1738,59 @@ void handlePaymentDocument(JsonObject doc) {
     Serial.printf("💰 Payment ID: %s\n", razorpayPaymentId.c_str());
     Serial.printf("₹  Amount: ₹%.2f\n", amount);
     Serial.println("========================================\n");
-    
+
+    int paidItems = 0;
+    int dispensedItems = 0;
+
     JsonArray products = doc["products"];
     if (!products.isNull()) {
-        int totalItems = 0;
         Serial.println("📦 Products to dispense:");
-        
+
         for (JsonObject item : products) {
             JsonObject product = item["product"];
             String productId = product["id"] | "";
             String productName = product["name"] | "Unknown";
             int quantity = item["quantity"] | 1;
             float price = item["price"] | 0.0;
-            
+
             Serial.printf("   - %s x%d (₹%.2f each)\n", productName.c_str(), quantity, price);
             Serial.printf("   📋 Product ID: %s\n", productId.c_str());
-            totalItems += quantity;
-            
+            paidItems += quantity;
+
             // Dispense each quantity
             for (int i = 0; i < quantity; i++) {
                 Serial.printf("\n🎰 Dispensing item %d/%d: %s\n", i + 1, quantity, productName.c_str());
-                dispenseAsCoinSequence(productId);
-                Serial.println("✅ Item dispensed successfully!");
-                delay(500);
+                if (dispenseAsCoinSequence(productId)) {
+                    dispensedItems++;
+                    Serial.println("✅ Item dispensed successfully!");
+                } else {
+                    Serial.println("❌ Item NOT dispensed (out of stock)");
+                }
+                delayFeed(500);
             }
         }
-        
-        Serial.println("\n========================================");
-        Serial.printf("🎉 COMPLETED! Dispensed %d item(s)\n", totalItems);
-        Serial.println("========================================\n");
     } else {
         Serial.println("📦 Dispensing single item (no product details)");
-        dispenseAsCoinSequence("");
-        Serial.println("✅ Dispensing completed!\n");
+        paidItems = 1;
+        if (dispenseAsCoinSequence("")) {
+            dispensedItems = 1;
+            Serial.println("✅ Dispensing completed!");
+        } else {
+            Serial.println("❌ Item NOT dispensed (out of stock)");
+        }
     }
+
+    Serial.println("\n========================================");
+    if (dispensedItems == paidItems) {
+        Serial.printf("🎉 COMPLETED! Dispensed %d item(s)\n", dispensedItems);
+    } else {
+        Serial.printf("⚠ PAID BUT NOT FULLY DISPENSED: %d of %d item(s), transaction %s -- needs a manual refund\n",
+                      dispensedItems, paidItems, transactionId.c_str());
+    }
+    Serial.println("========================================\n");
+
+    // Recorded even on a shortfall so a redelivery can't dispense the remainder later.
+    markTransactionProcessed(transactionId);
 }
 
 void listenForOnlinePayment() {
@@ -2108,7 +2196,7 @@ void setup() {
     // pushing a V1.0.1 deployment through /admin/firmware is a clear,
     // unambiguous confirmation the OTA update actually took (not just a
     // version string that could be misread/stale in the IDE's monitor).
-    Serial.println("🆕 OTA VERIFICATION MARKER: running V1.0.1 -- if you see this, the OTA update succeeded!");
+    Serial.println("🆕 OTA VERIFICATION MARKER: running V1.0.4 -- if you see this, the OTA update succeeded!");
     
     // Initialize watchdog timer for automatic recovery
     initializeWatchdog();
@@ -2251,6 +2339,7 @@ void loop() {
     
 #ifdef USE_ETHERNET
     checkEthernetLinkStatus();
+    recoverEthernetIfDown();
 #endif
     
     // Monitor and maintain WiFi connection every 30 seconds
@@ -2377,7 +2466,7 @@ void loop() {
     static unsigned long lastResetDebounce = 0;
     if (digitalRead(RESET_PIN) == LOW && millis() - lastResetDebounce > 300) {
         lastResetDebounce = millis();
-        saveMotorStockToEEPROM(30, defaultProductId);
+        saveMotorStockToEEPROM(MAX_STOCK, defaultProductId);
         Serial2.print("8");
         delay(1000);
         sendStockAwareStatus();
@@ -2414,8 +2503,14 @@ void loop() {
     // dispensed the instant either path claims it, so there's no
     // double-dispense risk from having both active at once -- whichever
     // gets there first wins, the other just finds nothing pending.
-    static unsigned long lastFallbackPaymentCheck = 0;
-    if (millis() - lastFallbackPaymentCheck > 60000) {
+    //
+    // Poll interval: 300s only when the server has confirmed it pushes this
+    // machine's payments (mqtt_payment_push, reported in the ping response) AND
+    // MQTT is connected right now. In every other case -- flag off or unknown,
+    // MQTT down, an older server -- it stays at 60s, so a misconfiguration can
+    // never leave a paid customer waiting on the slow interval.
+    unsigned long fallbackInterval = (mqttPushEnabled && mqttClient.connected()) ? 300000UL : 60000UL;
+    if (millis() - lastFallbackPaymentCheck > fallbackInterval) {
         if (isNetworkConnected()) {
             listenForOnlinePayment();
         }
@@ -2719,6 +2814,42 @@ void checkEthernetLinkStatus() {
         
         lastCheck = millis();
     }
+}
+
+// A failed server connect flips useEthernet off, and nothing else ever turns it
+// back on -- an Ethernet-only machine with no WiFi credentials would stay
+// offline until power-cycled. While the machine has no network at all, redo the
+// full Ethernet bring-up every couple of minutes.
+void recoverEthernetIfDown() {
+    static unsigned long lastAttempt = 0;
+    if (useEthernet || WiFi.status() == WL_CONNECTED) return;
+    if (millis() - lastAttempt < 120000) return;
+    lastAttempt = millis();
+
+    Serial.println("\n🔁 No network -- attempting Ethernet recovery...");
+    feedWatchdog();
+    if (!initializeEthernet()) {
+        Serial.println("❌ Ethernet recovery failed, will retry in 2 minutes");
+        feedWatchdog();
+        return;
+    }
+    feedWatchdog();
+    SERVER_BASE = ETHERNET_SERVER_BASE;
+
+#if defined(USE_MQTT_PAYMENT_PUSH)
+    // Drop any stale MQTT socket from before the outage so it reconnects cleanly.
+    mqttEthClient.stop();
+    mqttClient.disconnect();
+#endif
+
+    if (machineId == "UNKNOWN" || machineId.length() == 0) fetchMachineInfoFromBackend(deviceMacAddress);
+    if (machineId != "UNKNOWN" && defaultProductId.length() == 0) fetchMachineProducts();
+    feedWatchdog();
+    syncOfflineTransactions();
+    sendMachineStatusPing();
+    lastPingTime = millis();
+    sendStockAwareStatus();
+    Serial.println("✅ Ethernet recovered");
 }
 
 void printEthernetDiagnostics() {
