@@ -11,8 +11,8 @@ interface Props {
 }
 
 const MODAL: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
 };
 
@@ -41,7 +41,7 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
         onClick={() => setShowConfirm(true)}
         className="p-2 rounded-lg transition-colors hover:bg-white/10"
         title="Delete organization"
-        style={{ color: '#c8102e' }}
+        style={{ color: 'var(--danger)' }}
         disabled={isDeleting}
       >
         <Trash2 className="w-4 h-4" />
@@ -56,14 +56,14 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
           <div className="w-full max-w-lg p-6" style={MODAL} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4 mb-6">
               <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }}>
-                <AlertTriangle className="h-6 w-6" style={{ color: '#c8102e' }} />
+                <AlertTriangle className="h-6 w-6" style={{ color: 'var(--danger)' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-[#1d1d1f] mb-2">Delete Organization?</h3>
-                <p className="text-sm mb-2" style={{ color: '#3a3a3c' }}>
-                  Are you sure you want to delete <strong className="text-[#1d1d1f]">{orgName}</strong>?
+                <h3 className="text-lg font-semibold text-[var(--fg)] mb-2">Delete Organization?</h3>
+                <p className="text-sm mb-2" style={{ color: 'var(--fg-2)' }}>
+                  Are you sure you want to delete <strong className="text-[var(--fg)]">{orgName}</strong>?
                 </p>
-                <p className="text-sm font-medium" style={{ color: '#c8102e' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
                   This action cannot be undone.
                 </p>
               </div>
@@ -71,7 +71,7 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
 
             {error && (
               <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
-                <p className="text-sm" style={{ color: '#c8102e' }}>{error}</p>
+                <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
               </div>
             )}
 
@@ -79,15 +79,15 @@ export function DeleteOrganizationButton({ orgId, orgName }: Props) {
               <button
                 onClick={() => { setShowConfirm(false); setError(null); }}
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
                 disabled={isDeleting}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+                className="px-4 py-2 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete Organization'}

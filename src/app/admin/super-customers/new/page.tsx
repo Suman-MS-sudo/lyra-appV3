@@ -4,22 +4,25 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createSuperCustomer } from '@/app/actions/super-customer';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface-2)',
+  border: '1px solid var(--line)',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#1d1d1f' };
+const LABEL: React.CSSProperties = { color: 'var(--fg)' };
 
 export default async function NewSuperCustomerPage() {
   const supabase = await createClient();
@@ -41,22 +44,19 @@ export default async function NewSuperCustomerPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#1d1d1f]">Add Super Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Create a new organization account</p>
-      </div>
+      <PageHeader title="Add Super Customer" subtitle="Create a new organization account" />
 
-      <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}>
-        <p className="text-sm" style={{ color: '#93C5FD' }}>
+      <div className="rounded-xl px-4 py-3" style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-soft)' }}>
+        <p className="text-sm" style={{ color: 'var(--accent-ink)' }}>
           A password reset email will be automatically sent to the super customer's email address. They will set their own password using the secure link.
         </p>
       </div>
 
       <form action={createSuperCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
         {/* Account section */}
-        <div className="pb-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Account Information</h3>
-          <p className="text-sm" style={{ color: '#6e6e73' }}>Login credentials for the super customer</p>
+        <div className="pb-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-0.5">Account Information</h3>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>Login credentials for the super customer</p>
         </div>
 
         <div>
@@ -68,11 +68,11 @@ export default async function NewSuperCustomerPage() {
             id="email"
             name="email"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="super@company.com"
           />
-          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Super customer will receive a password reset link at this email</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Super customer will receive a password reset link at this email</p>
         </div>
 
         <div>
@@ -84,16 +84,16 @@ export default async function NewSuperCustomerPage() {
             id="full_name"
             name="full_name"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="John Doe"
           />
         </div>
 
         {/* Organization section */}
-        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Organization Details</h3>
-          <p className="text-sm" style={{ color: '#6e6e73' }}>Information about the organization</p>
+        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-0.5">Organization Details</h3>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>Information about the organization</p>
         </div>
 
         <div>
@@ -105,7 +105,7 @@ export default async function NewSuperCustomerPage() {
             id="org_name"
             name="org_name"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="ACME Corporation"
           />
@@ -119,7 +119,7 @@ export default async function NewSuperCustomerPage() {
             type="email"
             id="org_email"
             name="org_email"
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="contact@company.com"
           />
@@ -133,7 +133,7 @@ export default async function NewSuperCustomerPage() {
             type="tel"
             id="org_phone"
             name="org_phone"
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="+91 98765 43210"
           />
@@ -147,7 +147,7 @@ export default async function NewSuperCustomerPage() {
             id="org_address"
             name="org_address"
             rows={3}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="123 Business St, City, State, ZIP"
           />
@@ -157,14 +157,14 @@ export default async function NewSuperCustomerPage() {
           <Link
             href="/admin/super-customers"
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
           >
             Cancel
           </Link>
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+            className="flex-1 px-4 py-2.5 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Create Super Customer
           </button>

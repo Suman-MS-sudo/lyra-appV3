@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { MachineForm } from '@/components/MachineForm';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 export default async function NewMachinePage() {
@@ -35,10 +37,7 @@ export default async function NewMachinePage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Add Vending Machine</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Create a new vending machine with organization and product mapping</p>
-      </div>
+      <PageHeader title="Add Vending Machine" subtitle="Create a new vending machine with organization and product mapping" />
       <MachineForm organizations={organizations || []} products={products || []} />
     </main>
   );

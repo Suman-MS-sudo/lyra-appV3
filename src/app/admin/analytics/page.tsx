@@ -1,32 +1,29 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { TrendingUp, ShoppingCart, Package, Users, DollarSign, Activity, Building2 } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Users, DollarSign, Activity, Building2 } from 'lucide-react';
+import { AreaChart, BarList, PageHeader, Panel, Radar, RingStat, StatTile, dailySeries, inr, type Tone } from '@/components/ui/kit';
+
+// Start of the 14-day window (module-level so the component body stays pure)
+const sinceIso = () => Date.now() - 14 * 86_400_000;
 
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 function StatCard({
-  icon: Icon, label, value, sub, accentColor, iconBg,
+  icon, label, value, sub, accentColor,
 }: {
   icon: React.ElementType; label: string; value: string; sub?: string;
-  accentColor: string; iconBg: string;
+  accentColor: string; iconBg?: string;
 }) {
-  return (
-    <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-      <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: iconBg, opacity: 0.15 }} />
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
-        <Icon className="w-5 h-5" style={{ color: accentColor }} />
-      </div>
-      <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
-      <p className="text-2xl font-bold text-[#1d1d1f]">{value}</p>
-      {sub && <p className="text-xs mt-1 truncate" style={{ color: accentColor }}>{sub}</p>}
-    </div>
-  );
+  const tone: Tone = accentColor.includes('success') ? 'mint' : accentColor.includes('warning') ? 'butter' : accentColor.includes('muted') ? 'lilac' : 'sky';
+  return <StatTile tone={tone} icon={icon} label={label} value={value} sub={sub} />;
 }
 
 export default async function AnalyticsPage() {
@@ -90,6 +87,27 @@ export default async function AnalyticsPage() {
       .limit(100),
     serviceSupabase.from('vending_machines').select('customer_name, name'),
   ]);
+
+  // Last 14 days of amounts for the trend chart and payment mix
+  const since = new Date(sinceIso()).toISOString();
+  const [{ data: trendOnline }, { data: trendCoin }, { data: trendRfid }] = await Promise.all([
+    serviceSupabase.from('transactions').select('created_at, total_amount').eq('payment_status', 'paid').gte('created_at', since),
+    serviceSupabase.from('coin_payments').select('created_at, amount_in_paisa').gte('created_at', since),
+    serviceSupabase.from('rfid_payments').select('created_at, amount_in_paisa').gte('created_at', since),
+  ]);
+  const onlineTrendRows = (trendOnline || []).map((r: { created_at: string; total_amount: string | number }) => ({ at: r.created_at, amount: Number(r.total_amount) || 0 }));
+  const coinTrendRows = (trendCoin || []).map((r: { created_at: string; amount_in_paisa: number }) => ({ at: r.created_at, amount: (r.amount_in_paisa || 0) / 100 }));
+  const rfidTrendRows = (trendRfid || []).map((r: { created_at: string; amount_in_paisa: number }) => ({ at: r.created_at, amount: (r.amount_in_paisa || 0) / 100 }));
+  const trend = dailySeries([...onlineTrendRows, ...coinTrendRows, ...rfidTrendRows], 14);
+  const sum = (rows: { amount: number }[]) => rows.reduce((t, r) => t + r.amount, 0);
+  const mixOnline = sum(onlineTrendRows), mixCoin = sum(coinTrendRows), mixRfid = sum(rfidTrendRows);
+  const mixTotal = mixOnline + mixCoin + mixRfid;
+  // Busiest weekdays (IST) over the same 14 days
+  const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const byWeekday = WEEK.map((label) => ({ label, value: 0 }));
+  for (const r of [...onlineTrendRows, ...coinTrendRows, ...rfidTrendRows]) {
+    byWeekday[(new Date(new Date(r.at).getTime() + 5.5 * 3_600_000).getUTCDay() + 6) % 7].value += r.amount;
+  }
 
   // Build combined recent transactions (online + coin), sorted by date
   const onlineRows = (recentTransactions || []).map((tx: any) => ({
@@ -219,160 +237,81 @@ export default async function AnalyticsPage() {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
-  const ACCENT_COLORS = ['#0071e3', '#6e6e73', '#1d7a3c', '#9a6400', '#0071e3', '#0071e3'];
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-      {/* Page title */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1d1d1f]">Analytics</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Comprehensive business insights and trends</p>
-        </div>
-        <div
-          className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
-          style={{ background: 'rgba(29,122,60,0.12)', border: '1px solid rgba(29,122,60,0.12)', color: '#1d7a3c' }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Live data
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Insights"
+        title="Analytics"
+        subtitle="Revenue trends, payment mix and performance across every organization"
+        actions={<span className="db-live"><span className="db-live-dot" />Live data</span>}
+      />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={DollarSign} label="Total Revenue" value={`₹${totalRevenue.toFixed(2)}`} accentColor="#1d7a3c" iconBg="rgba(29,122,60,0.12)"
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 ui-statrow">
+        <StatCard icon={DollarSign} label="Total Revenue" value={`₹${totalRevenue.toFixed(2)}`} accentColor="var(--success)" iconBg="rgba(29,122,60,0.12)"
           sub={`₹${onlineRevenue.toFixed(2)} online + ₹${coinRevenue.toFixed(2)} coin + ₹${rfidRevenue.toFixed(2)} rfid`} />
-        <StatCard icon={ShoppingCart} label="Transactions" value={String((totalTransactions || 0) + (totalCoinPayments || 0) + (totalRfidPayments || 0))} accentColor="#0071e3" iconBg="rgba(0,113,227,0.10)"
+        <StatCard icon={ShoppingCart} label="Transactions" value={String((totalTransactions || 0) + (totalCoinPayments || 0) + (totalRfidPayments || 0))} accentColor="var(--accent)" iconBg="var(--accent-soft)"
           sub={`${totalTransactions || 0} online · ${totalCoinPayments || 0} coin · ${totalRfidPayments || 0} rfid`} />
-        <StatCard icon={Activity} label="Total Machines" value={String(totalMachines || 0)} accentColor="#6e6e73" iconBg="rgba(0,0,0,0.04)"
+        <StatCard icon={Activity} label="Total Machines" value={String(totalMachines || 0)} accentColor="var(--muted)" iconBg="rgba(0,0,0,0.04)"
           sub={`${organizationMachineList.length} organizations`} />
-        <StatCard icon={Building2} label="Organizations" value={String(totalCustomers || 0)} accentColor="#9a6400" iconBg="rgba(154,100,0,0.12)"
+        <StatCard icon={Building2} label="Organizations" value={String(totalCustomers || 0)} accentColor="var(--warning)" iconBg="rgba(154,100,0,0.12)"
           sub="Customer organizations" />
       </div>
 
-      {/* Machines by Organization */}
-      <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="flex items-center gap-2 px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <Building2 className="w-4 h-4" style={{ color: '#6e6e73' }} />
-          <div>
-            <h2 className="font-semibold text-[#1d1d1f]">Machines by Organization</h2>
-            <p className="text-xs" style={{ color: '#86868b' }}>Machine distribution across customer organizations</p>
-          </div>
-        </div>
-        <div className="p-5">
-          {organizationMachineList.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {organizationMachineList.map((org, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-4 rounded-xl"
-                  style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-[#1d1d1f] text-sm truncate">{org.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>Customer organization</p>
-                  </div>
-                  <div
-                    className="ml-3 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
-                    style={{ background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }}
-                  >
-                    {org.count}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center py-8 text-sm" style={{ color: '#a1a1a6' }}>No machine data available</p>
-          )}
-        </div>
+      {/* 14-day revenue trend + payment mix */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-5">
+        <Panel title="Revenue — last 14 days">
+          <AreaChart points={trend} format={(n) => inr(n)} />
+        </Panel>
+        <Panel title="Busiest days">
+          <Radar axes={byWeekday} />
+          <p className="text-xs text-center text-[var(--muted)] -mt-1">Revenue by weekday · last 14 days</p>
+        </Panel>
       </div>
 
-      {/* Top Products + Machine Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
-        <div className="rounded-2xl overflow-hidden" style={CARD}>
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-            <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-              <Package className="w-4 h-4" style={{ color: '#0071e3' }} />
-              Top Products
-            </h2>
-          </div>
-          <div className="p-5 space-y-2">
-            {topProductsList.length > 0 ? topProductsList.map((product, i) => (
-              <div
-                key={i}
-                className="card-hover flex items-center justify-between p-3 rounded-xl"
-              >
-                <div>
-                  <p className="font-medium text-[#1d1d1f] text-sm">{product.name}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>{product.count} sales</p>
-                </div>
-                <span className="font-bold text-sm" style={{ color: '#1d7a3c' }}>₹{product.revenue.toFixed(2)}</span>
-              </div>
-            )) : (
-              <p className="text-center py-8 text-sm" style={{ color: '#a1a1a6' }}>No product data available</p>
-            )}
-          </div>
-        </div>
+      {/* Payment mix as ring statistics (reference "Statistics") */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <RingStat label="UPI / Online" sub={inr(mixOnline)} value={Math.round(mixOnline)} max={Math.max(Math.round(mixTotal), 1)} />
+        <RingStat label="Coin" sub={inr(mixCoin)} value={Math.round(mixCoin)} max={Math.max(Math.round(mixTotal), 1)} tone="warn" />
+        <RingStat label="RFID" sub={inr(mixRfid)} value={Math.round(mixRfid)} max={Math.max(Math.round(mixTotal), 1)} tone="bad" />
+      </div>
 
-        {/* Machine Performance */}
-        <div className="rounded-2xl overflow-hidden" style={CARD}>
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-            <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-              <Activity className="w-4 h-4" style={{ color: '#6e6e73' }} />
-              Machine Performance
-            </h2>
-            <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>Transaction count by machine</p>
-          </div>
-          <div className="p-5 space-y-4">
-            {machineRevenue.length > 0 ? machineRevenue.slice(0, 10).map((machine: any, i: number) => {
-              const maxCount = Math.max(...machineRevenue.map((m: any) => m.count), 1);
-              const pct = (machine.count / maxCount) * 100;
-              const color = ACCENT_COLORS[i % ACCENT_COLORS.length];
-              return (
-                <div key={i}>
-                  <div className="flex items-center justify-between text-sm mb-1.5">
-                    <span className="text-[#1d1d1f] font-medium truncate max-w-40">{machine.name}</span>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span style={{ color: '#6e6e73' }}>{machine.count} txn</span>
-                      <span className="font-semibold" style={{ color }}>₹{machine.revenue.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#f5f5f7' }}>
-                    <div
-                      className="h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.max(pct, 4)}%`, background: color }}
-                    />
-                  </div>
-                </div>
-              );
-            }) : (
-              <p className="text-center py-8 text-sm" style={{ color: '#a1a1a6' }}>No machine data available</p>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Panel title="Machines by organization">
+          <BarList items={organizationMachineList.map((o) => ({ label: o.name, value: o.count }))} format={(n) => `${n} machine${n === 1 ? '' : 's'}`} />
+        </Panel>
+        <Panel title="Top products">
+          <BarList items={topProductsList.map((p) => ({ label: p.name, value: p.revenue, sub: `${p.count} sales` }))} format={(n) => inr(n, 2)} />
+        </Panel>
+        <Panel title="Machine performance">
+          <BarList
+            items={[...machineRevenue].sort((x: any, y: any) => y.revenue - x.revenue).slice(0, 10).map((m: any) => ({ label: m.name, value: m.revenue, sub: `${m.count} txn` }))}
+            format={(n) => inr(n, 2)}
+          />
+        </Panel>
       </div>
 
       {/* Purchase by Organization */}
       <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <Users className="w-4 h-4" style={{ color: '#0071e3' }} />
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
+            <Users className="w-4 h-4" style={{ color: 'var(--accent-ink)' }} />
             Purchase by Organization
           </h2>
-          <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>Revenue breakdown by customer organization</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--subtle)' }}>Revenue breakdown by customer organization</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
+              <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
                 {['Organization', 'Online', 'Coin', 'RFID', 'Total', 'Online Rev', 'Coin Rev', 'RFID Rev', 'Total Rev'].map((h, i) => (
                   <th
                     key={h}
                     className={`py-2.5 px-4 text-xs font-semibold uppercase tracking-wide ${
                       i === 0 ? 'text-left' : i < 4 ? 'text-center' : 'text-right'
                     }`}
-                    style={{ color: '#86868b' }}
+                    style={{ color: 'var(--subtle)' }}
                   >{h}</th>
                 ))}
               </tr>
@@ -385,30 +324,30 @@ export default async function AnalyticsPage() {
                   <tr
                     key={i}
                     className="row-hover"
-                    style={{ borderBottom: '1px solid #f5f5f7' }}
+                    style={{ borderBottom: '1px solid var(--surface-2)' }}
                   >
-                    <td className="py-3 px-4 font-medium text-[#1d1d1f]">{org.name}</td>
+                    <td className="py-3 px-4 font-medium text-[var(--fg)]">{org.name}</td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(0,113,227,0.10)', color: '#0071e3' }}>{org.onlineCount}</span>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}>{org.onlineCount}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>{org.coinCount}</span>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(154,100,0,0.12)', color: 'var(--warning)' }}>{org.coinCount}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }}>{org.rfidCount}</span>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--muted)' }}>{org.rfidCount}</span>
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: '#f5f5f7', color: '#3a3a3c' }}>{totalPurchases}</span>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'var(--surface-2)', color: 'var(--fg-2)' }}>{totalPurchases}</span>
                     </td>
-                    <td className="py-3 px-4 text-right" style={{ color: '#0071e3' }}>₹{org.onlineRevenue.toFixed(2)}</td>
-                    <td className="py-3 px-4 text-right" style={{ color: '#9a6400' }}>₹{org.coinRevenue.toFixed(2)}</td>
-                    <td className="py-3 px-4 text-right" style={{ color: '#6e6e73' }}>₹{org.rfidRevenue.toFixed(2)}</td>
-                    <td className="py-3 px-4 text-right font-bold" style={{ color: '#1d7a3c' }}>₹{orgTotal.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right" style={{ color: 'var(--accent-ink)' }}>₹{org.onlineRevenue.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right" style={{ color: 'var(--warning)' }}>₹{org.coinRevenue.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right" style={{ color: 'var(--muted)' }}>₹{org.rfidRevenue.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right font-bold" style={{ color: 'var(--success)' }}>₹{orgTotal.toFixed(2)}</td>
                   </tr>
                 );
               }) : (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-sm" style={{ color: '#a1a1a6' }}>No organization data available</td>
+                  <td colSpan={9} className="py-12 text-center text-sm" style={{ color: 'var(--subtle)' }}>No organization data available</td>
                 </tr>
               )}
             </tbody>
@@ -418,23 +357,23 @@ export default async function AnalyticsPage() {
 
       {/* Recent Transactions */}
       <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" style={{ color: '#1d7a3c' }} />
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" style={{ color: 'var(--success)' }} />
             Recent Transactions
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
+              <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
                 {['Date', 'Machine', 'Product', 'Type', 'Amount', 'Status'].map((h, i) => (
                   <th
                     key={h}
                     className={`py-2.5 px-4 text-xs font-semibold uppercase tracking-wide ${
                       i < 3 ? 'text-left' : i === 3 ? 'text-center' : i === 4 ? 'text-right' : 'text-center'
                     }`}
-                    style={{ color: '#86868b' }}
+                    style={{ color: 'var(--subtle)' }}
                   >{h}</th>
                 ))}
               </tr>
@@ -444,35 +383,35 @@ export default async function AnalyticsPage() {
                 <tr
                   key={`${tx.type}-${tx.id}`}
                   className="row-hover"
-                  style={{ borderBottom: '1px solid #f5f5f7' }}
+                  style={{ borderBottom: '1px solid var(--surface-2)' }}
                 >
-                  <td className="py-3 px-4" style={{ color: '#6e6e73' }}>{new Date(tx.created_at).toLocaleDateString('en-IN')}</td>
-                  <td className="py-3 px-4 font-medium text-[#1d1d1f]">{tx.machineName}</td>
-                  <td className="py-3 px-4" style={{ color: '#6e6e73' }}>{tx.productName}</td>
+                  <td className="py-3 px-4" style={{ color: 'var(--muted)' }}>{new Date(tx.created_at).toLocaleDateString('en-IN')}</td>
+                  <td className="py-3 px-4 font-medium text-[var(--fg)]">{tx.machineName}</td>
+                  <td className="py-3 px-4" style={{ color: 'var(--muted)' }}>{tx.productName}</td>
                   <td className="py-3 px-4 text-center">
                     <span
                       className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
                       style={
                         tx.type === 'online'
-                          ? { background: 'rgba(0,113,227,0.10)', color: '#0071e3' }
+                          ? { background: 'var(--accent-soft)', color: 'var(--accent-ink)' }
                           : tx.type === 'rfid'
-                          ? { background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }
-                          : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
+                          ? { background: 'rgba(0,0,0,0.04)', color: 'var(--muted)' }
+                          : { background: 'rgba(154,100,0,0.12)', color: 'var(--warning)' }
                       }
                     >
                       {tx.type}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right font-semibold text-[#1d1d1f]">₹{tx.total_amount.toFixed(2)}</td>
+                  <td className="py-3 px-4 text-right font-semibold text-[var(--fg)]">₹{tx.total_amount.toFixed(2)}</td>
                   <td className="py-3 px-4 text-center">
                     <span
                       className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
                       style={
                         tx.payment_status === 'paid'
-                          ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
+                          ? { background: 'rgba(29,122,60,0.12)', color: 'var(--success)' }
                           : tx.payment_status === 'failed'
-                          ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' }
-                          : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
+                          ? { background: 'rgba(0,0,0,0.04)', color: 'var(--accent-ink)' }
+                          : { background: 'rgba(154,100,0,0.12)', color: 'var(--warning)' }
                       }
                     >
                       {tx.payment_status}
@@ -481,7 +420,7 @@ export default async function AnalyticsPage() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-sm" style={{ color: '#a1a1a6' }}>No transactions found</td>
+                  <td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'var(--subtle)' }}>No transactions found</td>
                 </tr>
               )}
             </tbody>

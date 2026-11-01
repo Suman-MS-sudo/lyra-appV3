@@ -5,11 +5,14 @@ import { Users, Plus, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import DeleteUserButton from '@/components/DeleteUserButton';
 
+import { StatTile, PageHeader } from '@/components/ui/kit';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 export default async function CustomerUsersPage() {
@@ -43,68 +46,50 @@ export default async function CustomerUsersPage() {
   return (
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {/* Page title */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1d1d1f]">Manage Users</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>User accounts in your organization</p>
-        </div>
-        <Link
+      <PageHeader title="Manage Users" subtitle="User accounts in your organization" actions={
+          <Link
           href="/customer/users/new"
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+          className="flex items-center gap-1.5 px-4 py-2 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           <Plus className="w-4 h-4" />
           Add User
         </Link>
-      </div>
+        } />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(0,0,0,0.04)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(0,0,0,0.04)' }}>
-            <Users className="w-5 h-5" style={{ color: '#6e6e73' }} />
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Total Users</p>
-          <p className="text-2xl font-bold text-[#1d1d1f]">{totalUsers}</p>
-        </div>
+      <div className="grid grid-cols-3 gap-4 ui-statrow">
+        <StatTile tone="sky" icon={Users} label={`Total Users`} value={String(totalUsers)} />
 
-        <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-          <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(0,113,227,0.10)', opacity: 0.15 }} />
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(0,113,227,0.10)' }}>
-            <UserCircle className="w-5 h-5" style={{ color: '#0071e3' }} />
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Members</p>
-          <p className="text-2xl font-bold" style={{ color: '#0071e3' }}>{memberCount}</p>
-        </div>
+        <StatTile tone="mint" icon={UserCircle} label={`Members`} value={String(memberCount)} />
 
         <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
           <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: 'rgba(0,0,0,0.04)', opacity: 0.15 }} />
           <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(0,0,0,0.04)' }}>
-            <UserCircle className="w-5 h-5" style={{ color: '#0071e3' }} />
+            <UserCircle className="w-5 h-5" style={{ color: 'var(--accent-ink)' }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>Your Role</p>
-          <p className="text-lg font-bold" style={{ color: '#0071e3' }}>Admin</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--muted)' }}>Your Role</p>
+          <p className="text-lg font-bold" style={{ color: 'var(--accent-ink)' }}>Admin</p>
         </div>
       </div>
 
       {/* Users Table */}
       <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-            <Users className="w-4 h-4" style={{ color: '#6e6e73' }} />
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
+            <Users className="w-4 h-4" style={{ color: 'var(--muted)' }} />
             All Users
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
-                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Email</th>
-                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: '#86868b' }}>Role</th>
-                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: '#86868b' }}>Type</th>
-                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: '#86868b' }}>Created</th>
-                <th className="px-5 py-2.5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Actions</th>
+              <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
+                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Email</th>
+                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: 'var(--subtle)' }}>Role</th>
+                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: 'var(--subtle)' }}>Type</th>
+                <th className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: 'var(--subtle)' }}>Created</th>
+                <th className="px-5 py-2.5 text-right text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -112,27 +97,27 @@ export default async function CustomerUsersPage() {
                 <tr
                   key={u.id}
                   className="row-hover"
-                  style={{ borderBottom: '1px solid #f5f5f7' }}
+                  style={{ borderBottom: '1px solid var(--surface-2)' }}
                 >
-                  <td className="px-5 py-3.5 font-medium text-[#1d1d1f]">{u.email}</td>
-                  <td className="px-5 py-3.5 hidden sm:table-cell" style={{ color: '#6e6e73' }}>{u.role}</td>
+                  <td className="px-5 py-3.5 font-medium text-[var(--fg)]">{u.email}</td>
+                  <td className="px-5 py-3.5 hidden sm:table-cell" style={{ color: 'var(--muted)' }}>{u.role}</td>
                   <td className="px-5 py-3.5 hidden md:table-cell">
                     <span
                       className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                      style={{ background: 'rgba(0,113,227,0.10)', color: '#0071e3' }}
+                      style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                     >
                       {u.account_type}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 hidden md:table-cell" style={{ color: '#6e6e73' }}>
+                  <td className="px-5 py-3.5 hidden md:table-cell" style={{ color: 'var(--muted)' }}>
                     {new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center justify-end gap-3">
                       <Link
                         href={`/customer/users/${u.id}/edit`}
-                        className="text-xs font-medium transition-colors hover:text-[#1d1d1f]"
-                        style={{ color: '#0071e3' }}
+                        className="text-xs font-medium transition-colors hover:text-[var(--fg)]"
+                        style={{ color: 'var(--accent-ink)' }}
                       >
                         Edit
                       </Link>
@@ -143,13 +128,13 @@ export default async function CustomerUsersPage() {
               )) : (
                 <tr>
                   <td colSpan={5} className="py-16 text-center">
-                    <UserCircle className="w-10 h-10 mx-auto mb-3" style={{ color: '#e5e5e7' }} />
-                    <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>No users yet</p>
-                    <p className="text-xs mb-5" style={{ color: '#a1a1a6' }}>Add users to give them access to your organization</p>
+                    <UserCircle className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--line)' }} />
+                    <p className="font-medium mb-1" style={{ color: 'var(--muted)' }}>No users yet</p>
+                    <p className="text-xs mb-5" style={{ color: 'var(--subtle)' }}>Add users to give them access to your organization</p>
                     <Link
                       href="/customer/users/new"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-                      style={{ background: '#1d1d1f' }}
+                      className="inline-flex items-center gap-2 px-4 py-2 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90"
+                      style={{ background: 'var(--accent)' }}
                     >
                       <Plus className="w-4 h-4" />Add User
                     </Link>

@@ -17,12 +17,12 @@ interface DashboardChartsProps {
   revenueTimeline: { date: string; online: number; coin: number; rfid: number }[];
 }
 
-const PALETTE = ['#0071e3', '#1d1d1f', '#6e6e73', '#9a6400', '#1d7a3c', '#a1a1a6'];
-const GRID_COLOR  = '#f5f5f7';
-const AXIS_COLOR  = '#86868b';
+const PALETTE = ['var(--accent)', 'var(--fg)', 'var(--muted)', 'var(--warning)', 'var(--success)', 'var(--subtle)'];
+const GRID_COLOR  = 'var(--surface-2)';
+const AXIS_COLOR  = 'var(--subtle)';
 const TOOLTIP_STYLE = {
-  backgroundColor: '#1d1d1f',
-  border: '1px solid #1d1d1f',
+  backgroundColor: 'var(--accent)',
+  border: '1px solid var(--fg)',
   borderRadius: 12,
   color: '#fff',
   fontSize: 12,
@@ -41,7 +41,7 @@ export function PaymentDonutChart({
 
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#86868b' }}>
+      <div className="flex items-center justify-center h-48 text-sm" style={{ color: 'var(--subtle)' }}>
         No transaction data yet
       </div>
     );
@@ -81,7 +81,7 @@ export function MachineRevenueBar({
   const data = machineHealthData.slice(0, 8);
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#86868b' }}>
+      <div className="flex items-center justify-center h-48 text-sm" style={{ color: 'var(--subtle)' }}>
         No machine data
       </div>
     );
@@ -122,7 +122,7 @@ export function RevenueAreaChart({
 }: Pick<DashboardChartsProps, 'revenueTimeline'>) {
   if (revenueTimeline.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm" style={{ color: '#86868b' }}>
+      <div className="flex items-center justify-center h-48 text-sm" style={{ color: 'var(--subtle)' }}>
         No timeline data
       </div>
     );
@@ -132,16 +132,16 @@ export function RevenueAreaChart({
       <AreaChart data={revenueTimeline} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
         <defs>
           <linearGradient id="onlineGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#0071e3" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#0071e3" stopOpacity={0}    />
+            <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}    />
           </linearGradient>
           <linearGradient id="coinGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#9a6400" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#9a6400" stopOpacity={0}    />
+            <stop offset="5%"  stopColor="var(--warning)" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="var(--warning)" stopOpacity={0}    />
           </linearGradient>
           <linearGradient id="rfidGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#6e6e73" stopOpacity={0.35} />
-            <stop offset="95%" stopColor="#6e6e73" stopOpacity={0}    />
+            <stop offset="5%"  stopColor="var(--muted)" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="var(--muted)" stopOpacity={0}    />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
@@ -164,9 +164,9 @@ export function RevenueAreaChart({
           iconType="circle"
           iconSize={8}
         />
-        <Area type="monotone" dataKey="online" name="Online" stroke="#0071e3" fill="url(#onlineGrad)" strokeWidth={2} dot={false} />
-        <Area type="monotone" dataKey="coin"   name="Coin"   stroke="#9a6400" fill="url(#coinGrad)"   strokeWidth={2} dot={false} />
-        <Area type="monotone" dataKey="rfid"   name="RFID"   stroke="#6e6e73" fill="url(#rfidGrad)"   strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="online" name="Online" stroke="var(--accent)" fill="url(#onlineGrad)" strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="coin"   name="Coin"   stroke="var(--warning)" fill="url(#coinGrad)"   strokeWidth={2} dot={false} />
+        <Area type="monotone" dataKey="rfid"   name="RFID"   stroke="var(--muted)" fill="url(#rfidGrad)"   strokeWidth={2} dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -174,14 +174,14 @@ export function RevenueAreaChart({
 
 export function MachineStatusBar({ online, offline, total }: { online: number; offline: number; total: number }) {
   const pct = total > 0 ? Math.round((online / total) * 100) : 0;
-  const barColor = pct > 70 ? '#1d7a3c' : pct > 40 ? '#9a6400' : '#0071e3';
+  const barColor = pct > 70 ? 'var(--success)' : pct > 40 ? 'var(--warning)' : 'var(--accent)';
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-sm">
-        <span style={{ color: '#6e6e73' }}>{online} online · {offline} offline</span>
-        <span className="font-semibold text-[#1d1d1f]">{pct}%</span>
+        <span style={{ color: 'var(--muted)' }}>{online} online · {offline} offline</span>
+        <span className="font-semibold text-[var(--fg)]">{pct}%</span>
       </div>
-      <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ background: '#f5f5f7' }}>
+      <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ background: 'var(--surface-2)' }}>
         <div
           className="h-2.5 rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}cc, ${barColor})` }}

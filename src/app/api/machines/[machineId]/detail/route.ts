@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { visibleOwnerIds } from '@/lib/machine-scope';
 
 const RECENT_LIMIT = 15;
 const CHART_DAYS = 14;
@@ -58,10 +59,8 @@ async function handleGet(params: Promise<{ machineId: string }>) {
   }
 
   if (profile.role !== 'admin') {
-    const isSuperCustomer = profile.account_type === 'super_customer';
-    const owns = isSuperCustomer
-      ? machine.customer_id === profile.organization_id
-      : machine.customer_id === user.id;
+    // Super customers can open any machine in their company, including ones assigned to a team member
+    const owns = (await visibleOwnerIds(service, user.id, profile)).includes(machine.customer_id);
     if (!owns) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 

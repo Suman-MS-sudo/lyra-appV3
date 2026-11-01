@@ -4,22 +4,25 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { updateSuperCustomer } from '@/app/actions/super-customer';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface-2)',
+  border: '1px solid var(--line)',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#1d1d1f' };
+const LABEL: React.CSSProperties = { color: 'var(--fg)' };
 
 export default async function EditSuperCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,19 +58,16 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#1d1d1f]">Edit Super Customer</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Update account and organization details</p>
-      </div>
+      <PageHeader title="Edit Super Customer" subtitle="Update account and organization details" />
 
       <form action={updateSuperCustomer} className="rounded-2xl p-6 space-y-6" style={CARD}>
         <input type="hidden" name="user_id" value={id} />
         <input type="hidden" name="org_id" value={organization?.id || ''} />
 
         {/* Account section */}
-        <div className="pb-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Account Information</h3>
-          <p className="text-sm" style={{ color: '#6e6e73' }}>Login credentials for the super customer</p>
+        <div className="pb-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-0.5">Account Information</h3>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>Login credentials for the super customer</p>
         </div>
 
         <div>
@@ -80,10 +80,10 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="email"
             required
             defaultValue={superCustomer.email}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
           />
-          <p className="text-xs mt-1" style={{ color: '#86868b' }}>Email cannot be changed after creation</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Email cannot be changed after creation</p>
         </div>
 
         <div>
@@ -96,15 +96,15 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="full_name"
             required
             defaultValue={superCustomer.full_name || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
           />
         </div>
 
         {/* Organization section */}
-        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h3 className="text-base font-semibold text-[#1d1d1f] mb-0.5">Organization Details</h3>
-          <p className="text-sm" style={{ color: '#6e6e73' }}>Information about the organization</p>
+        <div className="pb-4 pt-2" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-0.5">Organization Details</h3>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>Information about the organization</p>
         </div>
 
         <div>
@@ -117,7 +117,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="org_name"
             required
             defaultValue={organization?.name || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
           />
         </div>
@@ -131,7 +131,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             id="org_email"
             name="org_email"
             defaultValue={organization?.contact_email || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
           />
         </div>
@@ -145,7 +145,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             id="org_phone"
             name="org_phone"
             defaultValue={organization?.contact_phone || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
           />
         </div>
@@ -159,7 +159,7 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
             name="org_address"
             rows={3}
             defaultValue={organization?.address || ''}
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
           />
         </div>
@@ -167,15 +167,15 @@ export default async function EditSuperCustomerPage({ params }: { params: Promis
         <div className="flex gap-4 pt-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+            className="flex-1 px-4 py-2.5 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Update Super Customer
           </button>
           <Link
             href="/admin/super-customers"
             className="px-6 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
           >
             Cancel
           </Link>

@@ -21,8 +21,8 @@ interface Props {
 }
 
 const MODAL: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
 };
 
@@ -78,9 +78,9 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl py-20 text-center" style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}>
-        <p className="text-[#1d1d1f] font-semibold mb-1">No transactions found</p>
-        <p className="text-sm" style={{ color: '#6e6e73' }}>This organization has no recorded transactions yet.</p>
+      <div className="rounded-2xl py-20 text-center" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+        <p className="text-[var(--fg)] font-semibold mb-1">No transactions found</p>
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>This organization has no recorded transactions yet.</p>
       </div>
     );
   }
@@ -90,13 +90,13 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
       {/* Bulk action bar */}
       {someSelected && (
         <div className="flex items-center justify-between px-4 py-3 rounded-xl mb-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
-          <span className="text-sm font-medium" style={{ color: '#c8102e' }}>
+          <span className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
             {selected.size} selected
           </span>
           <button
             onClick={() => openConfirm(Array.from(selected))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80"
-            style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}
+            style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: 'var(--danger)' }}
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete selected
@@ -104,10 +104,10 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
         </div>
       )}
 
-      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #e5e5e7' }}>
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ background: '#f5f5f7', borderBottom: '1px solid #f5f5f7' }}>
+            <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--surface-2)' }}>
               <th className="px-4 py-3 text-left w-10">
                 <input
                   type="checkbox"
@@ -116,12 +116,12 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                   className="w-4 h-4 rounded accent-pink-500 cursor-pointer"
                 />
               </th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Type</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Machine</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Product</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Amount</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Status</th>
-              <th className="px-4 py-3 text-left font-medium" style={{ color: '#6e6e73' }}>Date</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--muted)' }}>Type</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--muted)' }}>Machine</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--muted)' }}>Product</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--muted)' }}>Amount</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--muted)' }}>Status</th>
+              <th className="px-4 py-3 text-left font-medium" style={{ color: 'var(--muted)' }}>Date</th>
               <th className="px-4 py-3 w-10" />
             </tr>
           </thead>
@@ -130,7 +130,7 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
               <tr
                 key={row.id}
                 style={{
-                  borderBottom: i < rows.length - 1 ? '1px solid #f5f5f7' : undefined,
+                  borderBottom: i < rows.length - 1 ? '1px solid var(--surface-2)' : undefined,
                   background: selected.has(row.id) ? 'rgba(0,0,0,0.04)' : undefined,
                 }}
               >
@@ -146,18 +146,18 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={row.type === 'online'
-                      ? { background: 'rgba(139,92,246,0.15)', color: '#6e6e73' }
+                      ? { background: 'rgba(139,92,246,0.15)', color: 'var(--muted)' }
                       : row.type === 'rfid'
-                      ? { background: 'rgba(0,113,227,0.10)', color: '#93C5FD' }
+                      ? { background: 'var(--accent-soft)', color: 'var(--accent-ink)' }
                       : { background: 'rgba(234,179,8,0.15)', color: '#FDE047' }
                     }
                   >
                     {row.type === 'online' ? 'Online' : row.type === 'rfid' ? 'RFID' : 'Coin'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-[#1d1d1f]">{row.machine_name}</td>
-                <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{row.product}</td>
-                <td className="px-4 py-3 text-[#1d1d1f] font-medium">₹{row.amount.toFixed(2)}</td>
+                <td className="px-4 py-3 text-[var(--fg)]">{row.machine_name}</td>
+                <td className="px-4 py-3" style={{ color: 'var(--fg)' }}>{row.product}</td>
+                <td className="px-4 py-3 text-[var(--fg)] font-medium">₹{row.amount.toFixed(2)}</td>
                 <td className="px-4 py-3">
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -166,13 +166,13 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                         ? { background: 'rgba(34,197,94,0.15)', color: '#86EFAC' }
                         : row.status === 'pending'
                         ? { background: 'rgba(234,179,8,0.15)', color: '#FDE047' }
-                        : { background: 'rgba(0,0,0,0.04)', color: '#c8102e' }
+                        : { background: 'rgba(0,0,0,0.04)', color: 'var(--danger)' }
                     }
                   >
                     {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#6e6e73' }}>
+                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>
                   {new Date(row.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
                 </td>
                 <td className="px-4 py-3">
@@ -201,22 +201,22 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
           <div className="w-full max-w-md p-6" style={MODAL} onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-4 mb-6">
               <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }}>
-                <AlertTriangle className="h-6 w-6" style={{ color: '#c8102e' }} />
+                <AlertTriangle className="h-6 w-6" style={{ color: 'var(--danger)' }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#1d1d1f] mb-1">Delete Transactions?</h3>
-                <p className="text-sm" style={{ color: '#3a3a3c' }}>
+                <h3 className="text-lg font-semibold text-[var(--fg)] mb-1">Delete Transactions?</h3>
+                <p className="text-sm" style={{ color: 'var(--fg-2)' }}>
                   {targetIds.length === 1
                     ? 'This transaction will be permanently deleted.'
                     : `${targetIds.length} transactions will be permanently deleted.`}
                 </p>
-                <p className="text-sm mt-1 font-medium" style={{ color: '#c8102e' }}>This cannot be undone.</p>
+                <p className="text-sm mt-1 font-medium" style={{ color: 'var(--danger)' }}>This cannot be undone.</p>
               </div>
             </div>
 
             {error && (
               <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
-                <p className="text-sm" style={{ color: '#c8102e' }}>{error}</p>
+                <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>
               </div>
             )}
 
@@ -225,15 +225,15 @@ export function OrgTransactionsTable({ rows, orgId }: Props) {
                 onClick={() => { setShowConfirm(false); setError(null); }}
                 disabled={isDeleting}
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-                style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+                className="px-4 py-2 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>

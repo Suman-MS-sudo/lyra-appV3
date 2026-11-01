@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
 import { effectiveMonthlyCount, vendMonthOf } from '@/lib/rfid-monthly-cap';
 import { isRentalLocked, RENTAL_LOCKED_MESSAGE } from '@/lib/rental-lock';
+import { machineOrganizationId } from '@/lib/machine-scope';
 
 /**
  * RFID Payment API for ESP32
@@ -81,7 +82,13 @@ export async function POST(request: NextRequest) {
         .eq('id', machine_id)
         .single();
 
-      if (machineError || !machine || machine.customer_id !== card.organization_id) {
+      // A machine assigned to a team member has that person as customer_id,
+      // so resolve it back to their organization before comparing.
+      const sameOrg =
+        !!machine &&
+        (machine.customer_id === card.organization_id ||
+          (await machineOrganizationId(supabase, machine.customer_id)) === card.organization_id);
+      if (machineError || !machine || !sameOrg) {
         return errorResponse('This card is not valid on this machine', 'WRONG_MACHINE', 403);
       }
     }

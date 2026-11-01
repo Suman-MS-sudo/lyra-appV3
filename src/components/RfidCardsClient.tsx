@@ -34,9 +34,10 @@ type ImportRowResult = { row: number; uid: string; status: 'created' | 'error'; 
 const CSV_TEMPLATE_HEADERS = ['uid', 'holder_name', 'card_type', 'initial_credits', 'organization', 'machine', 'product'];
 const CSV_TEMPLATE_EXAMPLE = ['A1B2C3D4', 'Jane Doe', 'prepaid', '50', '', 'Machine A; Machine B', ''];
 
-const card_style = { background: '#f5f5f7', border: '1px solid #e5e5e7' };
-const muted = { color: '#6e6e73' };
-const inputStyle = { background: '#f5f5f7', border: '1px solid #e5e5e7' };
+// Same panel look as the shared CARD style: surface, hairline, soft shadow
+const card_style = { background: 'var(--surface)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)' };
+const muted = { color: 'var(--muted)' };
+const inputStyle = { background: 'var(--surface-2)', border: '1px solid var(--line)' };
 
 function rupees(paisa: number) {
   return `₹${(paisa / 100).toFixed(2)}`;
@@ -67,7 +68,7 @@ function AssignmentFields({
       <div>
         <label className="block text-xs font-medium mb-1" style={muted}>Customer / Organization (optional)</label>
         <select value={organizationId} onChange={e => { setOrganizationId(e.target.value); setMachineIds([]); }}
-          className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle}>
+          className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle}>
           <option value="" style={{ color: '#111' }}>Any / unassigned</option>
           {organizations.map(o => <option key={o.id} value={o.id} style={{ color: '#111' }}>{o.name}</option>)}
         </select>
@@ -79,7 +80,7 @@ function AssignmentFields({
         ) : (
           <div className="max-h-40 overflow-y-auto rounded-lg p-2 space-y-1" style={inputStyle}>
             {scopedMachines.map(m => (
-              <label key={m.id} className="flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer text-sm text-[#1d1d1f]">
+              <label key={m.id} className="flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer text-sm text-[var(--fg)]">
                 <input type="checkbox" checked={machineIds.includes(m.id)} onChange={() => toggleMachine(m.id)} />
                 {m.name} — {m.location}
               </label>
@@ -97,7 +98,7 @@ function AssignmentFields({
       <div>
         <label className="block text-xs font-medium mb-1" style={muted}>Product (optional)</label>
         <select value={productId} onChange={e => setProductId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle}>
+          className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle}>
           <option value="" style={{ color: '#111' }}>Machine&apos;s default product</option>
           {products.map(p => <option key={p.id} value={p.id} style={{ color: '#111' }}>{p.name} — ₹{p.price}</option>)}
         </select>
@@ -513,25 +514,25 @@ export default function RfidCardsClient({
             <button
               onClick={() => selectOrg(null)}
               className="flex items-center gap-1.5 text-sm font-medium mb-2"
-              style={{ color: '#0071e3' }}
+              style={{ color: 'var(--accent-ink)' }}
             >
               <ChevronLeft className="w-4 h-4" /> All Customers
             </button>
           ) : null}
-          <h1 className="text-2xl font-bold text-[#1d1d1f] flex items-center gap-2">
+          <h1 className="ui-title flex items-center gap-2">
             {selectedGroup ? (
               <>
-                <Building2 className="w-6 h-6" style={{ color: selectedGroup.id === '__unassigned' ? '#a1a1a6' : '#0071e3' }} />
+                <Building2 className="w-6 h-6" style={{ color: selectedGroup.id === '__unassigned' ? 'var(--subtle)' : 'var(--accent)' }} />
                 {selectedGroup.name}
               </>
             ) : (
               <>
-                <Nfc className="w-6 h-6" style={{ color: '#0071e3' }} />
+                <Nfc className="w-6 h-6" style={{ color: 'var(--accent-ink)' }} />
                 RFID Cards
               </>
             )}
           </h1>
-          <p className="text-sm mt-0.5" style={muted}>
+          <p className="ui-subtitle">
             {selectedGroup
               ? `${selectedGroup.cards.length} card${selectedGroup.cards.length === 1 ? '' : 's'} registered to this customer`
               : 'Select a customer to view or manage their RFID tap-to-pay cards'}
@@ -540,22 +541,22 @@ export default function RfidCardsClient({
         <div className="flex items-center gap-2">
           <button
             onClick={loadCards}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-[#1d1d1f]"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-[var(--fg)]"
             style={card_style}
           >
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-[#1d1d1f]"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-[var(--fg)]"
             style={card_style}
           >
             <Upload className="w-4 h-4" /> Import CSV
           </button>
           <button
             onClick={() => selectedGroup && selectedGroup.id !== '__unassigned' ? openAddForOrg(selectedGroup.id) : setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+            className="flex items-center gap-2 px-4 py-2 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             <Plus className="w-4 h-4" /> Add Card
           </button>
@@ -566,7 +567,7 @@ export default function RfidCardsClient({
         value={search}
         onChange={e => { setSearch(e.target.value); setPage(1); }}
         placeholder={selectedGroup ? 'Search by UID, holder, or machine...' : 'Search by UID, holder, customer, or machine...'}
-        className="w-full px-4 py-2.5 rounded-xl text-sm text-[#1d1d1f] outline-none"
+        className="w-full px-4 py-2.5 rounded-xl text-sm text-[var(--fg)] outline-none"
         style={inputStyle}
       />
 
@@ -575,7 +576,7 @@ export default function RfidCardsClient({
           <select
             value={filterType}
             onChange={e => { setFilterType(e.target.value as any); setPage(1); }}
-            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            className="px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none"
             style={inputStyle}
           >
             <option value="all" style={{ color: '#111' }}>All types</option>
@@ -585,7 +586,7 @@ export default function RfidCardsClient({
           <select
             value={filterStatus}
             onChange={e => { setFilterStatus(e.target.value as any); setPage(1); }}
-            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            className="px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none"
             style={inputStyle}
           >
             <option value="all" style={{ color: '#111' }}>All statuses</option>
@@ -595,7 +596,7 @@ export default function RfidCardsClient({
           <select
             value={filterMachineId}
             onChange={e => { setFilterMachineId(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            className="px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none"
             style={inputStyle}
           >
             <option value="all" style={{ color: '#111' }}>All machines</option>
@@ -607,7 +608,7 @@ export default function RfidCardsClient({
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as any)}
-            className="px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none"
+            className="px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none"
             style={inputStyle}
           >
             <option value="newest" style={{ color: '#111' }}>Newest first</option>
@@ -621,7 +622,7 @@ export default function RfidCardsClient({
               type="button"
               onClick={resetFilters}
               className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium"
-              style={{ color: '#c8102e' }}
+              style={{ color: 'var(--danger)' }}
             >
               <X className="w-3.5 h-3.5" /> Clear filters
             </button>
@@ -630,7 +631,7 @@ export default function RfidCardsClient({
       )}
 
       {error && (
-        <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }}>
+        <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: 'var(--danger)' }}>
           {error}
         </div>
       )}
@@ -640,9 +641,9 @@ export default function RfidCardsClient({
       ) : !selectedGroup ? (
         allGroups.length === 0 ? (
           <div className="rounded-2xl p-16 text-center" style={card_style}>
-            <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
-            <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>No RFID cards found</p>
-            <p className="text-sm" style={{ color: '#a1a1a6' }}>Register a card to enable RFID payments</p>
+            <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--line)' }} />
+            <p className="font-medium mb-1" style={{ color: 'var(--muted)' }}>No RFID cards found</p>
+            <p className="text-sm" style={{ color: 'var(--subtle)' }}>Register a card to enable RFID payments</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -662,18 +663,18 @@ export default function RfidCardsClient({
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: group.id === '__unassigned' ? 'rgba(0,0,0,0.05)' : 'rgba(0,113,227,0.10)' }}
+                        style={{ background: group.id === '__unassigned' ? 'rgba(0,0,0,0.05)' : 'var(--accent-soft)' }}
                       >
-                        <Building2 className="w-5 h-5" style={{ color: group.id === '__unassigned' ? '#a1a1a6' : '#0071e3' }} />
+                        <Building2 className="w-5 h-5" style={{ color: group.id === '__unassigned' ? 'var(--subtle)' : 'var(--accent)' }} />
                       </div>
-                      <span className="font-semibold text-[#1d1d1f] truncate">{group.name}</span>
+                      <span className="font-semibold text-[var(--fg)] truncate">{group.name}</span>
                     </div>
                     <ChevronRight className="w-4 h-4 shrink-0 mt-2.5" style={muted} />
                   </div>
                   <div className="flex items-center gap-3 mt-4">
                     <span
                       className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                      style={{ background: 'rgba(0,0,0,0.05)', color: '#6e6e73' }}
+                      style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--muted)' }}
                     >
                       {group.cards.length} card{group.cards.length === 1 ? '' : 's'}
                     </span>
@@ -691,11 +692,11 @@ export default function RfidCardsClient({
         )
       ) : selectedGroupCards.length === 0 ? (
         <div className="rounded-2xl p-16 text-center" style={card_style}>
-          <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: '#e5e5e7' }} />
-          <p className="font-medium mb-1" style={{ color: '#6e6e73' }}>
+          <Nfc className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--line)' }} />
+          <p className="font-medium mb-1" style={{ color: 'var(--muted)' }}>
             {search || filtersActive ? 'No cards match your search/filters' : 'No RFID cards for this customer yet'}
           </p>
-          <p className="text-sm" style={{ color: '#a1a1a6' }}>
+          <p className="text-sm" style={{ color: 'var(--subtle)' }}>
             {search || filtersActive ? 'Try a different search term or clear the filters' : 'Add a card to enable RFID payments for them'}
           </p>
         </div>
@@ -706,7 +707,7 @@ export default function RfidCardsClient({
               className="flex items-center justify-between flex-wrap gap-2 px-4 py-2.5 rounded-xl text-sm"
               style={{ background: 'rgba(200,16,46,0.08)', border: '1px solid rgba(200,16,46,0.18)' }}
             >
-              <span style={{ color: '#c8102e' }} className="font-medium">
+              <span style={{ color: 'var(--danger)' }} className="font-medium">
                 {selectedIds.size} card{selectedIds.size === 1 ? '' : 's'} selected
                 {allOnPageSelected && !allAcrossPagesSelected && totalPages > 1 && (
                   <>
@@ -725,8 +726,8 @@ export default function RfidCardsClient({
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f]"
-                  style={{ background: '#fff', border: '1px solid #e5e5e7' }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)]"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--line)' }}
                 >
                   Clear
                 </button>
@@ -735,7 +736,7 @@ export default function RfidCardsClient({
                   disabled={bulkDeleting}
                   onClick={() => bulkDeleteCards(Array.from(selectedIds))}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-50"
-                  style={{ background: '#c8102e' }}
+                  style={{ background: 'var(--danger)' }}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.size})`}
@@ -747,7 +748,7 @@ export default function RfidCardsClient({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: '#f5f5f7' }}>
+                <tr style={{ background: 'var(--surface-2)' }}>
                   <th className="px-4 py-2.5 w-8">
                     <input
                       type="checkbox"
@@ -767,13 +768,13 @@ export default function RfidCardsClient({
               </thead>
               <tbody>
                 {pagedCards.map(card => (
-                          <tr key={card.id} style={{ borderTop: '1px solid #f5f5f7', background: selectedIds.has(card.id) ? 'rgba(0,113,227,0.04)' : undefined }}>
+                          <tr key={card.id} style={{ borderTop: '1px solid var(--surface-2)', background: selectedIds.has(card.id) ? 'var(--surface-hover)' : undefined }}>
                             <td className="px-4 py-3">
                               <input type="checkbox" checked={selectedIds.has(card.id)} onChange={() => toggleSelected(card.id)} />
                             </td>
-                            <td className="px-4 py-3 font-mono text-[#1d1d1f]">{card.uid}</td>
-                            <td className="px-4 py-3 text-[#1d1d1f]">{card.holder_name || <span style={muted}>—</span>}</td>
-                            <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>
+                            <td className="px-4 py-3 font-mono text-[var(--fg)]">{card.uid}</td>
+                            <td className="px-4 py-3 text-[var(--fg)]">{card.holder_name || <span style={muted}>—</span>}</td>
+                            <td className="px-4 py-3" style={{ color: 'var(--fg)' }}>
                               {card.machines.length === 0 ? (
                                 <span style={muted}>Any</span>
                               ) : card.machines.length === 1 ? (
@@ -782,13 +783,13 @@ export default function RfidCardsClient({
                                 <span title={card.machines.map(m => m.name).join(', ')}>{card.machines.length} machines</span>
                               )}
                             </td>
-                            <td className="px-4 py-3" style={{ color: '#1d1d1f' }}>{card.product?.name || <span style={muted}>Default</span>}</td>
+                            <td className="px-4 py-3" style={{ color: 'var(--fg)' }}>{card.product?.name || <span style={muted}>Default</span>}</td>
                             <td className="px-4 py-3">
                               <span
                                 className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
                                 style={card.card_type === 'postpaid'
-                                  ? { background: 'rgba(0,113,227,0.10)', color: '#93C5FD', border: '1px solid rgba(0,113,227,0.10)' }
-                                  : { background: 'rgba(0,0,0,0.04)', color: '#6e6e73', border: '1px solid rgba(0,0,0,0.04)' }}
+                                  ? { background: 'var(--accent-soft)', color: 'var(--accent-ink)', border: '1px solid var(--accent-soft)' }
+                                  : { background: 'rgba(0,0,0,0.04)', color: 'var(--muted)', border: '1px solid rgba(0,0,0,0.04)' }}
                               >
                                 {card.card_type === 'postpaid' ? 'No limit' : 'Prepaid'}
                               </span>
@@ -796,7 +797,7 @@ export default function RfidCardsClient({
                             <td className="px-4 py-3">
                               {card.card_type === 'postpaid' ? (
                                 <div>
-                                  <span className="font-semibold" style={{ color: '#9a6400' }}>{rupees(card.total_spent_paisa)} owed</span>
+                                  <span className="font-semibold" style={{ color: 'var(--warning)' }}>{rupees(card.total_spent_paisa)} owed</span>
                                   <p className="text-xs mt-0.5" style={muted}>{card.vend_count} vended</p>
                                 </div>
                               ) : (
@@ -808,7 +809,7 @@ export default function RfidCardsClient({
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
                                 style={card.is_active
                                   ? { background: 'rgba(67,233,123,0.12)', color: '#43e97b', border: '1px solid rgba(67,233,123,0.25)' }
-                                  : { background: 'rgba(200,16,46,0.10)', color: '#c8102e', border: '1px solid rgba(200,16,46,0.10)' }}
+                                  : { background: 'rgba(200,16,46,0.10)', color: 'var(--danger)', border: '1px solid rgba(200,16,46,0.10)' }}
                               >
                                 {card.is_active ? <CheckCircle2 className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
                                 {card.is_active ? 'Active' : 'Inactive'}
@@ -819,7 +820,7 @@ export default function RfidCardsClient({
                                 {card.card_type === 'postpaid' ? (
                                   <button
                                     onClick={() => settleTab(card)}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f]"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)]"
                                     style={{ background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)' }}
                                   >
                                     <Receipt className="w-3.5 h-3.5" /> Settle Tab
@@ -827,7 +828,7 @@ export default function RfidCardsClient({
                                 ) : (
                                   <button
                                     onClick={() => { setTopUpId(card.id); setTopUpCredits(''); }}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f]"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)]"
                                     style={{ background: 'rgba(124,111,255,0.15)', border: '1px solid rgba(124,111,255,0.28)' }}
                                   >
                                     <Wallet className="w-3.5 h-3.5" /> Top Up
@@ -836,14 +837,14 @@ export default function RfidCardsClient({
                                 <button
                                   onClick={() => openEdit(card)}
                                   className="p-1.5 rounded-lg"
-                                  style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}
+                                  style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
                                 >
-                                  <Pencil className="w-3.5 h-3.5 text-[#1d1d1f]" />
+                                  <Pencil className="w-3.5 h-3.5 text-[var(--fg)]" />
                                 </button>
                                 <button
                                   onClick={() => toggleActive(card)}
-                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f]"
-                                  style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)]"
+                                  style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
                                 >
                                   {card.is_active ? 'Deactivate' : 'Activate'}
                                 </button>
@@ -852,7 +853,7 @@ export default function RfidCardsClient({
                                   className="p-1.5 rounded-lg"
                                   style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)' }}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" style={{ color: '#c8102e' }} />
+                                  <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--danger)' }} />
                                 </button>
                               </div>
                             </td>
@@ -873,7 +874,7 @@ export default function RfidCardsClient({
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-40"
                   style={card_style}
                 >
                   Previous
@@ -883,7 +884,7 @@ export default function RfidCardsClient({
                   type="button"
                   disabled={currentPage >= totalPages}
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-40"
                   style={card_style}
                 >
                   Next
@@ -897,7 +898,7 @@ export default function RfidCardsClient({
       {/* Add Card Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
-          <div className="w-full max-w-md rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid var(--line)' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Add RFID Card</h3>
               <button onClick={() => setShowAdd(false)}><X className="w-5 h-5" style={muted} /></button>
@@ -906,12 +907,12 @@ export default function RfidCardsClient({
               <div>
                 <label className="block text-xs font-medium mb-1" style={muted}>Card UID (hex)</label>
                 <input value={newUid} onChange={e => setNewUid(e.target.value)} placeholder="e.g. A1B2C3D4" required
-                  className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle} />
+                  className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle} />
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={muted}>Holder Name (optional)</label>
                 <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. John Smith"
-                  className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle} />
+                  className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle} />
               </div>
 
               <AssignmentFields
@@ -926,21 +927,21 @@ export default function RfidCardsClient({
                 <div className="grid grid-cols-1 gap-2">
                   <label
                     className="flex items-start gap-3 p-3 rounded-lg cursor-pointer"
-                    style={{ background: '#f5f5f7', border: newType === 'prepaid' ? '1.5px solid #6e6e73' : '1px solid #e5e5e7' }}
+                    style={{ background: 'var(--surface-2)', border: newType === 'prepaid' ? '1.5px solid var(--muted)' : '1px solid var(--line)' }}
                   >
                     <input type="radio" name="card_type" checked={newType === 'prepaid'} onChange={() => setNewType('prepaid')} className="mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-[#1d1d1f]">Limited credits</p>
+                      <p className="text-sm font-medium text-[var(--fg)]">Limited credits</p>
                       <p className="text-xs mt-0.5" style={muted}>Each tap uses 1 credit, regardless of product price. Declined once credits run out.</p>
                     </div>
                   </label>
                   <label
                     className="flex items-start gap-3 p-3 rounded-lg cursor-pointer"
-                    style={{ background: '#f5f5f7', border: newType === 'postpaid' ? '1.5px solid #0071e3' : '1px solid #e5e5e7' }}
+                    style={{ background: 'var(--surface-2)', border: newType === 'postpaid' ? '1.5px solid var(--accent)' : '1px solid var(--line)' }}
                   >
                     <input type="radio" name="card_type" checked={newType === 'postpaid'} onChange={() => setNewType('postpaid')} className="mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-[#1d1d1f]">No limit</p>
+                      <p className="text-sm font-medium text-[var(--fg)]">No limit</p>
                       <p className="text-xs mt-0.5" style={muted}>No balance check — every tap dispenses. Tracks how many napkins were vended and the total cost, for billing later.</p>
                     </div>
                   </label>
@@ -950,17 +951,17 @@ export default function RfidCardsClient({
                 <div>
                   <label className="block text-xs font-medium mb-1" style={muted}>Initial Credits (vends)</label>
                   <input type="number" min="0" step="1" value={newCredits} onChange={e => setNewCredits(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle} />
+                    className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle} />
                 </div>
               )}
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-                  style={{ background: '#1d1d1f' }}>
+                  className="flex-1 py-2.5 lyra-chamfer text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: 'var(--accent)' }}>
                   {saving ? 'Adding...' : 'Add Card'}
                 </button>
                 <button type="button" onClick={() => setShowAdd(false)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f]" style={inputStyle}>
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--fg)]" style={inputStyle}>
                   Cancel
                 </button>
               </div>
@@ -972,7 +973,7 @@ export default function RfidCardsClient({
       {/* Edit Card Modal */}
       {editCard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
-          <div className="w-full max-w-md rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid var(--line)' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Edit Card {editCard.uid}</h3>
               <button onClick={() => setEditCard(null)}><X className="w-5 h-5" style={muted} /></button>
@@ -981,13 +982,13 @@ export default function RfidCardsClient({
               <div>
                 <label className="block text-xs font-medium mb-1" style={muted}>Card UID (hex)</label>
                 <input value={editUid} onChange={e => setEditUid(e.target.value)} required
-                  className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none font-mono" style={inputStyle} />
+                  className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none font-mono" style={inputStyle} />
                 <p className="text-xs mt-1" style={muted}>Only change this if the card was registered with the wrong UID — it must match what the reader scans.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium mb-1" style={muted}>Holder Name</label>
                 <input value={editName} onChange={e => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle} />
+                  className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle} />
               </div>
               <AssignmentFields
                 organizations={organizations} machines={machines} products={products}
@@ -997,12 +998,12 @@ export default function RfidCardsClient({
               />
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-                  style={{ background: '#1d1d1f' }}>
+                  className="flex-1 py-2.5 lyra-chamfer text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: 'var(--accent)' }}>
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button type="button" onClick={() => setEditCard(null)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f]" style={inputStyle}>
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--fg)]" style={inputStyle}>
                   Cancel
                 </button>
               </div>
@@ -1014,7 +1015,7 @@ export default function RfidCardsClient({
       {/* Top Up Modal */}
       {topUpId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(5,3,18,0.72)' }}>
-          <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: '#1c1937', border: '1px solid var(--line)' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Top Up Credits</h3>
               <button onClick={() => setTopUpId(null)}><X className="w-5 h-5" style={muted} /></button>
@@ -1024,16 +1025,16 @@ export default function RfidCardsClient({
                 <label className="block text-xs font-medium mb-1" style={muted}>Credits to add</label>
                 <input type="number" min="1" step="1" value={topUpCredits} onChange={e => setTopUpCredits(e.target.value)}
                   autoFocus required
-                  className="w-full px-3 py-2 rounded-lg text-sm text-[#1d1d1f] outline-none" style={inputStyle} />
+                  className="w-full px-3 py-2 rounded-lg text-sm text-[var(--fg)] outline-none" style={inputStyle} />
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-                  style={{ background: '#1d1d1f' }}>
+                  className="flex-1 py-2.5 lyra-chamfer text-sm font-medium text-white disabled:opacity-50"
+                  style={{ background: 'var(--accent)' }}>
                   {saving ? 'Saving...' : 'Add Credits'}
                 </button>
                 <button type="button" onClick={() => setTopUpId(null)}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f]" style={inputStyle}>
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--fg)]" style={inputStyle}>
                   Cancel
                 </button>
               </div>
@@ -1045,7 +1046,7 @@ export default function RfidCardsClient({
       {/* Import CSV Modal */}
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ background: 'rgba(5,3,18,0.72)' }}>
-          <div className="w-full max-w-lg rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}>
+          <div className="w-full max-w-lg rounded-2xl p-6 my-8" style={{ background: '#1c1937', border: '1px solid var(--line)' }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Import RFID Cards from CSV</h3>
               <button onClick={closeImportModal}><X className="w-5 h-5" style={muted} /></button>
@@ -1060,7 +1061,7 @@ export default function RfidCardsClient({
                 <button
                   type="button"
                   onClick={downloadCsvTemplate}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[#1d1d1f]"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-[var(--fg)]"
                   style={inputStyle}
                 >
                   <Download className="w-4 h-4" /> Download CSV template
@@ -1072,7 +1073,7 @@ export default function RfidCardsClient({
                     type="file"
                     accept=".csv,text/csv"
                     onChange={handleImportFile}
-                    className="w-full text-sm text-[#1d1d1f] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:text-[#1d1d1f]"
+                    className="w-full text-sm text-[var(--fg)] file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:text-[var(--fg)]"
                     style={{ ...inputStyle, padding: '0.5rem' }}
                   />
                   <p className="text-xs mt-1" style={muted}>
@@ -1088,7 +1089,7 @@ export default function RfidCardsClient({
                 </div>
 
                 {importParseError && (
-                  <div className="px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }}>
+                  <div className="px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: 'var(--danger)' }}>
                     {importParseError}
                   </div>
                 )}
@@ -1104,13 +1105,13 @@ export default function RfidCardsClient({
                     type="button"
                     disabled={importRows.length === 0 || importing}
                     onClick={submitImport}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-50"
-                    style={{ background: '#1d1d1f' }}
+                    className="flex-1 py-2.5 lyra-chamfer text-sm font-medium text-white disabled:opacity-50"
+                    style={{ background: 'var(--accent)' }}
                   >
                     {importing ? 'Importing...' : `Import ${importRows.length || ''} Card${importRows.length === 1 ? '' : 's'}`}
                   </button>
                   <button type="button" onClick={closeImportModal}
-                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-[#1d1d1f]" style={inputStyle}>
+                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-[var(--fg)]" style={inputStyle}>
                     Cancel
                   </button>
                 </div>
@@ -1125,7 +1126,7 @@ export default function RfidCardsClient({
                     <p className="text-xs" style={muted}>Created</p>
                   </div>
                   <div className="flex-1 px-3 py-2 rounded-lg text-center" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)' }}>
-                    <p className="text-xl font-bold" style={{ color: '#c8102e' }}>
+                    <p className="text-xl font-bold" style={{ color: 'var(--danger)' }}>
                       {importResults.filter(r => r.status === 'error').length}
                     </p>
                     <p className="text-xs" style={muted}>Failed</p>
@@ -1133,10 +1134,10 @@ export default function RfidCardsClient({
                 </div>
 
                 {importResults.some(r => r.status === 'error') && (
-                  <div className="max-h-64 overflow-y-auto rounded-lg" style={{ border: '1px solid #e5e5e7' }}>
+                  <div className="max-h-64 overflow-y-auto rounded-lg" style={{ border: '1px solid var(--line)' }}>
                     <table className="w-full text-xs">
                       <thead>
-                        <tr style={{ background: '#f5f5f7' }}>
+                        <tr style={{ background: 'var(--surface-2)' }}>
                           <th className="text-left px-3 py-2 font-medium" style={muted}>Row</th>
                           <th className="text-left px-3 py-2 font-medium" style={muted}>UID</th>
                           <th className="text-left px-3 py-2 font-medium" style={muted}>Error</th>
@@ -1144,10 +1145,10 @@ export default function RfidCardsClient({
                       </thead>
                       <tbody>
                         {importResults.filter(r => r.status === 'error').map(r => (
-                          <tr key={r.row} style={{ borderTop: '1px solid #f5f5f7' }}>
+                          <tr key={r.row} style={{ borderTop: '1px solid var(--surface-2)' }}>
                             <td className="px-3 py-2" style={muted}>{r.row}</td>
-                            <td className="px-3 py-2 font-mono text-[#1d1d1f]">{r.uid || '—'}</td>
-                            <td className="px-3 py-2" style={{ color: '#c8102e' }}>{r.error}</td>
+                            <td className="px-3 py-2 font-mono text-[var(--fg)]">{r.uid || '—'}</td>
+                            <td className="px-3 py-2" style={{ color: 'var(--danger)' }}>{r.error}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1156,8 +1157,8 @@ export default function RfidCardsClient({
                 )}
 
                 <button type="button" onClick={closeImportModal}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white"
-                  style={{ background: '#1d1d1f' }}>
+                  className="w-full py-2.5 lyra-chamfer text-sm font-medium text-white"
+                  style={{ background: 'var(--accent)' }}>
                   Done
                 </button>
               </div>

@@ -18,18 +18,22 @@ interface Machine {
   coinTransactions: number;
   rfidTransactions: number;
   totalRevenue: number;
+  /** Team member this machine is assigned to (super customers only) */
+  assignee?: string | null;
 }
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
   if (col !== sortKey) return <ChevronsUpDown className="w-3 h-3 ml-1 inline opacity-30" />;
   return sortDir === 'asc'
-    ? <ChevronUp className="w-3 h-3 ml-1 inline" style={{ color: '#0071e3' }} />
-    : <ChevronDown className="w-3 h-3 ml-1 inline" style={{ color: '#0071e3' }} />;
+    ? <ChevronUp className="w-3 h-3 ml-1 inline" style={{ color: 'var(--accent-ink)' }} />
+    : <ChevronDown className="w-3 h-3 ml-1 inline" style={{ color: 'var(--accent-ink)' }} />;
 }
 
 export function CustomerMachinesTable({
@@ -74,21 +78,21 @@ export function CustomerMachinesTable({
 
   const formatAmount = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const thClass = "py-2.5 px-4 text-xs font-semibold uppercase tracking-wide select-none cursor-pointer transition-colors hover:text-[#1d1d1f]";
-  const thStyle = { color: '#86868b' };
+  const thClass = "py-2.5 px-4 text-xs font-semibold uppercase tracking-wide select-none cursor-pointer transition-colors hover:text-[var(--fg)]";
+  const thStyle = { color: 'var(--subtle)' };
 
   return (
     <div className="rounded-2xl overflow-hidden" style={CARD}>
-      <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-        <h2 className="font-semibold text-[#1d1d1f] flex items-center gap-2">
-          <Building2 className="w-4 h-4" style={{ color: '#0071e3' }} />
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+        <h2 className="font-semibold text-[var(--fg)] flex items-center gap-2">
+          <Building2 className="w-4 h-4" style={{ color: 'var(--accent-ink)' }} />
           All Machines
         </h2>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
+            <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
               <th className={`${thClass} text-left`} style={thStyle} onClick={() => handleSort('name')}>
                 Machine <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} />
               </th>
@@ -118,18 +122,21 @@ export function CustomerMachinesTable({
               <tr
                 key={machine.id}
                 className="row-hover"
-                style={{ borderBottom: '1px solid #f5f5f7' }}
+                style={{ borderBottom: '1px solid var(--surface-2)' }}
               >
                 <td className="py-3.5 px-4">
                   <button
                     onClick={() => setDetailMachineId(machine.id)}
                     className="font-medium hover:underline"
-                    style={{ color: '#0071e3' }}
+                    style={{ color: 'var(--accent-ink)' }}
                   >
                     {machine.name}
                   </button>
+                  {machine.assignee && (
+                    <p className="text-xs mt-0.5 text-[var(--muted)]">Assigned to {machine.assignee}</p>
+                  )}
                 </td>
-                <td className="py-3.5 px-4 hidden sm:table-cell" style={{ color: '#6e6e73' }}>
+                <td className="py-3.5 px-4 hidden sm:table-cell" style={{ color: 'var(--muted)' }}>
                   <div className="flex items-center gap-1.5">
                     <MapPin className="w-3 h-3" />
                     {machine.location}
@@ -140,8 +147,8 @@ export function CustomerMachinesTable({
                     <span
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
                       style={machine.asset_online
-                        ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
-                        : { background: '#f5f5f7', color: '#6e6e73' }
+                        ? { background: 'rgba(29,122,60,0.12)', color: 'var(--success)' }
+                        : { background: 'var(--surface-2)', color: 'var(--muted)' }
                       }
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${machine.asset_online ? 'animate-pulse bg-emerald-400' : 'bg-gray-500'}`} />
@@ -151,23 +158,23 @@ export function CustomerMachinesTable({
                 </td>
                 <td
                   className="py-3.5 px-4 text-right font-medium"
-                  style={{ color: machine.stock_level !== null && machine.stock_level < 5 ? '#9a6400' : '#1d1d1f' }}
+                  style={{ color: machine.stock_level !== null && machine.stock_level < 5 ? 'var(--warning)' : 'var(--fg)' }}
                 >
                   {machine.stock_level !== null ? `${machine.stock_level} units` : 'N/A'}
                 </td>
                 {isSuperCustomer && (
                   <>
                     <td className="py-3.5 px-4 text-right hidden md:table-cell">
-                      <div className="font-semibold text-[#1d1d1f]">{machine.totalTransactions}</div>
+                      <div className="font-semibold text-[var(--fg)]">{machine.totalTransactions}</div>
                       <div className="text-xs mt-0.5">
-                        <span style={{ color: '#6e6e73' }}>{machine.onlineTransactions}</span>
-                        <span style={{ color: '#86868b' }}> / </span>
-                        <span style={{ color: '#9a6400' }}>{machine.coinTransactions}</span>
-                        <span style={{ color: '#86868b' }}> / </span>
-                        <span style={{ color: '#6e6e73' }}>{machine.rfidTransactions}</span>
+                        <span style={{ color: 'var(--muted)' }}>{machine.onlineTransactions}</span>
+                        <span style={{ color: 'var(--subtle)' }}> / </span>
+                        <span style={{ color: 'var(--warning)' }}>{machine.coinTransactions}</span>
+                        <span style={{ color: 'var(--subtle)' }}> / </span>
+                        <span style={{ color: 'var(--muted)' }}>{machine.rfidTransactions}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-right font-semibold text-[#1d1d1f]">
+                    <td className="py-3.5 px-4 text-right font-semibold text-[var(--fg)]">
                       ₹{formatAmount(machine.totalRevenue)}
                     </td>
                   </>
@@ -176,9 +183,9 @@ export function CustomerMachinesTable({
             )) : (
               <tr>
                 <td colSpan={isSuperCustomer ? 6 : 4} className="py-16 text-center">
-                  <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: '#e5e5e7' }} />
-                  <p className="font-medium" style={{ color: '#6e6e73' }}>No machines found</p>
-                  <p className="text-xs mt-1" style={{ color: '#a1a1a6' }}>Contact admin to add machines to your account</p>
+                  <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--line)' }} />
+                  <p className="font-medium" style={{ color: 'var(--muted)' }}>No machines found</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Contact admin to add machines to your account</p>
                 </td>
               </tr>
             )}

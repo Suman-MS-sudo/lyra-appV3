@@ -1,10 +1,15 @@
 ﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import { TrendingUp, CreditCard, AlertCircle, Users, Wifi, WifiOff, Coins, Activity, Nfc, Calendar, Trophy } from 'lucide-react';
+import { TrendingUp, AlertCircle, Users, Nfc, Calendar, Trophy } from 'lucide-react';
+import { PageHeader } from '@/components/ui/kit';
+import type { GlanceAlert, GlanceMachine } from '@/components/customer/CustomerGlance';
+import { DAY_MS, IST_OFFSET_MS, istClock, timeAgo } from '@/lib/time';
+import { CustomerDashboardView } from '@/components/customer/CustomerDashboardView';
+import { rentalState } from '@/lib/rental-state';
+import { visibleOwnerIds } from '@/lib/machine-scope';
 import Link from 'next/link';
 import MachineAssignmentPopup from '@/components/MachineAssignmentPopup';
-import { PaymentDonutChart, MachineRevenueBar, RevenueAreaChart, MachineStatusBar } from '@/components/DashboardCharts';
 import TransactionsTable from '@/components/TransactionsTable';
 import DashboardTabs from '@/components/DashboardTabs';
 import RfidCardsUsagePanel from '@/components/RfidCardsUsagePanel';
@@ -13,7 +18,10 @@ import ReportDownload from '@/components/ReportDownload';
 // Force dynamic rendering - never cache this page to ensure real-time status
 export const revalidate = 0;
 
-export default async function CustomerDashboard() {
+const RANGES = [7, 14, 30] as const;
+type Range = (typeof RANGES)[number];
+
+export default async function CustomerDashboard({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const supabase = await createClient();
   
   const {
@@ -58,21 +66,14 @@ export default async function CustomerDashboard() {
     machineCount: number;
   }> = [];
 
-  // Super customers see all org machines; regular customers see only their assigned machines
-  let orgMachines: any[] | null;
-  if (isSuperCustomer && profile?.organization_id) {
-    const { data } = await serviceSupabase
-      .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping, rfid_enabled')
-      .eq('customer_id', profile.organization_id);
-    orgMachines = data;
-  } else {
-    const { data } = await serviceSupabase
-      .from('vending_machines')
-      .select('id, name, location, status, asset_online, stock_level, customer_id, last_ping, rfid_enabled')
-      .eq('customer_id', user.id);
-    orgMachines = data;
-  }
+  // Super customers see every machine in their company — including ones assigned
+  // to a team member (assignment moves customer_id to that person). Regular
+  // customers see only the machines assigned to them.
+  const ownerIds = await visibleOwnerIds(serviceSupabase, user.id, profile);
+  const { data: orgMachines } = await serviceSupabase
+    .from('vending_machines')
+    .select('id, name, location, status, asset_online, stock_level, max_capacity, customer_id, last_ping, rfid_enabled')
+    .in('customer_id', ownerIds);
 
   customerMachines = orgMachines;
 
@@ -173,123 +174,24 @@ export default async function CustomerDashboard() {
   ]);
 
   // Calculate comprehensive stats using real-time status
-  const totalMachines = machinesWithUpdatedStatus?.length || 0;
-  const onlineMachines = machinesWithUpdatedStatus?.filter(m => m.asset_online).length || 0;
-  const lowStockMachines = machinesWithUpdatedStatus?.filter(m => m.stock_level !== null && m.stock_level < 5).length || 0;
 
   // Transaction stats
-  const totalOnlineTransactions = onlineTransactions?.length || 0;
-  const totalCoinTransactions = coinPayments?.length || 0;
-  const totalRfidTransactions = rfidPayments?.length || 0;
-  const totalTransactions = totalOnlineTransactions + totalCoinTransactions + totalRfidTransactions;
 
   // Revenue calculations
-  const onlineRevenue = onlineTransactions?.reduce((sum, tx) => {
-    if (tx.payment_status === 'paid') {
-      return sum + parseFloat(tx.total_amount || 0);
-    }
-    return sum;
-  }, 0) || 0;
 
-  const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
   const rfidRevenue = (rfidPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const totalRevenue = onlineRevenue + coinRevenue + rfidRevenue;
 
   // Machine health analysis using real-time status
-  const healthyMachines = machinesWithUpdatedStatus?.filter(m => m.asset_online && (m.stock_level || 0) >= 5) || [];
-  const needsAttentionMachines = machinesWithUpdatedStatus?.filter(m => {
-    const isOffline = !m.asset_online;
-    const isLowStock = m.stock_level !== null && m.stock_level < 5;
-    return isOffline || isLowStock;
-  }).map(m => ({
-    ...m,
-    issues: [
-      !m.asset_online ? 'Offline' : null,
-      m.stock_level !== null && m.stock_level < 5 ? 'Low Stock' : null
-    ].filter(Boolean)
-  })) || [];
 
   // Breakdown by payment method
-  const onlineTransactionCount = onlineTransactions?.filter(tx => tx.payment_status === 'paid').length || 0;
-  const coinTransactionCount = coinPayments?.length || 0;
   const rfidTransactionCount = rfidPayments?.length || 0;
 
   // Format date for last sync display
-  const formatLastSync = (dateString: string | null) => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString();
-  };
 
   // Machine-wise breakdown for bar chart
-  const machineHealthData = customerMachines?.map(machine => {
-    const machineOnlineTx = onlineTransactions?.filter(tx =>
-      tx.machine_id === machine.id && tx.payment_status === 'paid'
-    ) || [];
-    const machineCoinTx = coinPayments?.filter(tx => tx.machine_id === machine.id) || [];
-    const machineRfidTx = rfidPayments?.filter(tx => tx.machine_id === machine.id) || [];
-    const machineOnlineRev = machineOnlineTx.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
-    const machineCoinRev = machineCoinTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    const machineRfidRev = machineRfidTx.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    return {
-      ...machine,
-      name: machine.name?.substring(0, 12) || 'Unknown',
-      fullName: machine.name || 'Unknown',
-      online: machine.asset_online ? 1 : 0,
-      offline: machine.asset_online ? 0 : 1,
-      revenue: machineOnlineRev + machineCoinRev + machineRfidRev,
-      onlineRevenue: machineOnlineRev,
-      coinRevenue: machineCoinRev,
-      rfidRevenue: machineRfidRev,
-      totalTransactions: machineOnlineTx.length + machineCoinTx.length + machineRfidTx.length,
-    };
-  }).sort((a, b) => b.revenue - a.revenue) || [];
 
   // Revenue by day (last 14 days) for area chart
   const now = new Date();
-  const revenueTimeline = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (13 - i));
-    const dateStr = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-    const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
-
-    const dayOnline = onlineTransactions
-      ?.filter(tx => {
-        const t = new Date(tx.created_at);
-        return t >= dayStart && t <= dayEnd && tx.payment_status === 'paid';
-      })
-      .reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
-
-    const dayCoin = (coinPayments
-      ?.filter(tx => {
-        const t = new Date(tx.created_at);
-        return t >= dayStart && t <= dayEnd;
-      })
-      .reduce((sum, tx) => sum + tx.amount_in_paisa, 0) || 0) / 100;
-
-    const dayRfid = (rfidPayments
-      ?.filter(tx => {
-        const t = new Date(tx.created_at);
-        return t >= dayStart && t <= dayEnd;
-      })
-      .reduce((sum, tx) => sum + tx.amount_in_paisa, 0) || 0) / 100;
-
-    return { date: dateStr, online: Math.round(dayOnline * 100) / 100, coin: Math.round(dayCoin * 100) / 100, rfid: Math.round(dayRfid * 100) / 100 };
-  });
 
   // Last 10 per type — the client component handles filtering
   const last10Online = (onlineTransactions || []).slice(0, 10).map(tx => ({
@@ -429,6 +331,99 @@ export default async function CustomerDashboard() {
   }) || [];
 
   // Helpers
+  // ── At-a-glance: today, alerts, machine board ──
+  const { now: glanceNow, todayStart, yesterdayStart } = istClock();
+  const { data: myRentals } = machineIds.length
+    ? await serviceSupabase.from('rental_agreements').select('rental_code, machine_id, status, start_date, paid_until').in('machine_id', machineIds)
+    : { data: [] as { rental_code: string; machine_id: string; status: string; start_date: string | null; paid_until: string | null }[] };
+  const successRows = [
+    ...(onlineTransactions || []).filter((t) => t.payment_status === 'paid').map((t) => ({ at: t.created_at, amount: parseFloat(String(t.total_amount || 0)) })),
+    ...(coinPayments || []).map((t) => ({ at: t.created_at, amount: (t.amount_in_paisa || 0) / 100 })),
+    ...(rfidPayments || []).map((t) => ({ at: t.created_at, amount: (t.amount_in_paisa || 0) / 100 })),
+  ];
+  const inDay = (from: number) => successRows.filter((r) => { const t = new Date(r.at).getTime(); return t >= from && t < from + DAY_MS; });
+  const todayRows = inDay(todayStart);
+  // Team members (super customer excluded) → shown as "Assigned to …" on each machine
+  const memberName = new Map(orgUsersWithMachines.map((u) => [u.id, u.full_name || u.email]));
+  const glanceMachines: GlanceMachine[] = (machinesWithUpdatedStatus || []).map((m) => ({
+    id: m.id, name: m.name, location: m.location ?? null, online: !!m.asset_online,
+    stock: typeof m.stock_level === 'number' ? m.stock_level : null, capacity: m.max_capacity || null,
+    lastSeen: timeAgo(m.last_ping, glanceNow),
+    assignee: memberName.get(m.customer_id) ?? null,
+  }));
+  const glanceAlerts: GlanceAlert[] = [];
+  // Recently dropped machines are actionable one by one; ones dark for over a week collapse into a
+  // single line so they don't bury everything else.
+  const pingAt = new Map((machinesWithUpdatedStatus || []).map((m) => [m.id, m.last_ping ? new Date(m.last_ping).getTime() : 0]));
+  const offlineMachines = glanceMachines.filter((m) => !m.online).sort((a, b) => (pingAt.get(b.id) || 0) - (pingAt.get(a.id) || 0));
+  const staleOffline = offlineMachines.filter((m) => glanceNow - (pingAt.get(m.id) || 0) > 7 * DAY_MS);
+  for (const m of glanceMachines) {
+    if (m.stock === 0 && m.online) glanceAlerts.push({ level: 'critical', kind: 'stock', title: `${m.name} is empty`, detail: `${m.location ? `${m.location} · ` : ''}ask for a refill`, href: '/customer/machines' });
+  }
+  for (const m of offlineMachines) {
+    if (staleOffline.includes(m)) continue;
+    glanceAlerts.push({ level: 'critical', kind: 'offline', title: `${m.name} is offline`, detail: `last seen ${m.lastSeen} · check power & network`, href: '/customer/machines' });
+  }
+  if (staleOffline.length) {
+    glanceAlerts.push({
+      level: 'warning', kind: 'offline',
+      title: staleOffline.length === 1 ? `${staleOffline[0].name} offline for over a week` : `${staleOffline.length} machines offline for over a week`,
+      detail: staleOffline.length === 1 ? `last seen ${staleOffline[0].lastSeen}` : staleOffline.slice(0, 3).map((m) => m.name).join(', ') + (staleOffline.length > 3 ? ` +${staleOffline.length - 3}` : ''),
+      href: '/customer/machines',
+    });
+  }
+  for (const r of myRentals || []) {
+    const st = rentalState(r);
+    const name = glanceMachines.find((m) => m.id === r.machine_id)?.name || r.rental_code;
+    if (st === 'locked') glanceAlerts.push({ level: 'critical', kind: 'rental', title: `Rent unpaid — ${name} paused`, detail: 'Recharge rent to restore UPI & RFID vending', href: '/customer/rental' });
+    if (st === 'grace') glanceAlerts.push({ level: 'warning', kind: 'rental', title: `Rent overdue — ${name}`, detail: 'In grace period · recharge to avoid a pause', href: '/customer/rental' });
+  }
+  for (const m of glanceMachines) {
+    if (m.stock !== null && m.stock > 0 && m.stock < 5) glanceAlerts.push({ level: 'warning', kind: 'stock', title: `${m.name} low on stock`, detail: `${m.stock} left`, href: '/customer/machines' });
+  }
+  for (const inv of overdueInvoices) glanceAlerts.push({ level: 'warning', kind: 'invoice', title: `Invoice ${inv.invoice_number} overdue`, detail: `₹${((inv.total_amount_paisa || 0) / 100).toFixed(2)} · pay to keep your account in good standing`, href: '/customer/billing' });
+
+  // ── Analytics-console data (reference layout) ──
+  const params = await searchParams;
+  const range: Range = (RANGES as readonly number[]).includes(Number(params.range)) ? (Number(params.range) as Range) : 14;
+  const rangeStart = todayStart - (range - 1) * DAY_MS;
+  const firstItem = (items: unknown) => {
+    const arr = (typeof items === 'string' ? JSON.parse(items) : items || []) as { name?: string }[];
+    return arr[0]?.name || 'Product';
+  };
+  type CPay = { id: string; at: number; amount: number; type: 'upi' | 'coin' | 'rfid'; machine: string; product: string };
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const cpays: CPay[] = [
+    ...(onlineTransactions || []).filter((t: any) => t.payment_status === 'paid').map((t: any) => ({ id: `u${t.id}`, at: new Date(t.created_at).getTime(), amount: parseFloat(String(t.total_amount || 0)), type: 'upi' as const, machine: t.vending_machines?.name || 'Machine', product: firstItem(t.items) })),
+    ...(coinPayments || []).map((t: any) => ({ id: `c${t.id}`, at: new Date(t.created_at).getTime(), amount: (t.amount_in_paisa || 0) / 100, type: 'coin' as const, machine: t.vending_machines?.name || 'Machine', product: t.products?.name || 'Product' })),
+    ...(rfidPayments || []).map((t: any) => ({ id: `r${t.id}`, at: new Date(t.created_at).getTime(), amount: (t.amount_in_paisa || 0) / 100, type: 'rfid' as const, machine: t.vending_machines?.name || 'Machine', product: t.products?.name || 'Product' })),
+  ].sort((a, b) => b.at - a.at);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const inRange = cpays.filter((p) => p.at >= rangeStart);
+  const trend = Array.from({ length: range }, (_, i) => {
+    const from = rangeStart + i * DAY_MS;
+    return {
+      label: new Date(from + IST_OFFSET_MS).toLocaleDateString('en-IN', range <= 7 ? { weekday: 'short', timeZone: 'UTC' } : { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+      value: inRange.filter((p) => p.at >= from && p.at < from + DAY_MS).reduce((t, p) => t + p.amount, 0),
+    };
+  });
+  const inDayOf = (i: number) => { const from = rangeStart + i * DAY_MS; return inRange.filter((p) => p.at >= from && p.at < from + DAY_MS); };
+  const trendUpi = trend.map((_, i) => inDayOf(i).filter((p) => p.type === 'upi').reduce((t, p) => t + p.amount, 0));
+  const trendCount = trend.map((_, i) => inDayOf(i).length);
+  const mix = { upi: 0, coin: 0, rfid: 0 };
+  for (const p of inRange) mix[p.type] += p.amount;
+  const revenueByMachine: Record<string, number> = {};
+  for (const p of inRange) revenueByMachine[p.machine] = (revenueByMachine[p.machine] || 0) + p.amount;
+  const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const byWeekday = WEEK.map((label) => ({ label, value: 0 }));
+  for (const p of inRange) byWeekday[(new Date(p.at + IST_OFFSET_MS).getUTCDay() + 6) % 7].value += p.amount;
+  const leader = (key: 'machine' | 'product' | 'type') => {
+    const totals = inRange.reduce<Record<string, number>>((acc, p) => { acc[p[key]] = (acc[p[key]] || 0) + p.amount; return acc; }, {});
+    const [label, value] = Object.entries(totals).sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+    return { label, value, count: inRange.filter((p) => p[key] === label).length };
+  };
+  const yesterdayRows = inDay(yesterdayStart);
+
   const formatAmount = (amount: number) =>
     amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -443,9 +438,11 @@ export default async function CustomerDashboard() {
   };
 
   const CARD: React.CSSProperties = {
-    border: '1px solid #e5e5e7',
-    borderRadius: 20,
-  };
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
+  borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
+};
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -455,8 +452,8 @@ export default async function CustomerDashboard() {
         <div
           className="rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
           style={overdueInvoices.length > 0
-            ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }
-            : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)', color: '#9a6400' }
+            ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: 'var(--danger)' }
+            : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)', color: 'var(--warning)' }
           }
         >
           <div className="flex items-center gap-2 text-sm">
@@ -471,150 +468,58 @@ export default async function CustomerDashboard() {
           <Link
             href="/customer/billing"
             className="text-xs font-semibold px-3 py-1.5 rounded-xl transition-opacity hover:opacity-80 whitespace-nowrap"
-            style={{ background: '#e5e5e7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+            style={{ background: 'var(--line)', border: '1px solid var(--line)', color: 'var(--fg)' }}
           >
             View &amp; Pay →
           </Link>
         </div>
       )}
 
-      {/* Page Title */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1d1d1f]">Dashboard</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Real-time overview of your vending machine network</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-medium"
-            style={{ background: 'rgba(29,122,60,0.12)', border: '1px solid rgba(29,122,60,0.12)', color: '#1d7a3c' }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Live
-          </div>
-          <ReportDownload />
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title="Dashboard"
+        subtitle="Real-time overview of your vending machine network"
+        actions={<><span className="db-live"><span className="db-live-dot" />Live</span><ReportDownload /></>}
+      />
 
       <DashboardTabs
         overview={
       <>
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {[
-          { label: 'Total Revenue',    value: `₹${formatAmount(totalRevenue)}`,  sub: `${onlineTransactionCount + coinTransactionCount + rfidTransactionCount} transactions`, icon: TrendingUp, color: '#1d7a3c', bg: 'rgba(29,122,60,0.12)'   },
-          { label: 'Online Payments',  value: `₹${formatAmount(onlineRevenue)}`, sub: `${onlineTransactionCount} paid`,                                icon: CreditCard, color: '#6e6e73', bg: 'rgba(0,0,0,0.04)'  },
-          { label: 'Coin Payments',    value: `₹${formatAmount(coinRevenue)}`,   sub: `${coinTransactionCount} collections`,                            icon: Coins,      color: '#9a6400', bg: 'rgba(154,100,0,0.12)'   },
-          { label: 'RFID Payments',    value: `₹${formatAmount(rfidRevenue)}`,   sub: `${rfidTransactionCount} taps`,                                   icon: Nfc,        color: '#0071e3', bg: 'rgba(0,0,0,0.04)'    },
-          { label: 'Machines Online',  value: `${onlineMachines} / ${totalMachines}`, sub: needsAttentionMachines.length > 0 ? `${needsAttentionMachines.length} need attention` : 'All healthy', icon: Wifi, color: '#0071e3', bg: 'rgba(0,113,227,0.10)' },
-        ].map(({ label, value, sub, icon: Icon, color, bg }) => (
-          <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-            <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full" style={{ background: bg, opacity: 0.4 }} />
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
-              <Icon className="w-4 h-4" style={{ color }} />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
-            <p className="text-xl font-bold text-[#1d1d1f]">{value}</p>
-            <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-2xl p-5" style={CARD}>
-          <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Revenue Trend</h2>
-          <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Last 14 days — online vs coin vs RFID</p>
-          <RevenueAreaChart revenueTimeline={revenueTimeline} />
-        </div>
-
-        <div className="rounded-2xl p-5" style={CARD}>
-          <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Payment Split</h2>
-          <p className="text-xs mb-2" style={{ color: '#6e6e73' }}>Revenue by payment type</p>
-          <PaymentDonutChart
-            onlineRevenue={onlineRevenue}
-            coinRevenue={coinRevenue}
-            rfidRevenue={rfidRevenue}
-            onlineCount={onlineTransactionCount}
-            coinCount={coinTransactionCount}
-            rfidCount={rfidTransactionCount}
-          />
-          <div className="flex flex-col gap-2 mt-3">
-            {[
-              { label: 'Online', color: '#0071e3', amount: onlineRevenue },
-              { label: 'Coin',   color: '#9a6400', amount: coinRevenue   },
-              { label: 'RFID',   color: '#6e6e73', amount: rfidRevenue  },
-            ].map(({ label, color, amount }) => (
-              <div key={label} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2" style={{ color: '#3a3a3c' }}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-                  {label}
-                </span>
-                <span className="font-semibold text-[#1d1d1f]">₹{formatAmount(amount)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Machine Revenue + Health */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl p-5" style={CARD}>
-          <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Revenue by Machine</h2>
-          <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Top {Math.min(machineHealthData.length, 8)} by total revenue</p>
-          <MachineRevenueBar machineHealthData={machineHealthData} />
-        </div>
-
-        <div className="rounded-2xl p-5" style={CARD}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-semibold text-[#1d1d1f]">Machine Health</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#6e6e73' }}>Real-time connectivity</p>
-            </div>
-            <Link href="/customer/machines" className="text-xs font-medium transition-colors hover:text-[#1d1d1f]" style={{ color: '#0071e3' }}>
-              View all →
-            </Link>
-          </div>
-          <MachineStatusBar online={onlineMachines} offline={totalMachines - onlineMachines} total={totalMachines} />
-          <div className="mt-4 space-y-0 max-h-48 overflow-y-auto">
-            {machinesWithUpdatedStatus.map(m => (
-              <div key={m.id} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f5f5f7' }}>
-                <div className="flex items-center gap-2 min-w-0">
-                  {m.asset_online
-                    ? <Wifi className="w-3.5 h-3.5 shrink-0" style={{ color: '#1d7a3c' }} />
-                    : <WifiOff className="w-3.5 h-3.5 shrink-0" style={{ color: '#F87171' }} />}
-                  <span className="text-sm font-medium text-[#1d1d1f] truncate">{m.name}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs" style={{ color: '#86868b' }}>{formatLastSync(m.last_ping)}</span>
-                  {m.stock_level !== null && m.stock_level < 5 && (
-                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>Low</span>
-                  )}
-                </div>
-              </div>
-            ))}
-            {machinesWithUpdatedStatus.length === 0 && (
-              <p className="text-sm text-center py-4" style={{ color: '#a1a1a6' }}>No machines assigned</p>
-            )}
-          </div>
-        </div>
-      </div>
+      <CustomerDashboardView
+        range={range}
+        todayRevenue={todayRows.reduce((t, r) => t + r.amount, 0)}
+        todayCount={todayRows.length}
+        yesterdayRevenue={yesterdayRows.reduce((t, r) => t + r.amount, 0)}
+        yesterdayCount={yesterdayRows.length}
+        trend={trend}
+        byWeekday={byWeekday}
+        tops={{ machine: leader('machine'), product: leader('product'), method: leader('type') }}
+        activity={cpays.slice(0, 8).map((p) => ({ id: p.id, type: p.type, machine: p.machine, amount: p.amount, when: timeAgo(new Date(p.at).toISOString(), glanceNow) }))}
+        machines={glanceMachines}
+        alerts={glanceAlerts}
+        firstName={(profile?.full_name || user.email?.split('@')[0] || 'there').split(' ')[0]}
+        trendUpi={trendUpi}
+        trendCount={trendCount}
+        mix={mix}
+        revenueByMachine={revenueByMachine}
+        showAssignee={isSuperCustomer}
+      />
 
       {/* Transactions */}
-      <TransactionsTable transactions={last10Transactions} />
+      <div id="transactions" className="scroll-mt-6"><TransactionsTable transactions={last10Transactions} /></div>
 
       {/* Team & Machine Access (super customer only) */}
       {isSuperCustomer && orgUsersWithMachines.length > 0 && (
         <div className="rounded-2xl p-5" style={CARD}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="font-semibold text-[#1d1d1f]">Team &amp; Machine Access</h2>
-              <p className="text-xs mt-0.5" style={{ color: '#6e6e73' }}>Users in your organization</p>
+              <h2 className="font-semibold text-[var(--fg)]">Team &amp; Machine Access</h2>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Users in your organization</p>
             </div>
             <Link
               href="/customer/users"
-              className="px-3 py-1.5 text-xs font-semibold text-white rounded-xl transition-all active:scale-[0.97]"
-              style={{ background: '#1d1d1f', boxShadow: '0 4px 14px rgba(0,0,0,0.04)' }}
+              className="px-3 py-1.5 text-xs font-semibold text-white lyra-chamfer transition-all active:scale-[0.97]"
+              style={{ background: 'var(--accent)', boxShadow: '0 4px 14px rgba(0,0,0,0.04)' }}
             >
               Manage Users
             </Link>
@@ -622,12 +527,12 @@ export default async function CustomerDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
+                <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
                   {['User', 'Email', 'Role', 'Machines', 'Devices', 'Actions'].map((h, i) => (
                     <th
                       key={h}
                       className={`py-2 px-3 text-xs font-semibold uppercase tracking-wide ${i === 1 ? 'text-left hidden sm:table-cell' : i === 2 || i === 3 ? 'text-center' : i === 5 ? 'text-right' : 'text-left'}`}
-                      style={{ color: '#86868b' }}
+                      style={{ color: 'var(--subtle)' }}
                     >
                       {h}
                     </th>
@@ -639,26 +544,26 @@ export default async function CustomerDashboard() {
                   <tr
                     key={orgUser.id}
                     className="row-hover"
-                    style={{ borderBottom: '1px solid #f5f5f7' }}
+                    style={{ borderBottom: '1px solid var(--surface-2)' }}
                   >
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #0071e3, #0058b0)' }}
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[#ffffff] font-semibold text-xs shrink-0"
+                          style={{ background: 'var(--accent)' }}
                         >
                           {(orgUser.full_name || orgUser.email || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-[#1d1d1f] truncate max-w-24">{orgUser.full_name || 'N/A'}</span>
+                        <span className="font-medium text-[var(--fg)] truncate max-w-24">{orgUser.full_name || 'N/A'}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 hidden sm:table-cell" style={{ color: '#6e6e73' }}>{orgUser.email}</td>
+                    <td className="py-3 px-3 hidden sm:table-cell" style={{ color: 'var(--muted)' }}>{orgUser.email}</td>
                     <td className="py-3 px-3 text-center">
                       <span
                         className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
                         style={orgUser.account_type === 'super_customer'
-                          ? { background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }
-                          : { background: '#f5f5f7', color: '#6e6e73' }
+                          ? { background: 'rgba(0,0,0,0.04)', color: 'var(--muted)' }
+                          : { background: 'var(--surface-2)', color: 'var(--muted)' }
                         }
                       >
                         {orgUser.account_type === 'super_customer' ? 'Admin' : 'Member'}
@@ -667,7 +572,7 @@ export default async function CustomerDashboard() {
                     <td className="py-3 px-3 text-center">
                       <span
                         className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-semibold"
-                        style={{ background: 'rgba(0,113,227,0.10)', color: '#93C5FD' }}
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-ink)' }}
                       >
                         {orgUser.machineCount}
                       </span>
@@ -677,7 +582,7 @@ export default async function CustomerDashboard() {
                     </td>
                     <td className="py-3 px-3 text-right">
                       {orgUser.account_type !== 'super_customer' && (
-                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium hover:text-[#1d1d1f] transition-colors" style={{ color: '#0071e3' }}>
+                        <Link href={`/customer/users/${orgUser.id}/edit`} className="text-xs font-medium hover:text-[var(--fg)] transition-colors" style={{ color: 'var(--accent-ink)' }}>
                           Edit →
                         </Link>
                       )}
@@ -690,54 +595,6 @@ export default async function CustomerDashboard() {
         </div>
       )}
 
-      {/* Machines needing attention */}
-      {needsAttentionMachines.length > 0 && (
-        <div className="rounded-2xl p-5" style={CARD}>
-          <div className="flex items-center gap-2 mb-4">
-            <AlertCircle className="w-5 h-5" style={{ color: '#F87171' }} />
-            <h2 className="font-semibold text-[#1d1d1f]">Machines Needing Attention</h2>
-            <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(200,16,46,0.10)', color: '#c8102e' }}>
-              {needsAttentionMachines.length}
-            </span>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {needsAttentionMachines.map(m => (
-              <div
-                key={m.id}
-                className="rounded-xl p-4"
-                style={!m.asset_online
-                  ? { background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)' }
-                  : { background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)' }
-                }
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold text-[#1d1d1f] text-sm">{m.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#6e6e73' }}>{m.location}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    {(m.issues as string[]).map((issue: string) => (
-                      <span
-                        key={issue}
-                        className="px-2 py-0.5 rounded text-xs font-semibold"
-                        style={issue === 'Offline'
-                          ? { background: 'rgba(200,16,46,0.10)', color: '#c8102e' }
-                          : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
-                        }
-                      >
-                        {issue}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs mt-2" style={{ color: '#86868b' }}>
-                  Last seen: {formatLastSync(m.last_ping)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       </>
         }
         rfid={hasRfidMachines ? (
@@ -745,18 +602,18 @@ export default async function CustomerDashboard() {
             {/* RFID KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: 'Total RFID Taps',   value: String(rfidTransactionCount),           sub: `across ${rfidMachineStats.length} machine${rfidMachineStats.length !== 1 ? 's' : ''}`, icon: Nfc,       color: '#6e6e73', bg: 'rgba(0,0,0,0.04)' },
-                { label: 'Total RFID Revenue', value: `₹${formatAmount(rfidRevenue)}`,         sub: 'all-time',                                                                              icon: TrendingUp, color: '#1d7a3c', bg: 'rgba(29,122,60,0.12)' },
-                { label: 'Unique Cards Used',  value: String(uniqueCardCount),                 sub: 'distinct RFID cards',                                                                   icon: Users,      color: '#0071e3', bg: 'rgba(0,113,227,0.10)' },
-                { label: 'Daily Average',      value: rfidOverallDailyAverage.toFixed(1),       sub: 'taps per active day',                                                                   icon: Calendar,   color: '#9a6400', bg: 'rgba(154,100,0,0.12)' },
+                { label: 'Total RFID Taps',   value: String(rfidTransactionCount),           sub: `across ${rfidMachineStats.length} machine${rfidMachineStats.length !== 1 ? 's' : ''}`, icon: Nfc,       color: 'var(--muted)', bg: 'rgba(0,0,0,0.04)' },
+                { label: 'Total RFID Revenue', value: `₹${formatAmount(rfidRevenue)}`,         sub: 'all-time',                                                                              icon: TrendingUp, color: 'var(--success)', bg: 'rgba(29,122,60,0.12)' },
+                { label: 'Unique Cards Used',  value: String(uniqueCardCount),                 sub: 'distinct RFID cards',                                                                   icon: Users,      color: 'var(--accent-ink)', bg: 'var(--accent-soft)' },
+                { label: 'Daily Average',      value: rfidOverallDailyAverage.toFixed(1),       sub: 'taps per active day',                                                                   icon: Calendar,   color: 'var(--warning)', bg: 'rgba(154,100,0,0.12)' },
               ].map(({ label, value, sub, icon: Icon, color, bg }) => (
                 <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
                   <div className="absolute top-0 right-0 w-20 h-20 rounded-bl-full" style={{ background: bg, opacity: 0.4 }} />
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: bg }}>
                     <Icon className="w-4 h-4" style={{ color }} />
                   </div>
-                  <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
-                  <p className="text-xl font-bold text-[#1d1d1f]">{value}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--muted)' }}>{label}</p>
+                  <p className="text-xl font-bold text-[var(--fg)]">{value}</p>
                   <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
                 </div>
               ))}
@@ -767,22 +624,22 @@ export default async function CustomerDashboard() {
 
             {/* 14-day tap trend */}
             <div className="rounded-2xl p-5" style={CARD}>
-              <h2 className="font-semibold text-[#1d1d1f] mb-0.5">Tap Activity</h2>
-              <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Last 14 days — RFID taps per day</p>
+              <h2 className="font-semibold text-[var(--fg)] mb-0.5">Tap Activity</h2>
+              <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>Last 14 days — RFID taps per day</p>
               <div className="flex items-end gap-1.5 h-32">
                 {(() => {
                   const max = Math.max(...rfidDailyTrend.map(d => d.count), 1);
                   return rfidDailyTrend.map((d, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group relative">
-                      <span className="text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#6e6e73' }}>{d.count}</span>
+                      <span className="text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted)' }}>{d.count}</span>
                       <div
                         className="w-full rounded-t-md transition-all"
                         style={{
                           height: `${Math.max((d.count / max) * 100, d.count > 0 ? 6 : 2)}%`,
-                          background: d.count > 0 ? 'linear-gradient(180deg, #3B82F6, #0071e3)' : '#f5f5f7',
+                          background: d.count > 0 ? 'linear-gradient(180deg, #3B82F6, var(--accent))' : 'var(--surface-2)',
                         }}
                       />
-                      <span className="text-[9px]" style={{ color: '#86868b' }}>{d.date.split(' ')[1]}</span>
+                      <span className="text-[9px]" style={{ color: 'var(--subtle)' }}>{d.date.split(' ')[1]}</span>
                     </div>
                   ));
                 })()}
@@ -793,74 +650,74 @@ export default async function CustomerDashboard() {
               {/* Top consumers */}
               <div className="rounded-2xl p-5" style={CARD}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Trophy className="w-4 h-4" style={{ color: '#9a6400' }} />
-                  <h2 className="font-semibold text-[#1d1d1f]">Top Consumers</h2>
+                  <Trophy className="w-4 h-4" style={{ color: 'var(--warning)' }} />
+                  <h2 className="font-semibold text-[var(--fg)]">Top Consumers</h2>
                 </div>
                 {topConsumers.length > 0 ? (
                   <div className="space-y-0 max-h-80 overflow-y-auto">
                     {topConsumers.map((c, i) => (
-                      <div key={c.label + i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f5f5f7' }}>
+                      <div key={c.label + i} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid var(--surface-2)' }}>
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span
                             className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                             style={i === 0
-                              ? { background: 'rgba(154,100,0,0.12)', color: '#9a6400' }
-                              : { background: '#f5f5f7', color: '#6e6e73' }}
+                              ? { background: 'rgba(154,100,0,0.12)', color: 'var(--warning)' }
+                              : { background: 'var(--surface-2)', color: 'var(--muted)' }}
                           >
                             {i + 1}
                           </span>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-[#1d1d1f] truncate">{c.label}</p>
+                            <p className="text-sm font-medium text-[var(--fg)] truncate">{c.label}</p>
                             {c.label !== c.uid && (
-                              <p className="text-xs font-mono truncate" style={{ color: '#86868b' }}>{c.uid}</p>
+                              <p className="text-xs font-mono truncate" style={{ color: 'var(--subtle)' }}>{c.uid}</p>
                             )}
-                            <p className="text-xs" style={{ color: '#86868b' }}>Last tap {formatTimeAgo(c.lastTap)}</p>
+                            <p className="text-xs" style={{ color: 'var(--subtle)' }}>Last tap {formatTimeAgo(c.lastTap)}</p>
                           </div>
                         </div>
                         <div className="text-right shrink-0 ml-2">
-                          <p className="text-sm font-bold text-[#1d1d1f]">{c.count} taps</p>
-                          <p className="text-xs" style={{ color: '#6e6e73' }}>₹{formatAmount(c.amount)}</p>
+                          <p className="text-sm font-bold text-[var(--fg)]">{c.count} taps</p>
+                          <p className="text-xs" style={{ color: 'var(--muted)' }}>₹{formatAmount(c.amount)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-center py-8" style={{ color: '#a1a1a6' }}>No RFID taps recorded yet</p>
+                  <p className="text-sm text-center py-8" style={{ color: 'var(--subtle)' }}>No RFID taps recorded yet</p>
                 )}
               </div>
 
               {/* Per-machine RFID breakdown */}
               <div className="rounded-2xl p-5" style={CARD}>
-                <h2 className="font-semibold text-[#1d1d1f] mb-0.5">By Machine</h2>
-                <p className="text-xs mb-4" style={{ color: '#6e6e73' }}>Taps, revenue &amp; daily average per machine</p>
+                <h2 className="font-semibold text-[var(--fg)] mb-0.5">By Machine</h2>
+                <p className="text-xs mb-4" style={{ color: 'var(--muted)' }}>Taps, revenue &amp; daily average per machine</p>
                 {rfidMachineStats.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
-                          <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Machine</th>
-                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Taps</th>
-                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Revenue</th>
-                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: '#86868b' }}>Avg/Day</th>
+                        <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>
+                          <th className="text-left py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Machine</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Taps</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Revenue</th>
+                          <th className="text-right py-2 px-2 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--subtle)' }}>Avg/Day</th>
                         </tr>
                       </thead>
                       <tbody>
                         {rfidMachineStats.map(m => (
-                          <tr key={m.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                          <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-2)' }}>
                             <td className="py-2.5 px-2">
-                              <p className="font-medium text-[#1d1d1f] truncate max-w-32">{m.name}</p>
-                              <p className="text-xs truncate max-w-32" style={{ color: '#86868b' }}>{m.location}</p>
+                              <p className="font-medium text-[var(--fg)] truncate max-w-32">{m.name}</p>
+                              <p className="text-xs truncate max-w-32" style={{ color: 'var(--subtle)' }}>{m.location}</p>
                             </td>
-                            <td className="py-2.5 px-2 text-right font-semibold text-[#1d1d1f]">{m.transactionCount}</td>
-                            <td className="py-2.5 px-2 text-right" style={{ color: '#6e6e73' }}>₹{formatAmount(m.revenue)}</td>
-                            <td className="py-2.5 px-2 text-right" style={{ color: '#6e6e73' }}>{m.dailyAverage.toFixed(1)}</td>
+                            <td className="py-2.5 px-2 text-right font-semibold text-[var(--fg)]">{m.transactionCount}</td>
+                            <td className="py-2.5 px-2 text-right" style={{ color: 'var(--muted)' }}>₹{formatAmount(m.revenue)}</td>
+                            <td className="py-2.5 px-2 text-right" style={{ color: 'var(--muted)' }}>{m.dailyAverage.toFixed(1)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <p className="text-sm text-center py-8" style={{ color: '#a1a1a6' }}>No RFID-enabled machines with activity yet</p>
+                  <p className="text-sm text-center py-8" style={{ color: 'var(--subtle)' }}>No RFID-enabled machines with activity yet</p>
                 )}
               </div>
             </div>

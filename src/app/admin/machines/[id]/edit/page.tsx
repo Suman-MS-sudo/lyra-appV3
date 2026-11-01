@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import EditMachineForm from '@/components/EditMachineForm';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 export default async function EditMachinePage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,10 +57,7 @@ export default async function EditMachinePage({ params }: { params: Promise<{ id
     <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Edit Machine</h1>
-            <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Update machine details and configuration</p>
-          </div>
+          <PageHeader title="Edit Machine" subtitle="Update machine details and configuration" />
           <div className="text-sm">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${machineWithOnline.asset_online ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
               {machineWithOnline.asset_online ? 'Live & Online' : 'Offline'}

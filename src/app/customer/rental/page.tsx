@@ -3,10 +3,24 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { RENTAL_RECHARGE_URL } from '@/lib/rental-lock';
 import { RENTAL_GRACE_DAYS, RENTAL_STATE_UI, fmtDate, rentalState } from '@/lib/rental-state';
+import { AlertTriangle, CalendarClock, CheckCircle2, KeyRound } from 'lucide-react';
+import { PageHeader, StatGrid, StatTile } from '@/components/ui/kit';
+import { visibleOwnerIds } from '@/lib/machine-scope';
 
 export const revalidate = 0;
 
-const CARD: React.CSSProperties = { border: '1px solid #e5e5e7', borderRadius: 20 };
+const CARD: React.CSSProperties = {
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
+  borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
+};
+/** Whole days from now until a YYYY-MM-DD date (negative = overdue). */
+function daysUntil(date: string | null | undefined): number | null {
+  if (!date) return null;
+  return Math.ceil((new Date(date).getTime() - Date.now()) / 86_400_000);
+}
+
 const inr = (n: number) => `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 /** Rental status for the signed-in customer's machines, with a link to recharge on the website. */
@@ -19,9 +33,8 @@ export default async function CustomerRentalPage() {
   const { data: profile } = await db.from('profiles').select('*').eq('id', user.id).single();
   if (profile?.role === 'admin') redirect('/admin/rentals');
 
-  // Same machine scoping as /customer/machines.
-  const ownerId = profile?.account_type === 'super_customer' && profile?.organization_id ? profile.organization_id : user.id;
-  const { data: machines } = await db.from('vending_machines').select('id, machine_name, machine_id, location').eq('customer_id', ownerId);
+  // Same machine scoping as /customer/machines (company-wide for super customers).
+  const { data: machines } = await db.from('vending_machines').select('id, machine_name, machine_id, location').in('customer_id', await visibleOwnerIds(db, user.id, profile));
   const machineIds = (machines ?? []).map((m) => m.id);
 
   const agreements = machineIds.length
@@ -42,16 +55,30 @@ export default async function CustomerRentalPage() {
   const machineById = new Map((machines ?? []).map((m) => [m.id, m]));
 
   return (
-    <div className="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">Rental</h1>
-      <p className="text-sm text-[#6e6e73] mt-1">
-        Rent status for your rented machines. Recharge Monthly, Quarterly (save 5%) or Yearly (save 10%). Machines keep working for {RENTAL_GRACE_DAYS} days after the
-        due date; after that, UPI and RFID vending pauses until rent is recharged.
-      </p>
+    <div className="px-4 sm:px-8 py-8 max-w-5xl mx-auto">
+      <PageHeader
+        eyebrow="Rental"
+        title="Machine rent"
+        subtitle={`Recharge Monthly, Quarterly (save 5%) or Yearly (save 10%). Machines keep working for ${RENTAL_GRACE_DAYS} days after the due date; after that, UPI and RFID vending pauses until rent is recharged.`}
+      />
+
+      {agreements.length > 0 && (() => {
+        const states = agreements.map((a) => rentalState(a));
+        const needs = states.filter((st) => st === 'grace' || st === 'locked').length;
+        const due = agreements.map((a) => a.paid_until).filter(Boolean).sort()[0] as string | undefined;
+        return (
+          <StatGrid>
+            <StatTile tone="sky"    icon={KeyRound}      label="Rented machines" value={String(agreements.length)} sub="on your account" />
+            <StatTile tone="mint"   icon={CheckCircle2}  label="Active"          value={String(states.filter((st) => st === 'active').length)} sub="paid and vending" />
+            <StatTile tone="peach"  icon={AlertTriangle} label="Needs recharge"  value={String(needs)} sub={needs ? 'recharge to avoid a pause' : 'nothing overdue'} />
+            <StatTile tone="butter" icon={CalendarClock} label="Next due"        value={due ? fmtDate(due) : '—'} sub="earliest paid-until date" />
+          </StatGrid>
+        );
+      })()}
 
       {agreements.length === 0 ? (
-        <div className="mt-8 p-8 text-center bg-white" style={CARD}>
-          <p className="text-sm text-[#6e6e73]">No rented machines are linked to your account yet.</p>
+        <div className="mt-8 p-8 text-center bg-[var(--surface)]" style={CARD}>
+          <p className="text-sm text-[var(--muted)]">No rented machines are linked to your account yet.</p>
         </div>
       ) : (
         <div className="mt-6 space-y-4">
@@ -62,11 +89,11 @@ export default async function CustomerRentalPage() {
             const history = recharges.filter((r) => r.agreement_id === a.id).slice(0, 5);
             const href = `${RENTAL_RECHARGE_URL}?code=${encodeURIComponent(a.rental_code)}&src=dashboard`;
             return (
-              <div key={a.id} className="bg-white p-5 sm:p-6" style={CARD}>
+              <div key={a.id} className="bg-[var(--surface)] p-5 sm:p-6" style={CARD}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="font-mono text-sm font-semibold text-[#1d1d1f]">{a.rental_code}</p>
-                    <p className="text-sm text-[#6e6e73]">
+                    <p className="font-mono text-sm font-semibold text-[var(--fg)]">{a.rental_code}</p>
+                    <p className="text-sm text-[var(--muted)]">
                       {m ? `${m.machine_name || m.machine_id} · ${m.location ?? ''}` : a.model_name} · {a.capacity}-napkin plan · {inr(a.monthly_rent)}/month + GST
                     </p>
                   </div>
@@ -76,10 +103,16 @@ export default async function CustomerRentalPage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-                  <p className="text-sm text-[#1d1d1f]">
+                  <p className="text-sm text-[var(--fg)]">
                     {a.start_date ? (
                       <>
                         Paid until <strong>{fmtDate(a.paid_until)}</strong> · started {fmtDate(a.start_date)}
+                        {(() => {
+                          const d = daysUntil(a.paid_until);
+                          if (d == null) return null;
+                          const tone = d < 0 ? 'is-bad' : d <= 5 ? 'is-warn' : 'is-ok';
+                          return <span className={`ui-pill ${tone} ml-2 align-middle`}><span className="ui-pill-dot" />{d < 0 ? `${-d} days overdue` : `${d} days left`}</span>;
+                        })()}
                       </>
                     ) : (
                       <>{a.prepaid_months} prepaid month(s), starting at installation</>
@@ -90,8 +123,8 @@ export default async function CustomerRentalPage() {
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
-                      style={{ background: state === 'locked' || state === 'grace' ? '#c8102e' : '#0071e3' }}
+                      className="lyra-cta"
+                      style={{ background: state === 'locked' || state === 'grace' ? 'var(--danger)' : 'var(--accent)' }}
                     >
                       {state === 'locked' ? 'Recharge to restore' : 'Recharge rent'}
                     </a>
@@ -101,7 +134,7 @@ export default async function CustomerRentalPage() {
                 {history.length > 0 && (
                   <table className="mt-5 w-full text-sm">
                     <thead>
-                      <tr className="text-left text-xs text-[#6e6e73]">
+                      <tr className="text-left text-xs text-[var(--muted)]">
                         <th className="py-1.5 font-medium">Paid on</th>
                         <th className="py-1.5 font-medium">Plan</th>
                         <th className="py-1.5 font-medium">Covers</th>
@@ -110,7 +143,7 @@ export default async function CustomerRentalPage() {
                     </thead>
                     <tbody>
                       {history.map((r, k) => (
-                        <tr key={k} className="border-t border-[#f0f0f2]">
+                        <tr key={k}>
                           <td className="py-2">{r.paid_at?.slice(0, 10)}</td>
                           <td className="py-2 capitalize">
                             {r.kind} ({r.months} mo)

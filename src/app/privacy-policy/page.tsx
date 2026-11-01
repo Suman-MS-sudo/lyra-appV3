@@ -1,3 +1,4 @@
+import { ThemeToggle } from '@/components/ThemeToggle';
 import Link from 'next/link';
 import { Footer } from '@/components/landing/footer';
 
@@ -10,11 +11,11 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
+      <header className="bg-[var(--surface)] border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#1d1d1f] rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-[var(--accent)] rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
@@ -24,12 +25,15 @@ export default function PrivacyPolicyPage() {
                 <div className="text-xs text-gray-500">Enterprises</div>
               </div>
             </Link>
-            <Link 
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Link 
               href="/"
               className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
             >
               Back to Home
             </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -39,7 +43,7 @@ export default function PrivacyPolicyPage() {
         <div className="container mx-auto px-4 sm:px-6 py-12 max-w-4xl">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-8">Privacy Policy</h1>
           
-          <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 space-y-8">
+          <div className="bg-[var(--surface)] rounded-xl shadow-sm p-6 sm:p-8 space-y-8">
             {/* Section 1 */}
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-4">SECTION 1 - WHAT DO WE DO WITH YOUR INFORMATION?</h2>
@@ -70,7 +74,7 @@ export default function PrivacyPolicyPage() {
                   <p className="text-gray-700 leading-relaxed">
                     If after you opt-in, you change your mind, you may withdraw your consent for us to contact you, for the continued 
                     collection, use or disclosure of your information, at anytime, by contacting us at{' '}
-                    <a href="mailto:lyraenterprisessales@gmail.com" className="text-[#0071e3] hover:underline">
+                    <a href="mailto:lyraenterprisessales@gmail.com" className="text-[var(--accent-ink)] hover:underline">
                       lyraenterprisessales@gmail.com
                     </a>{' '}
                     or mailing us at: 10/21, Vasuki Street, Cholapuram, Ambattur, Chennai - 600053 (Near Municipal School)
@@ -98,7 +102,7 @@ export default function PrivacyPolicyPage() {
                 managed by the PCI Security Standards Council, which is a joint effort of brands like Visa, MasterCard, American 
                 Express and Discover. PCI-DSS requirements help ensure the secure handling of credit card information by our store 
                 and its service providers. For more insight, you may also want to read terms and conditions of razorpay on{' '}
-                <a href="https://razorpay.com" target="_blank" rel="noopener noreferrer" className="text-[#0071e3] hover:underline">
+                <a href="https://razorpay.com" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-ink)] hover:underline">
                   https://razorpay.com
                 </a>
               </p>
@@ -153,12 +157,12 @@ export default function PrivacyPolicyPage() {
             </section>
 
             {/* Contact Information */}
-            <section className="bg-[#f5f5f7] p-6 rounded-lg">
+            <section className="bg-[var(--surface-2)] p-6 rounded-lg">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Questions and Contact Information</h2>
               <p className="text-gray-700 leading-relaxed">
                 If you would like to access, correct, amend or delete any personal information we have about you, register a 
                 complaint, or simply want more information contact our Privacy Compliance Officer at{' '}
-                <a href="mailto:lyraenterprisessales@gmail.com" className="text-[#0071e3] hover:underline">
+                <a href="mailto:lyraenterprisessales@gmail.com" className="text-[var(--accent-ink)] hover:underline">
                   lyraenterprisessales@gmail.com
                 </a>{' '}
                 or by mail at 10/21, Vasuki Street, Cholapuram, Ambattur, Chennai - 600053 (Near Municipal School)

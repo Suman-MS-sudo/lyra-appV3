@@ -16,19 +16,20 @@ interface EditProductFormProps {
 }
 
 const CARD: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface-2)',
+  border: '1px solid var(--line)',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#1d1d1f' };
+const LABEL: React.CSSProperties = { color: 'var(--fg)' };
 
 export default function EditProductForm({ product }: EditProductFormProps) {
   const router = useRouter();
@@ -80,14 +81,14 @@ export default function EditProductForm({ product }: EditProductFormProps) {
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl p-6 space-y-6" style={CARD}>
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: 'var(--danger)' }}>
           {error}
         </div>
       )}
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium mb-2" style={LABEL}>
-          Product Name <span style={{ color: '#0071e3' }}>*</span>
+          Product Name <span style={{ color: 'var(--accent-ink)' }}>*</span>
         </label>
         <input
           type="text"
@@ -96,7 +97,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           required
           value={formData.name}
           onChange={handleChange}
-          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           style={INPUT}
           placeholder="e.g., Coca Cola"
         />
@@ -104,7 +105,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
 
       <div>
         <label htmlFor="sku" className="block text-sm font-medium mb-2" style={LABEL}>
-          SKU <span style={{ color: '#0071e3' }}>*</span>
+          SKU <span style={{ color: 'var(--accent-ink)' }}>*</span>
         </label>
         <input
           type="text"
@@ -113,7 +114,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           required
           value={formData.sku}
           onChange={handleChange}
-          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           style={INPUT}
           placeholder="e.g., SKU-001"
         />
@@ -121,7 +122,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
 
       <div>
         <label htmlFor="price" className="block text-sm font-medium mb-2" style={LABEL}>
-          Price <span style={{ color: '#0071e3' }}>*</span>
+          Price <span style={{ color: 'var(--accent-ink)' }}>*</span>
         </label>
         <input
           type="number"
@@ -132,7 +133,7 @@ export default function EditProductForm({ product }: EditProductFormProps) {
           required
           value={formData.price}
           onChange={handleChange}
-          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+          className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           style={INPUT}
           placeholder="0.00"
         />
@@ -142,15 +143,15 @@ export default function EditProductForm({ product }: EditProductFormProps) {
         <Link
           href="/admin/products"
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-          style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+          className="flex-1 px-4 py-2.5 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
         >
           {loading ? 'Updating...' : 'Update Product'}
         </button>

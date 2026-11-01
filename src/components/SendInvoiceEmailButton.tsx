@@ -54,8 +54,8 @@ export function SendInvoiceEmailButton({ invoiceId }: SendInvoiceEmailButtonProp
         disabled={loading || sent}
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors ${
           sent 
-            ? 'bg-[#1d7a3c] text-white' 
-            : 'bg-[#1d1d1f] text-white hover:bg-black'
+            ? 'bg-[var(--success)] text-white' 
+            : 'bg-[var(--accent)] text-white hover:bg-black'
         } disabled:opacity-50 disabled:cursor-not-allowed`}
         title="Send Invoice Email"
       >

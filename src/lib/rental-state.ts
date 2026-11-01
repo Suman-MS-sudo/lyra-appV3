@@ -20,12 +20,12 @@ export function rentalState(a: { status: string; start_date: string | null; paid
 }
 
 export const RENTAL_STATE_UI: Record<RentalState, { label: string; bg: string; fg: string }> = {
-  pending_install: { label: 'Awaiting installation', bg: '#f5f5f7', fg: '#1d1d1f' },
-  active: { label: 'Active', bg: '#e8f8ee', fg: '#137333' },
-  grace: { label: 'Overdue (grace)', bg: '#fff4e0', fg: '#a05a00' },
-  locked: { label: 'Paused (unpaid)', bg: '#fbe9e9', fg: '#c8102e' },
-  ended: { label: 'Ended', bg: '#f5f5f7', fg: '#6e6e73' },
-  cancelled: { label: 'Cancelled', bg: '#f5f5f7', fg: '#6e6e73' },
+  pending_install: { label: 'Awaiting installation', bg: 'var(--surface-2)', fg: 'var(--fg)' },
+  active: { label: 'Active', bg: 'var(--success-bg)', fg: 'var(--success)' },
+  grace: { label: 'Overdue (grace)', bg: 'var(--warning-bg)', fg: 'var(--warning)' },
+  locked: { label: 'Paused (unpaid)', bg: 'var(--danger-bg)', fg: 'var(--danger)' },
+  ended: { label: 'Ended', bg: 'var(--surface-2)', fg: 'var(--muted)' },
+  cancelled: { label: 'Cancelled', bg: 'var(--surface-2)', fg: 'var(--muted)' },
 };
 
 export const fmtDate = (iso: string | null) =>

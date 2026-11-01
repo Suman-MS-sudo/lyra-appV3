@@ -4,6 +4,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { AdminRentalsClient, type AdminRental } from '@/components/AdminRentalsClient';
 import { rentalState } from '@/lib/rental-state';
 
+import { Donut, PageHeader, Panel, StatGrid, StatTile } from '@/components/ui/kit';
+import { CheckCircle2, Clock, IndianRupee, PauseCircle } from 'lucide-react';
+
 export const revalidate = 0;
 
 export default async function AdminRentalsPage() {
@@ -24,8 +27,8 @@ export default async function AdminRentalsPage() {
   if (error) {
     return (
       <div className="p-6">
-        <h1 className="text-xl font-semibold text-[#1d1d1f]">Rentals</h1>
-        <p className="mt-3 text-sm text-[#c8102e]">
+        <h1 className="ui-title">Rentals</h1>
+        <p className="mt-3 text-sm text-[var(--danger)]">
           Couldn&apos;t load rentals: {error.message}. Apply supabase/migrations/20261026000001_rental_recharges.sql first.
         </p>
       </div>
@@ -51,27 +54,27 @@ export default async function AdminRentalsPage() {
   const monthly = rows.filter((r) => r.state !== 'ended' && r.state !== 'cancelled').reduce((n, r) => n + Number(r.monthly_rent), 0);
 
   return (
-    <div className="px-4 sm:px-6 py-6 max-w-7xl mx-auto">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">Rentals</h1>
-          <p className="text-sm text-[#6e6e73] mt-1">Booked and recharged on lyraenterprise.co.in. Start a rental at installation to begin its paid period.</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-6">
-        {[
-          ['Awaiting install', count('pending_install')],
-          ['Active', count('active')],
-          ['In grace', count('grace')],
-          ['Paused', count('locked')],
-          ['Monthly rent (ex-GST)', `₹${monthly.toLocaleString('en-IN')}`],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-2xl border border-[#e5e5e7] bg-white p-4">
-            <p className="text-xs text-[#6e6e73]">{label}</p>
-            <p className="text-xl font-semibold text-[#1d1d1f] mt-1">{value}</p>
-          </div>
-        ))}
-      </div>
+    <div className="px-4 sm:px-8 py-8 max-w-7xl mx-auto">
+      <PageHeader title="Rentals" subtitle="Booked and recharged on lyraenterprise.co.in. Start a rental at installation to begin its paid period." />
+      <StatGrid>
+        <StatTile tone="mint"   icon={CheckCircle2}  label="Active"         value={String(count('active'))}          sub={`${count('pending_install')} awaiting install`} />
+        <StatTile tone="butter" icon={Clock}         label="In grace"       value={String(count('grace'))}           sub="rent overdue, still vending" />
+        <StatTile tone="peach"  icon={PauseCircle}   label="Paused"         value={String(count('locked'))}          sub="unpaid — vending paused" />
+        <StatTile tone="sky"    icon={IndianRupee}   label="Monthly rent"   value={`₹${monthly.toLocaleString('en-IN')}`} sub="ex-GST, live rentals" />
+      </StatGrid>
+      <Panel title="Rentals by status" className="mb-6">
+        <Donut
+          centerValue={String(rows.length)}
+          centerLabel="RENTALS"
+          slices={[
+            { label: 'Active', value: count('active'), color: '#45b558' },
+            { label: 'Awaiting install', value: count('pending_install'), color: '#a1a1aa' },
+            { label: 'In grace', value: count('grace'), color: '#f0be3c' },
+            { label: 'Paused', value: count('locked'), color: '#f03b2a' },
+            { label: 'Ended / cancelled', value: count('ended') + count('cancelled'), color: '#8a93a3' },
+          ]}
+        />
+      </Panel>
       <AdminRentalsClient rows={rows} machines={(machines ?? []).map((m) => ({ id: m.id, label: `${m.machine_name || m.machine_id} · ${m.location ?? ''}` }))} />
     </div>
   );

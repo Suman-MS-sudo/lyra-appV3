@@ -4,6 +4,8 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { Cpu } from 'lucide-react';
 import FirmwareManager from '@/components/FirmwareManager';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 export default async function FirmwarePage() {
@@ -50,13 +52,8 @@ export default async function FirmwarePage() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex items-center gap-3">
-        <Cpu className="w-6 h-6 text-[#1d1d1f]" />
-        <div>
-          <h1 className="text-2xl font-bold text-[#1d1d1f]">Firmware OTA</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>
-            Upload ESP32 firmware builds and deploy them to selected machines
-          </p>
-        </div>
+        <Cpu className="w-6 h-6 text-[var(--fg)]" />
+        <PageHeader title="Firmware OTA" subtitle="Upload ESP32 firmware builds and deploy them to selected machines" />
       </div>
 
       <FirmwareManager

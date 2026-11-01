@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import EditOrganizationForm from '@/components/EditOrganizationForm';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 export default async function EditOrganizationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,10 +37,7 @@ export default async function EditOrganizationPage({ params }: { params: Promise
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Organization</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Update organization details</p>
-      </div>
+      <PageHeader title="Edit Organization" subtitle="Update organization details" />
       <EditOrganizationForm organization={organization} />
     </main>
   );

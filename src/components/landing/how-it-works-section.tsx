@@ -1,44 +1,45 @@
-import { QrCode, ShoppingBag, CreditCard, PackageCheck } from 'lucide-react';
+import Link from 'next/link';
+import { QrCode, Smartphone, ShieldCheck, PackageCheck, LifeBuoy, LayoutDashboard, ArrowRight } from 'lucide-react';
 
 const steps = [
   {
     icon: QrCode,
     step: '01',
-    title: 'Scan the QR code',
-    desc: 'Every Lyra machine has a QR code on the front. Scan it with your phone camera — no app download required.',
+    title: 'Find the QR on the machine',
+    desc: 'When a Lyra machine is ready, its display shows a payment QR. If the screen says out of stock or offline, it can’t take a payment right now.',
   },
   {
-    icon: ShoppingBag,
+    icon: Smartphone,
     step: '02',
-    title: 'Pick your product',
-    desc: 'This page shows exactly what that machine has in stock right now, with live pricing.',
+    title: 'Scan it with your phone',
+    desc: 'Use your phone camera or any UPI app. This page opens for that exact machine, with its item and price.',
   },
   {
-    icon: CreditCard,
+    icon: ShieldCheck,
     step: '03',
-    title: 'Pay by UPI or card',
-    desc: 'Secure, cashless checkout in a few taps. Your receipt is generated instantly.',
+    title: 'Pay with any UPI app',
+    desc: 'Approve in Google Pay, PhonePe, Paytm, BHIM or your bank app. We verify every payment on our server before the machine is told to dispense.',
   },
   {
     icon: PackageCheck,
     step: '04',
-    title: 'Collect it from the machine',
-    desc: 'The machine dispenses the moment payment confirms — no waiting, no attendant needed.',
+    title: 'Collect your napkin',
+    desc: 'The machine dispenses within seconds of confirmation. Keep the payment page open until it does.',
   },
 ];
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="relative py-24 sm:py-32 bg-[#f5f5f7]">
+    <section id="how-it-works" className="relative py-24 sm:py-32 bg-[var(--surface-2)]">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-3 text-[#6e6e73]">How it works</p>
-          <h2 className="text-4xl font-semibold tracking-tight text-[#1d1d1f] sm:text-5xl">
-            This is a payment page, not an app
+          <span className="zl-badge"><span className="zl-badge-dot" />How to pay</span>
+          <h2 className="lyra-display text-4xl sm:text-6xl mt-5">
+            Pay at the machine in four steps
           </h2>
-          <p className="mt-5 text-lg text-[#6e6e73]">
-            You land here by scanning the QR code printed on a Lyra machine. From there,
-            buying a product takes four steps.
+          <p className="mt-5 text-lg text-[var(--muted)]">
+            This isn&apos;t a shop and there&apos;s nothing to install. It&apos;s the payment page your phone opens when you
+            scan the QR shown on a Lyra machine.
           </p>
         </div>
 
@@ -46,28 +47,50 @@ export function HowItWorksSection() {
           {steps.map(({ icon: Icon, step, title, desc }) => (
             <div
               key={step}
-              className="relative rounded-2xl px-6 py-8 lyra-card bg-white border border-[#e5e5e7]"
+              className="relative lyra-chamfer px-6 py-8 lyra-card bg-[var(--surface)] border border-[var(--line)]"
             >
-              <span className="text-xs font-semibold tracking-widest text-[#86868b]">{step}</span>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mt-4 mb-5 bg-[#f5f5f7]">
-                <Icon className="h-6 w-6 text-[#1d1d1f]" aria-hidden="true" />
+              <span className="lyra-display text-3xl text-[var(--accent)]">{step}</span>
+              <div className="w-12 h-12 lyra-chamfer flex items-center justify-center mt-4 mb-5 bg-[var(--accent-soft)]">
+                <Icon className="h-6 w-6 text-[var(--accent-ink)]" aria-hidden="true" />
               </div>
-              <h3 className="text-base font-semibold text-[#1d1d1f] mb-2">{title}</h3>
-              <p className="text-sm leading-7 text-[#6e6e73]">{desc}</p>
+              <h3 className="text-base font-semibold text-[var(--fg)] mb-2">{title}</h3>
+              <p className="text-sm leading-7 text-[var(--muted)]">{desc}</p>
             </div>
           ))}
         </div>
 
-        <div className="mx-auto max-w-4xl mt-14 rounded-2xl px-8 py-8 sm:px-10 bg-white border border-[#e5e5e7] flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 bg-[#f5f5f7]">
-            <QrCode className="h-8 w-8 text-[#1d1d1f]" />
+        <div className="mx-auto max-w-6xl mt-10 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="lyra-chamfer px-7 py-7 bg-[var(--surface)] border border-[var(--line)] flex flex-col sm:flex-row gap-5">
+            <div className="w-14 h-14 lyra-chamfer flex items-center justify-center shrink-0 bg-[var(--warning-bg)]">
+              <LifeBuoy className="h-7 w-7 text-[var(--warning)]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-[var(--fg)] mb-1">Paid, but nothing came out?</h3>
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                Note the machine shown on the payment page and the time you paid, then call or WhatsApp us. Payments
+                for failed vends are refunded under our{' '}
+                <Link href="/refund-policy" className="font-medium text-[var(--accent-ink)] hover:underline">refund policy</Link>.
+              </p>
+              <a href="#contact" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--accent-ink)] hover:underline">
+                Contact support <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-[#1d1d1f] mb-1">Run a school, office, or public facility?</h3>
-            <p className="text-sm text-[#6e6e73]">
-              Machine owners and facility managers get a separate dashboard to track stock, revenue, and machine
-              status in real time — that&apos;s the Admin / Business Login above, not this page.
-            </p>
+
+          <div className="lyra-chamfer px-7 py-7 bg-[var(--surface)] border border-[var(--line)] flex flex-col sm:flex-row gap-5">
+            <div className="w-14 h-14 lyra-chamfer flex items-center justify-center shrink-0 bg-[var(--accent-soft)]">
+              <LayoutDashboard className="h-7 w-7 text-[var(--accent-ink)]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-[var(--fg)] mb-1">Run a school, office or hospital?</h3>
+              <p className="text-sm leading-7 text-[var(--muted)]">
+                Machine owners and facility managers sign in to a separate console to see every payment, stock
+                level and machine status in real time.
+              </p>
+              <Link href="/login" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--accent-ink)] hover:underline">
+                Operator login <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>

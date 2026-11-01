@@ -1,23 +1,25 @@
-import { Smartphone, WifiHigh, Bell, BarChart3, Lock, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, BellRing, Receipt, Nfc, WifiOff, Cpu, ArrowUpRight } from 'lucide-react';
 
 const features = [
-  { name: 'IoT Connectivity',     description: 'Real-time monitoring and inventory management through advanced IoT sensors.',         icon: WifiHigh  },
-  { name: 'Smart Notifications',  description: 'Automated alerts for low stock, maintenance needs, and transaction updates.',         icon: Bell      },
-  { name: 'Mobile App Control',   description: 'Manage machines, view analytics, and process payments from anywhere.',                icon: Smartphone },
-  { name: 'Analytics Dashboard',  description: 'Comprehensive insights into usage patterns, revenue, and inventory trends.',          icon: BarChart3  },
-  { name: 'Secure Transactions',  description: 'End-to-end encrypted payments with multiple payment gateway support.',                icon: Lock      },
-  { name: 'Premium Quality',      description: 'Hygienic dispensing with quality-certified sanitary napkin products.',                icon: Sparkles  },
+  { name: 'Live machine status',      description: 'See which machines are online, ready, out of stock or offline — across every campus, from one screen.', icon: Activity },
+  { name: 'Low-stock alerts',         description: 'Get alerted before a machine runs empty, so refills happen before anyone finds it out of stock.',     icon: BellRing },
+  { name: 'Every payment on record',  description: 'UPI, coin and RFID vends with machine, time and amount. Each UPI payment is verified server-side.',  icon: Receipt },
+  { name: 'RFID cards for staff',     description: 'Issue cards to students or employees, with optional monthly tap limits per organization.',          icon: Nfc },
+  { name: 'Works through outages',    description: 'Runs on 2.4 GHz WiFi with no SIM. Transactions queue offline and sync when the network is back.',   icon: WifiOff },
+  { name: 'Remote firmware updates',  description: 'Machines receive fixes and new features over the air, with no site visit needed.',                     icon: Cpu },
 ];
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="relative py-24 sm:py-32 bg-white">
+    <section id="features" className="relative py-24 sm:py-32 bg-[var(--bg)]">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-3 text-[#6e6e73]">Advanced Features</p>
-          <h2 className="text-4xl font-semibold tracking-tight text-[#1d1d1f] sm:text-5xl">Smart Technology for Modern Needs</h2>
-          <p className="mt-5 text-lg text-[#6e6e73]">
-            Our IoT-enabled vending machines combine cutting-edge technology with user-friendly design.
+          <span className="zl-badge"><span className="zl-badge-dot" />For institutions</span>
+          <h2 className="lyra-display text-4xl sm:text-6xl mt-5">One console for every machine</h2>
+          <p className="mt-5 text-lg text-[var(--muted)]">
+            Schools, colleges, hospitals, offices, hostels and factories run their Lyra machines from the operator
+            console in this app — payments, stock, cards and billing in one place.
           </p>
         </div>
 
@@ -25,15 +27,23 @@ export function FeaturesSection() {
           {features.map((feature) => (
             <div
               key={feature.name}
-              className="rounded-2xl px-7 py-8 lyra-card border border-[#e5e5e7]"
+              className="lyra-chamfer px-7 py-8 lyra-card bg-[var(--surface)] border border-[var(--line)]"
             >
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 bg-[#f5f5f7]">
-                <feature.icon className="h-6 w-6 text-[#1d1d1f]" aria-hidden="true" />
+              <div className="w-12 h-12 lyra-chamfer flex items-center justify-center mb-5 bg-[var(--accent-soft)]">
+                <feature.icon className="h-6 w-6 text-[var(--accent-ink)]" aria-hidden="true" />
               </div>
-              <h3 className="text-base font-semibold text-[#1d1d1f] mb-2">{feature.name}</h3>
-              <p className="text-sm leading-7 text-[#6e6e73]">{feature.description}</p>
+              <h3 className="text-base font-semibold text-[var(--fg)] mb-2">{feature.name}</h3>
+              <p className="text-sm leading-7 text-[var(--muted)]">{feature.description}</p>
             </div>
           ))}
+        </div>
+
+        <div className="mt-12 flex flex-wrap justify-center gap-3">
+          <a href="https://lyraenterprise.co.in/" target="_blank" rel="noopener noreferrer" className="lyra-cta">
+            Get a machine for your campus
+            <ArrowUpRight className="w-4 h-4" />
+          </a>
+          <Link href="/login" className="lyra-cta-ghost">Operator login</Link>
         </div>
       </div>
     </section>

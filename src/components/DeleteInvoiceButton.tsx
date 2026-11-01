@@ -12,8 +12,8 @@ interface DeleteInvoiceButtonProps {
 }
 
 const MODAL: React.CSSProperties = {
-  background: '#ffffff',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
 };
 
@@ -42,7 +42,7 @@ export function DeleteInvoiceButton({ invoiceId, invoiceNumber, organizationName
       <button
         onClick={() => setShowConfirm(true)}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-        style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: '#c8102e' }}
+        style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', color: 'var(--danger)' }}
         disabled={isDeleting}
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -58,14 +58,14 @@ export function DeleteInvoiceButton({ invoiceId, invoiceNumber, organizationName
           <div className="w-full max-w-lg p-6" style={MODAL} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4 mb-6">
               <div className="p-3 rounded-full shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }}>
-                <AlertTriangle className="h-6 w-6" style={{ color: '#c8102e' }} />
+                <AlertTriangle className="h-6 w-6" style={{ color: 'var(--danger)' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-[#1d1d1f] mb-2">Delete Invoice?</h3>
-                <p className="text-sm mb-2" style={{ color: '#3a3a3c', wordBreak: 'break-word' }}>
-                  Are you sure you want to delete invoice <strong className="text-[#1d1d1f]">{invoiceNumber}</strong> for <strong className="text-[#1d1d1f]">{organizationName}</strong>?
+                <h3 className="text-lg font-semibold text-[var(--fg)] mb-2">Delete Invoice?</h3>
+                <p className="text-sm mb-2" style={{ color: 'var(--fg-2)', wordBreak: 'break-word' }}>
+                  Are you sure you want to delete invoice <strong className="text-[var(--fg)]">{invoiceNumber}</strong> for <strong className="text-[var(--fg)]">{organizationName}</strong>?
                 </p>
-                <p className="text-sm font-medium" style={{ color: '#c8102e', wordBreak: 'break-word' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--danger)', wordBreak: 'break-word' }}>
                   This action cannot be undone. All associated payment records will also be deleted.
                 </p>
               </div>
@@ -73,7 +73,7 @@ export function DeleteInvoiceButton({ invoiceId, invoiceNumber, organizationName
 
             {error && (
               <div className="mb-4 rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)' }}>
-                <p className="text-sm wrap-break-word" style={{ color: '#c8102e' }}>{error}</p>
+                <p className="text-sm wrap-break-word" style={{ color: 'var(--danger)' }}>{error}</p>
               </div>
             )}
 
@@ -81,15 +81,15 @@ export function DeleteInvoiceButton({ invoiceId, invoiceNumber, organizationName
               <button
                 onClick={() => { setShowConfirm(false); setError(null); }}
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
                 disabled={isDeleting}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+                className="px-4 py-2 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
                 disabled={isDeleting}
               >
                 {isDeleting ? 'Deleting...' : 'Delete Invoice'}

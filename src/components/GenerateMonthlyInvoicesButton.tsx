@@ -39,7 +39,7 @@ export function GenerateMonthlyInvoicesButton() {
       <button
         onClick={handleGenerate}
         disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 bg-[#1d1d1f] text-white rounded-lg hover:bg-black transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-white lyra-chamfer hover:bg-black transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         {loading ? (
           <Loader2 className="h-4 w-4 animate-spin" />

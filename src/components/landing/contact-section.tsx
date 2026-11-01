@@ -1,71 +1,65 @@
-import { MapPin, Mail, Phone } from 'lucide-react';
+import { MapPin, Mail, Phone, Clock, MessageCircle } from 'lucide-react';
+
+const PHONE_DISPLAY = '+91 81223 78860';
+const PHONE_TEL = 'tel:+918122378860';
+const WHATSAPP = 'https://wa.me/918122378860';
+const EMAIL = 'sales@lyraenterprise.co.in';
+
+const cardClass =
+  'flex flex-col items-center lyra-chamfer px-6 py-9 text-center lyra-card bg-[var(--surface)] border border-[var(--line)]';
+const iconClass = 'w-14 h-14 lyra-chamfer flex items-center justify-center mb-5 bg-[var(--accent-soft)]';
 
 export function ContactSection() {
   return (
-    <section id="contact" className="relative py-24 sm:py-32 bg-[#f5f5f7]">
+    <section id="contact" className="relative py-24 sm:py-32 bg-[var(--surface-2)]">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-3 text-[#6e6e73]">Get in Touch</p>
-          <h2 className="text-4xl font-semibold tracking-tight text-[#1d1d1f] sm:text-5xl">Contact Lyra Enterprises</h2>
-          <p className="mt-5 text-lg text-[#6e6e73]">
-            Ready to bring our innovative vending solutions to your location? We&apos;d love to hear from you.
+          <span className="zl-badge"><span className="zl-badge-dot" />Support</span>
+          <h2 className="lyra-display text-4xl sm:text-6xl mt-5">Need help with a machine?</h2>
+          <p className="mt-5 text-lg text-[var(--muted)]">
+            Payment issue, machine not dispensing, or want a machine at your institution — reach Lyra Enterprises
+            directly.
           </p>
         </div>
 
-        <div className="mx-auto max-w-4xl">
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-            <div className="flex flex-col items-center rounded-2xl px-6 py-10 text-center lyra-card bg-white border border-[#e5e5e7]">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-[#f5f5f7]">
-                <MapPin className="h-6 w-6 text-[#1d1d1f]" />
-              </div>
-              <h3 className="text-base font-semibold text-[#1d1d1f] mb-3">Visit Us</h3>
-              <p className="text-sm leading-relaxed text-[#3a3a3c]">
-                10/21, Vasuki Street,<br />
-                Cholapuram, Ambattur,<br />
-                Chennai - 600053<br />
-                <span className="text-xs text-[#86868b]">(Near Municipal School)</span>
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center rounded-2xl px-6 py-10 text-center lyra-card bg-white border border-[#e5e5e7]">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-[#f5f5f7]">
-                <Mail className="h-6 w-6 text-[#1d1d1f]" />
-              </div>
-              <h3 className="text-base font-semibold text-[#1d1d1f] mb-3">Email Us</h3>
-              <a
-                href="mailto:lyraenterprisessales@gmail.com"
-                className="text-sm font-medium break-all text-[#0071e3] hover:underline"
-              >
-                lyraenterprisessales@gmail.com
-              </a>
-            </div>
-
-            <div className="flex flex-col items-center rounded-2xl px-6 py-10 text-center lyra-card bg-white border border-[#e5e5e7]">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-[#f5f5f7]">
-                <Phone className="h-6 w-6 text-[#1d1d1f]" />
-              </div>
-              <h3 className="text-base font-semibold text-[#1d1d1f] mb-3">Call Us</h3>
-              <a
-                href="tel:+918122378860"
-                className="text-sm font-medium text-[#0071e3] hover:underline"
-              >
-                +91 81223 78860
-              </a>
-            </div>
+        <div className="mx-auto max-w-6xl grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cardClass}>
+            <div className={iconClass}><Phone className="h-6 w-6 text-[var(--accent-ink)]" /></div>
+            <h3 className="text-base font-semibold text-[var(--fg)] mb-3">Call or WhatsApp</h3>
+            <a href={PHONE_TEL} className="text-sm font-medium text-[var(--accent-ink)] hover:underline">{PHONE_DISPLAY}</a>
           </div>
 
-          {/* CTA */}
-          <div className="mt-14 text-center">
-            <p className="text-base mb-6 text-[#6e6e73]">
-              Interested in partnering with us or installing a vending machine at your facility?
+          <div className={cardClass}>
+            <div className={iconClass}><Mail className="h-6 w-6 text-[var(--accent-ink)]" /></div>
+            <h3 className="text-base font-semibold text-[var(--fg)] mb-3">Email</h3>
+            <a href={`mailto:${EMAIL}`} className="text-sm font-medium break-all text-[var(--accent-ink)] hover:underline">{EMAIL}</a>
+          </div>
+
+          <div className={cardClass}>
+            <div className={iconClass}><Clock className="h-6 w-6 text-[var(--accent-ink)]" /></div>
+            <h3 className="text-base font-semibold text-[var(--fg)] mb-3">Support hours</h3>
+            <p className="text-sm leading-relaxed text-[var(--fg-2)]">Mon – Sat<br />9:30 AM – 6:30 PM IST</p>
+          </div>
+
+          <div className={cardClass}>
+            <div className={iconClass}><MapPin className="h-6 w-6 text-[var(--accent-ink)]" /></div>
+            <h3 className="text-base font-semibold text-[var(--fg)] mb-3">Office</h3>
+            <p className="text-sm leading-relaxed text-[var(--fg-2)]">
+              10/21, Vasuki Street, Cholapuram,<br />
+              Ambattur, Chennai 600053,<br />
+              Tamil Nadu
             </p>
-            <a
-              href="mailto:lyraenterprisessales@gmail.com"
-              className="inline-flex items-center rounded-full px-8 py-3.5 min-h-11 text-base font-semibold text-white bg-[#1d1d1f] transition-transform active:scale-[0.97]"
-            >
-              Get Started Today
-            </a>
           </div>
+        </div>
+
+        <div className="mt-12 flex flex-wrap justify-center gap-3">
+          <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="lyra-cta">
+            <MessageCircle className="w-4 h-4" />
+            WhatsApp support
+          </a>
+          <a href="https://lyraenterprise.co.in/" target="_blank" rel="noopener noreferrer" className="lyra-cta-ghost">
+            Get a free quote
+          </a>
         </div>
       </div>
     </section>

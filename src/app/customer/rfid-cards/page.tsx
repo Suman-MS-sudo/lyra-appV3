@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import CustomerRfidCardsClient from '@/components/CustomerRfidCardsClient';
 import { fetchCustomerRfidCards } from '@/lib/rfid-cards';
+import { visibleOwnerIds } from '@/lib/machine-scope';
 
 export const revalidate = 0;
 
@@ -24,12 +25,11 @@ export default async function CustomerRfidCardsPage() {
 
   if (profile?.role === 'admin') redirect('/admin/dashboard');
 
-  const isSuperCustomer = profile?.account_type === 'super_customer';
 
   const { data: machines } = await serviceSupabase
     .from('vending_machines')
     .select('id, name, location')
-    .eq('customer_id', isSuperCustomer ? profile?.organization_id : user.id)
+    .in('customer_id', await visibleOwnerIds(serviceSupabase, user.id, profile))
     .eq('rfid_enabled', true)
     .order('name');
 

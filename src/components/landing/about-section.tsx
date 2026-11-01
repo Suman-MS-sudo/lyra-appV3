@@ -1,53 +1,55 @@
-import { Heart, Users, Building2, School } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { PaymentFlowAnimation } from './payment-flow-animation';
+
+const SITE = 'https://lyraenterprise.co.in/';
+
+// Figures as published on lyraenterprise.co.in
+const STATS = [
+  { value: '200+', label: 'Institutions equipped' },
+  { value: '99%', label: 'Machine uptime' },
+  { value: '13', label: 'Machine models' },
+  { value: 'ISO', label: '9001:2015 certified' },
+];
 
 export function AboutSection() {
   return (
-    <section id="about" className="relative py-24 sm:py-32 bg-[#f5f5f7]">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        {/* Header */}
-        <div className="mx-auto max-w-2xl text-center mb-16">
-          <p className="text-xs font-semibold tracking-widest uppercase mb-3 text-[#6e6e73]">About Us</p>
-          <h2 className="text-4xl font-semibold tracking-tight text-[#1d1d1f] sm:text-5xl">
-            Revolutionizing Women&apos;s Hygiene Access
+    <section id="about" className="relative py-24 sm:py-32 bg-[var(--bg)] border-t border-[var(--line)]">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8 flex flex-wrap items-center gap-12">
+        <div style={{ flex: '1 1 420px', minWidth: 280 }}>
+          <span className="zl-badge"><span className="zl-badge-dot" />About us</span>
+          <h2 className="lyra-display mt-5" style={{ fontSize: 'clamp(34px,5.5vw,64px)' }}>
+            About <span className="zl-brand">Lyra</span> Enterprises
           </h2>
-        </div>
+          <p className="mt-6 max-w-[560px] text-base sm:text-lg leading-8 text-[var(--muted)]">
+            Lyra Enterprises is a Chennai-based manufacturer of sanitary napkin vending machines and
+            incinerators, built for institutions rather than homes. Our mission is to expand sanitary
+            hygiene infrastructure across India. Schools, colleges, hospitals, offices, hostels, factories,
+            IT parks and public restrooms run our machines.
+          </p>
 
-        {/* Mission card */}
-        <div className="mx-auto max-w-4xl mb-14">
-          <div className="rounded-2xl px-8 py-10 sm:px-12 bg-white border border-[#e5e5e7]">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 mt-1 bg-[#f5f5f7]">
-                <Heart className="h-6 w-6 text-[#1d1d1f]" />
+          <dl className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-[560px]">
+            {STATS.map((s) => (
+              <div key={s.label} className="lyra-chamfer px-4 py-4 bg-[var(--surface)] border border-[var(--line)]">
+                <dt className="sr-only">{s.label}</dt>
+                <dd className="lyra-display text-2xl text-[var(--accent-ink)]">{s.value}</dd>
+                <dd className="mt-1 text-xs text-[var(--muted)]">{s.label}</dd>
               </div>
-              <p className="text-lg leading-8 text-[#3a3a3c]">
-                At <span className="font-semibold text-[#1d1d1f]">Lyra Enterprises</span>, we empower
-                women&apos;s hygiene through innovative sanitary napkin vending machines. We offer easy-to-use,
-                cashless solutions for schools, workplaces, and public spaces, promoting menstrual health and
-                accessibility.
-              </p>
-            </div>
+            ))}
+          </dl>
+
+          <div className="mt-9 flex flex-wrap gap-3">
+            <a href={SITE} target="_blank" rel="noopener noreferrer" className="lyra-cta">
+              Explore machines
+              <ArrowUpRight className="w-4 h-4" />
+            </a>
+            <a href={SITE} target="_blank" rel="noopener noreferrer" className="lyra-cta-ghost">
+              Rent from ₹999/month
+            </a>
           </div>
         </div>
 
-        {/* Use cases */}
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 sm:grid-cols-4">
-          {[
-            { icon: School,    label: 'Schools',       desc: 'Ensuring student wellness and dignity' },
-            { icon: Building2, label: 'Workplaces',    desc: 'Employee health and convenience' },
-            { icon: Users,     label: 'Public Spaces', desc: 'Accessible hygiene for everyone' },
-            { icon: Heart,     label: 'Community',     desc: 'Breaking menstrual health stigma' },
-          ].map(({ icon: Icon, label, desc }) => (
-            <div
-              key={label}
-              className="flex flex-col items-center text-center rounded-2xl px-4 py-8 lyra-card bg-white border border-[#e5e5e7]"
-            >
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-[#f5f5f7]">
-                <Icon className="h-6 w-6 text-[#1d1d1f]" />
-              </div>
-              <h3 className="text-sm font-semibold text-[#1d1d1f] mb-1">{label}</h3>
-              <p className="text-xs text-[#6e6e73]">{desc}</p>
-            </div>
-          ))}
+        <div className="relative flex justify-end" style={{ flex: '1 1 360px', minWidth: 260 }}>
+          <PaymentFlowAnimation />
         </div>
       </div>
     </section>

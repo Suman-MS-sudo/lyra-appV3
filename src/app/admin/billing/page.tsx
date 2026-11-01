@@ -7,11 +7,15 @@ import { ManualInvoiceGenerator } from '@/components/ManualInvoiceGenerator';
 import { GenerateMonthlyInvoicesButton } from '@/components/GenerateMonthlyInvoicesButton';
 import { BillingTablesClient } from '@/components/BillingTablesClient';
 
+import { BarList, Donut, PageHeader, Panel, inr } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  border: '1px solid #f1f5f9',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 export default async function OrganizationBillingPage({
@@ -157,15 +161,33 @@ export default async function OrganizationBillingPage({
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       {params.payment === 'success' && <PaymentSuccessBanner />}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Organization Billing</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#334155' }}>Manage coin payment invoices and collections</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <PageHeader title="Organization Billing" subtitle="Manage coin payment invoices and collections" actions={<>
           <ManualInvoiceGenerator />
           <GenerateMonthlyInvoicesButton />
-        </div>
+        </>} />
+
+      {/* Invoice status + this month's coin collections */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5">
+        <Panel title="Invoices by status">
+          <Donut
+            centerValue={inr((totalPaid + totalPending + totalOverdue) / 100)}
+            centerLabel="INVOICED"
+            slices={[
+              { label: 'Paid', value: totalPaid, color: '#45b558' },
+              { label: 'Pending', value: totalPending, color: '#f0be3c' },
+              { label: 'Overdue', value: totalOverdue, color: '#f03b2a' },
+            ]}
+          />
+        </Panel>
+        <Panel title="Coin collections this month">
+          <BarList
+            items={[...orgCoinData]
+              .sort((x, y) => y.thisMonthTotal - x.thisMonthTotal)
+              .slice(0, 6)
+              .map((o) => ({ label: o.name, value: o.thisMonthTotal / 100, sub: `${o.thisMonthCount} coins` }))}
+            format={(n) => inr(n, 2)}
+          />
+        </Panel>
       </div>
 
       <BillingTablesClient

@@ -80,7 +80,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-[var(--surface)] rounded-lg shadow-sm border border-gray-200 p-6">
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -99,7 +99,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., Vending Machine 001"
             />
           </div>
@@ -114,7 +114,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               value={formData.machine_id}
               onChange={(e) => setFormData({ ...formData, machine_id: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., lyra_SNVM_003"
             />
             <p className="mt-1 text-xs text-gray-500">Unique identifier for this machine</p>
@@ -131,7 +131,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               onChange={(e) => setFormData({ ...formData, mac_id: e.target.value })}
               required
               pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent font-mono"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent font-mono"
               placeholder="e.g., C0:CD:D6:84:85:DC"
             />
             <p className="mt-1 text-xs text-gray-500">Format: XX:XX:XX:XX:XX:XX</p>
@@ -146,7 +146,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               type="text"
               value={formData.ip_address}
               onChange={(e) => setFormData({ ...formData, ip_address: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent font-mono"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent font-mono"
               placeholder="e.g., 192.168.1.100"
             />
             <p className="mt-1 text-xs text-gray-500">Optional while editing; IP is required when creating a new machine.</p>
@@ -162,7 +162,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., Building A, Floor 2"
             />
           </div>
@@ -177,7 +177,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               value={formData.machine_type}
               onChange={(e) => setFormData({ ...formData, machine_type: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., SNVM_WF_SL30"
             />
           </div>
@@ -192,7 +192,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               value={formData.product_type}
               onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., SANITARY PAD"
             />
           </div>
@@ -206,7 +206,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent text-gray-900 bg-white"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent text-gray-900 bg-[var(--surface)]"
             >
               <option value="online" className="text-gray-900">Online</option>
               <option value="offline" className="text-gray-900">Offline</option>
@@ -222,7 +222,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
             <select
               value={formData.customer_id}
               onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent text-gray-900 bg-white"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent text-gray-900 bg-[var(--surface)]"
             >
               <option value="" className="text-gray-900">No organization assigned</option>
               {organizations.map((org) => (
@@ -241,7 +241,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               type="checkbox"
               checked={formData.rfid_enabled}
               onChange={(e) => setFormData({ ...formData, rfid_enabled: e.target.checked })}
-              className="w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
+              className="w-4 h-4 text-[var(--accent-ink)] border-gray-300 rounded focus:ring-[var(--accent)]"
             />
             <span className="text-sm font-medium text-gray-700">Enable RFID card payments on this machine</span>
           </label>
@@ -252,7 +252,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
               type="checkbox"
               checked={formData.mqtt_payment_push}
               onChange={(e) => setFormData({ ...formData, mqtt_payment_push: e.target.checked })}
-              className="w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
+              className="w-4 h-4 text-[var(--accent-ink)] border-gray-300 rounded focus:ring-[var(--accent)]"
             />
             <span className="text-sm font-medium text-gray-700">Enable MQTT payment push on this machine</span>
           </label>
@@ -267,7 +267,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
           <select
             value={formData.body_type}
             onChange={(e) => setFormData({ ...formData, body_type: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent text-gray-900 bg-white"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent text-gray-900 bg-[var(--surface)]"
           >
             <option value="single_motor">Single Motor — 25 napkin capacity</option>
             <option value="single_motor_35">Single Motor — 35 napkin capacity</option>
@@ -287,7 +287,7 @@ export default function EditMachineForm({ machine, organizations }: EditMachineF
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-[#1d1d1f] text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-[var(--accent)] text-white lyra-chamfer hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Saving...' : 'Save Changes'}
           </button>

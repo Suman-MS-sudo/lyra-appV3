@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { visibleOwnerIds } from '@/lib/machine-scope';
 
 async function requireCustomerAndMachines() {
   const supabase = await createClient();
@@ -22,12 +23,11 @@ async function requireCustomerAndMachines() {
     return { error: NextResponse.json({ error: 'Customer access required' }, { status: 403 }) };
   }
 
-  const isSuperCustomer = profile.account_type === 'super_customer';
 
   const { data: machines } = await service
     .from('vending_machines')
     .select('id')
-    .eq('customer_id', isSuperCustomer ? profile.organization_id : user.id)
+    .in('customer_id', await visibleOwnerIds(service, user.id, profile))
     .eq('rfid_enabled', true);
 
   return { service, profile, machineIds: new Set((machines || []).map(m => m.id)) };

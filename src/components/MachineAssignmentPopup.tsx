@@ -22,7 +22,7 @@ export default function MachineAssignmentPopup({ machines, userName }: MachineAs
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="text-sm font-medium text-[#0071e3] hover:underline"
+        className="text-sm font-medium text-[var(--accent-ink)] hover:underline"
       >
         View {machines.length} {machines.length === 1 ? 'device' : 'devices'}
       </button>
@@ -30,7 +30,7 @@ export default function MachineAssignmentPopup({ machines, userName }: MachineAs
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsOpen(false)}>
           <div 
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+            className="bg-[var(--surface)] rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -53,7 +53,7 @@ export default function MachineAssignmentPopup({ machines, userName }: MachineAs
                 {machines.map((machine) => (
                   <div 
                     key={machine.id} 
-                    className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50 transition-all"
+                    className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-[var(--line-strong)] hover:bg-[var(--surface-hover)] transition-all"
                   >
                     <div className="flex-shrink-0">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${

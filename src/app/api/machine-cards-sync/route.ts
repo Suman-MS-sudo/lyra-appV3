@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
 import { UNCAPPED_MONTHLY_REMAINING, effectiveMonthlyCount, fetchOrgMonthlyLimits } from '@/lib/rfid-monthly-cap';
+import { machineOrganizationId } from '@/lib/machine-scope';
 
 /**
  * GET /api/machine-cards-sync?machine_id=<uuid>
@@ -91,9 +92,12 @@ export async function GET(request: NextRequest) {
     // Pass 2: org-wide / true-wildcard cards -- zero restriction rows, and
     // either belong to this machine's owning customer or have no
     // organization at all.
+    // Resolve a machine assigned to a team member back to their organization,
+    // so the org's cards still sync to it for offline use.
+    const machineOrg = await machineOrganizationId(supabase, machine.customer_id);
     let orgQuery = supabase.from('rfid_cards').select(CARD_FIELDS);
-    orgQuery = machine.customer_id
-      ? orgQuery.or(`organization_id.eq.${machine.customer_id},organization_id.is.null`)
+    orgQuery = machineOrg
+      ? orgQuery.or(`organization_id.eq.${machineOrg},organization_id.is.null`)
       : orgQuery.is('organization_id', null);
 
     const { data: orgCandidates, error: orgError } = await orgQuery;

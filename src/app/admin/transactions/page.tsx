@@ -1,38 +1,33 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
-import {
-  Search, IndianRupee, Calendar, User,
-  TrendingUp, TrendingDown, DollarSign, ShoppingCart, CreditCard, Coins, Nfc,
-} from 'lucide-react';
+import { AlertTriangle, Building2, CreditCard, IndianRupee, MapPin, Package, Receipt, ShoppingBag } from 'lucide-react';
+import { AreaChart, BarList, Donut, PageHeader, Panel, Radar, StatGrid, StatTile, TopCard, dailySeries, inr } from '@/components/ui/kit';
+import TransactionsExplorer, { type TxRow, type TxStatus } from '@/components/TransactionsExplorer';
 
 export const revalidate = 0;
 
-const CARD: React.CSSProperties = {
-  border: '1px solid #e5e5e7',
-  borderRadius: 20,
-};
+const RANGES = [7, 30, 90] as const;
+type Range = (typeof RANGES)[number];
+const DAY = 86_400_000;
+// Safety cap per payment type for the selected window (+ the previous window used for comparisons)
+const ROW_CAP = 10_000;
 
-function StatCard({
-  icon: Icon, label, value, sub, accentColor, iconBg,
-}: {
-  icon: React.ElementType; label: string; value: string; sub?: string;
-  accentColor: string; iconBg: string;
-}) {
-  return (
-    <div className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-      <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full" style={{ background: iconBg, opacity: 0.15 }} />
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
-        <Icon className="w-5 h-5" style={{ color: accentColor }} />
-      </div>
-      <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6e6e73' }}>{label}</p>
-      <p className="text-2xl font-bold text-[#1d1d1f]">{value}</p>
-      {sub && <p className="text-xs mt-1" style={{ color: accentColor }}>{sub}</p>}
-    </div>
-  );
+/** Current + previous window boundaries (module-level so the component body stays pure). */
+function windows(days: Range) {
+  const now = Date.now();
+  return { now, start: now - days * DAY, prevStart: now - 2 * days * DAY };
 }
 
-export default async function TransactionsPage() {
+function pctChange(cur: number, prev: number) {
+  if (prev <= 0) return cur > 0 ? '▲ new' : 'no change';
+  const p = Math.round(((cur - prev) / prev) * 100);
+  return `${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}% vs previous period`;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export default async function TransactionsPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -50,381 +45,198 @@ export default async function TransactionsPage() {
 
   if (profile?.role !== 'admin') redirect('/customer/dashboard');
 
+  const params = await searchParams;
+  const range: Range = (RANGES as readonly number[]).includes(Number(params.range)) ? (Number(params.range) as Range) : 30;
+  const { start, prevStart } = windows(range);
+  const since = new Date(prevStart).toISOString();
+
+  // Super customers only ever see their own machines (and nothing if they have none).
   const isSuperCustomer = profile?.account_type === 'super_customer';
-  let machineIds: string[] = [];
+  let machineIds: string[] | null = null;
   if (isSuperCustomer) {
-    const { data: machines } = await serviceSupabase
-      .from('vending_machines').select('id').eq('customer_id', user.id);
-    machineIds = machines?.map((m: any) => m.id) || [];
+    const { data: machines } = await serviceSupabase.from('vending_machines').select('id').eq('customer_id', user.id);
+    machineIds = machines?.map((m: { id: string }) => m.id) || [];
   }
+  const scope = <T,>(q: T): T => (machineIds ? (q as any).in('machine_id', machineIds) : q);
+  const none = machineIds !== null && machineIds.length === 0;
 
-  const transactionsQuery = serviceSupabase
-    .from('transactions')
-    .select(`*, profiles!transactions_customer_id_fkey (email), vending_machines!transactions_machine_id_fkey (name, location)`);
+  const [{ data: online }, { data: coin }, { data: rfid }] = none
+    ? [{ data: [] }, { data: [] }, { data: [] }]
+    : await Promise.all([
+        scope(
+          serviceSupabase
+            .from('transactions')
+            .select('id, created_at, total_amount, payment_status, dispensed, items, razorpay_payment_id, profiles!transactions_customer_id_fkey(email), vending_machines!transactions_machine_id_fkey(name, location)')
+            .gte('created_at', since)
+        ).order('created_at', { ascending: false }).limit(ROW_CAP),
+        scope(
+          serviceSupabase
+            .from('coin_payments')
+            .select('id, created_at, amount_in_paisa, dispensed, products(name), vending_machines(name, location)')
+            .gte('created_at', since)
+        ).order('created_at', { ascending: false }).limit(ROW_CAP),
+        scope(
+          serviceSupabase
+            .from('rfid_payments')
+            .select('id, created_at, amount_in_paisa, dispensed, card_uid, products(name), vending_machines(name, location), rfid_cards(holder_name)')
+            .gte('created_at', since)
+        ).order('created_at', { ascending: false }).limit(ROW_CAP),
+      ]);
 
-  const coinPaymentsQuery = serviceSupabase
-    .from('coin_payments')
-    .select(`*, products (name), vending_machines (name, location)`);
+  // One unified row shape for every payment type
+  const all: TxRow[] = [
+    ...(online || []).map((t: any) => {
+      const items = typeof t.items === 'string' ? JSON.parse(t.items) : t.items || [];
+      const status: TxStatus = t.payment_status === 'paid' ? 'paid' : t.payment_status === 'failed' ? 'failed' : 'pending';
+      return {
+        id: String(t.id), type: 'upi' as const, at: t.created_at,
+        customer: t.profiles?.email || 'Guest (QR)',
+        product: items.map((i: any) => `${i.name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`).join(', ') || '—',
+        machine: t.vending_machines?.name || 'Unknown', location: t.vending_machines?.location || '',
+        amount: parseFloat(t.total_amount || 0), status, reference: t.razorpay_payment_id || '',
+      };
+    }),
+    ...(coin || []).map((t: any) => ({
+      id: String(t.id), type: 'coin' as const, at: t.created_at,
+      customer: 'Coin', product: t.products?.name || '—',
+      machine: t.vending_machines?.name || 'Unknown', location: t.vending_machines?.location || '',
+      amount: (t.amount_in_paisa || 0) / 100, status: (t.dispensed ? 'dispensed' : 'not_dispensed') as TxStatus, reference: '',
+    })),
+    ...(rfid || []).map((t: any) => ({
+      id: String(t.id), type: 'rfid' as const, at: t.created_at,
+      customer: t.rfid_cards?.holder_name || 'RFID card', product: t.products?.name || '—',
+      machine: t.vending_machines?.name || 'Unknown', location: t.vending_machines?.location || '',
+      amount: (t.amount_in_paisa || 0) / 100, status: (t.dispensed ? 'dispensed' : 'not_dispensed') as TxStatus, reference: t.card_uid || '',
+    })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-  const rfidPaymentsQuery = serviceSupabase
-    .from('rfid_payments')
-    .select(`*, products (name), vending_machines (name, location), rfid_cards (uid, holder_name)`);
+  const ok = (r: TxRow) => r.status === 'paid' || r.status === 'dispensed';
+  const inWindow = (r: TxRow) => new Date(r.at).getTime() >= start;
+  const cur = all.filter(inWindow);
+  const prev = all.filter((r) => !inWindow(r));
 
-  const [
-    { data: transactions },
-    { data: coinPayments },
-    { data: rfidPayments },
-  ] = await Promise.all([
-    isSuperCustomer && machineIds.length > 0
-      ? transactionsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
-      : transactionsQuery.order('created_at', { ascending: false }).limit(50),
-    isSuperCustomer && machineIds.length > 0
-      ? coinPaymentsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
-      : coinPaymentsQuery.order('created_at', { ascending: false }).limit(50),
-    isSuperCustomer && machineIds.length > 0
-      ? rfidPaymentsQuery.in('machine_id', machineIds).order('created_at', { ascending: false }).limit(50)
-      : rfidPaymentsQuery.order('created_at', { ascending: false }).limit(50),
-  ]);
+  const revenue = cur.filter(ok).reduce((s, r) => s + r.amount, 0);
+  const prevRevenue = prev.filter(ok).reduce((s, r) => s + r.amount, 0);
+  const count = cur.filter(ok).length;
+  const prevCount = prev.filter(ok).length;
+  const issues = cur.filter((r) => !ok(r));
+  const avg = count ? revenue / count : 0;
 
-  const onlineRevenue = transactions?.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0) || 0;
-  const coinRevenue = (coinPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const rfidRevenue = (rfidPayments?.reduce((sum, tx) => sum + (tx.amount_in_paisa || 0), 0) || 0) / 100;
-  const totalRevenue = onlineRevenue + coinRevenue + rfidRevenue;
-  const totalTransactionCount = (transactions?.length || 0) + (coinPayments?.length || 0) + (rfidPayments?.length || 0);
-  const pendingTransactions = transactions?.filter(tx => tx.payment_status === 'pending') || [];
-  const failedTransactions = transactions?.filter(tx => tx.payment_status === 'failed') || [];
+  const byType = (t: TxRow['type']) => cur.filter((r) => r.type === t && ok(r)).reduce((s, r) => s + r.amount, 0);
+  const daily = dailySeries(cur.filter(ok).map((r) => ({ at: r.at, amount: r.amount })), range);
+  const spark = daily.slice(-7).map((d) => d.value);
 
-  const productRevenue = new Map<string, number>();
-  transactions?.forEach(tx => {
-    const items = typeof tx.items === 'string' ? JSON.parse(tx.items) : tx.items || [];
-    items.forEach((item: any) => {
-      const productName = item.name || 'Unknown';
-      productRevenue.set(productName, (productRevenue.get(productName) || 0) + parseFloat(tx.total_amount || 0));
-    });
-  });
-  coinPayments?.forEach(tx => {
-    const productName = tx.products?.name || 'Unknown';
-    productRevenue.set(productName, (productRevenue.get(productName) || 0) + (tx.amount_in_paisa / 100));
-  });
-  rfidPayments?.forEach(tx => {
-    const productName = tx.products?.name || 'Unknown';
-    productRevenue.set(productName, (productRevenue.get(productName) || 0) + (tx.amount_in_paisa / 100));
-  });
-  const topProducts = Array.from(productRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const rank = (key: 'machine' | 'product' | 'location') =>
+    Object.entries(
+      cur.filter(ok).reduce<Record<string, number>>((acc, r) => {
+        acc[r[key]] = (acc[r[key]] || 0) + r.amount;
+        return acc;
+      }, {})
+    )
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([label, value]) => ({ label, value }));
 
-  const machineRevenue = new Map<string, number>();
-  transactions?.forEach(tx => {
-    const machineName = tx.vending_machines?.name || 'Unknown';
-    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + parseFloat(tx.total_amount || 0));
-  });
-  coinPayments?.forEach(tx => {
-    const machineName = tx.vending_machines?.name || 'Unknown';
-    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + (tx.amount_in_paisa / 100));
-  });
-  rfidPayments?.forEach(tx => {
-    const machineName = tx.vending_machines?.name || 'Unknown';
-    machineRevenue.set(machineName, (machineRevenue.get(machineName) || 0) + (tx.amount_in_paisa / 100));
-  });
-  const topMachines = Array.from(machineRevenue.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  // Busiest hours (IST) — helps plan refills
+  const hours = Array.from({ length: 24 }, () => 0);
+  for (const r of cur.filter(ok)) {
+    const h = Number(new Date(r.at).toLocaleString('en-IN', { hour: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })) % 24;
+    hours[h]++;
+  }
+  const peak = hours.indexOf(Math.max(...hours));
+  const fmtHour = (h: number) => `${((h + 11) % 12) + 1}${h < 12 ? 'am' : 'pm'}`;
 
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    return date.toISOString().split('T')[0];
-  });
+  const rangeLabel = `last ${range} days`;
 
-  const dailyRevenue = last7Days.map(date => {
-    const dayOnline = transactions?.filter(tx => tx.created_at.startsWith(date) && tx.payment_status === 'paid') || [];
-    const dayCoin = coinPayments?.filter(tx => tx.created_at.startsWith(date)) || [];
-    const dayRfid = rfidPayments?.filter(tx => tx.created_at.startsWith(date)) || [];
-    const onlineRev = dayOnline.reduce((sum, tx) => sum + parseFloat(tx.total_amount || 0), 0);
-    const coinRev = dayCoin.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    const rfidRev = dayRfid.reduce((sum, tx) => sum + (tx.amount_in_paisa / 100), 0);
-    return { date, revenue: onlineRev + coinRev + rfidRev, count: dayOnline.length + dayCoin.length + dayRfid.length };
-  });
+  // Busiest weekdays (IST) for the radar
+  const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const byWeekday = WEEK.map((label) => ({ label, value: 0 }));
+  for (const r of cur.filter(ok)) byWeekday[(new Date(new Date(r.at).getTime() + 5.5 * 3_600_000).getUTCDay() + 6) % 7].value += r.amount;
 
-  const maxDailyRevenue = Math.max(...dailyRevenue.map(d => d.revenue), 1);
-  const ACCENT_COLORS = ['#0071e3', '#6e6e73', '#1d7a3c', '#9a6400', '#0071e3'];
+  const topMachine = rank('machine')[0];
+  const topProduct = rank('product')[0];
+  const topLocation = rank('location').filter((l) => l.label)[0];
+  const methods = [
+    { label: 'UPI', value: byType('upi'), n: cur.filter((r) => r.type === 'upi' && ok(r)).length },
+    { label: 'Coin', value: byType('coin'), n: cur.filter((r) => r.type === 'coin' && ok(r)).length },
+    { label: 'RFID', value: byType('rfid'), n: cur.filter((r) => r.type === 'rfid' && ok(r)).length },
+  ].sort((a, b) => b.value - a.value)[0];
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#1d1d1f]">Transactions</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Comprehensive transaction insights and trends</p>
+    <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <PageHeader
+        eyebrow="Payments"
+        title="Transactions"
+        subtitle={`Every UPI, coin and RFID payment — ${rangeLabel}`}
+        actions={
+          <nav className="tx-range" aria-label="Date range">
+            {RANGES.map((r) => (
+              <Link key={r} href={`?range=${r}`} scroll={false} aria-current={r === range ? 'page' : undefined} className={r === range ? 'is-active' : ''}>
+                {r}D
+              </Link>
+            ))}
+          </nav>
+        }
+      />
+
+      <StatGrid>
+        <StatTile tone="mint"   icon={IndianRupee}   label="Revenue"      value={inr(revenue)} sub={pctChange(revenue, prevRevenue)} spark={spark} />
+        <StatTile tone="sky"    icon={ShoppingBag}   label="Successful"   value={count.toLocaleString('en-IN')} sub={pctChange(count, prevCount)} />
+        <StatTile tone="lilac"  icon={Receipt}       label="Avg. payment" value={inr(avg, 2)} sub="per successful payment" />
+        <StatTile tone="peach"  icon={AlertTriangle} label="Issues"       value={issues.length.toLocaleString('en-IN')} sub="pending, failed or not dispensed" />
+      </StatGrid>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-5">
+        <Panel title={`Revenue — ${rangeLabel}`}>
+          <AreaChart points={daily} format={(n) => inr(n)} />
+        </Panel>
+        <Panel title="Busiest days">
+          <Radar axes={byWeekday} />
+          <p className="text-xs text-center text-[var(--muted)] -mt-1">Revenue by weekday · {rangeLabel}</p>
+        </Panel>
       </div>
 
-      {/* KPI Cards */}
+      {/* Top cards (reference "Top platform / source / browser") */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={DollarSign}    label="Total Revenue"     value={`₹${totalRevenue.toFixed(2)}`}     accentColor="#1d7a3c" iconBg="rgba(29,122,60,0.12)"  sub={`${coinPayments?.length || 0} coin + ${transactions?.length || 0} online + ${rfidPayments?.length || 0} rfid`} />
-        <StatCard icon={ShoppingCart}  label="Total Transactions" value={String(totalTransactionCount)}     accentColor="#0071e3" iconBg="rgba(0,113,227,0.10)"  sub="Last 50 per type" />
-        <StatCard icon={TrendingUp}    label="Pending"            value={String(pendingTransactions.length)} accentColor="#9a6400" iconBg="rgba(154,100,0,0.12)" sub="Awaiting payment" />
-        <StatCard icon={TrendingDown}  label="Failed"             value={String(failedTransactions.length)}  accentColor="#0071e3" iconBg="rgba(0,0,0,0.04)"  sub="Failed payments" />
+        <TopCard icon={Building2} tone="lilac" eyebrow="Top machine" title={topMachine?.label || '—'} value={inr(topMachine?.value || 0)} unit={`${range}d`} />
+        <TopCard icon={Package} tone="mint" eyebrow="Top product" title={topProduct?.label || '—'} value={inr(topProduct?.value || 0)} unit={`${range}d`} />
+        <TopCard icon={CreditCard} tone="sky" eyebrow="Top payment" title={methods.label} value={methods.n.toLocaleString('en-IN')} unit="payments" />
+        <TopCard icon={MapPin} tone="peach" eyebrow="Top location" title={topLocation?.label || '—'} value={inr(topLocation?.value || 0)} unit={`${range}d`} />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Revenue Chart */}
-        <div className="rounded-2xl p-5" style={CARD}>
-          <h3 className="font-semibold text-[#1d1d1f] mb-1">Daily Revenue</h3>
-          <p className="text-xs mb-5" style={{ color: '#86868b' }}>Last 7 days</p>
-          <div className="h-48 flex items-end justify-between gap-2">
-            {dailyRevenue.map((day, i) => {
-              const heightPct = (day.revenue / maxDailyRevenue) * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex flex-col items-center justify-end h-40 relative group">
-                    <div
-                      className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity px-2.5 py-1.5 rounded-xl text-xs whitespace-nowrap z-10"
-                      style={{ background: '#1d1d1f', border: '1px solid #1d1d1f', color: 'white' }}
-                    >
-                      <div className="font-semibold">₹{day.revenue.toFixed(2)}</div>
-                      <div style={{ color: '#6e6e73' }}>{day.count} txn</div>
-                    </div>
-                    <div
-                      className="w-full rounded-t-lg transition-all duration-500"
-                      style={{
-                        height: `${heightPct}%`,
-                        minHeight: day.revenue > 0 ? 6 : 0,
-                        background: 'linear-gradient(180deg, #0071e3, #6e6e73)',
-                        opacity: 0.85,
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs" style={{ color: '#86868b' }}>
-                    {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-4 pt-3 flex items-center justify-between text-xs" style={{ borderTop: '1px solid #f5f5f7', color: '#6e6e73' }}>
-            <span>Total: ₹{dailyRevenue.reduce((s, d) => s + d.revenue, 0).toFixed(2)}</span>
-            <span>{dailyRevenue.reduce((s, d) => s + d.count, 0)} transactions</span>
-          </div>
-        </div>
-
-        {/* Top Products */}
-        <div className="rounded-2xl p-5" style={CARD}>
-          <h3 className="font-semibold text-[#1d1d1f] mb-1">Top Products by Revenue</h3>
-          <p className="text-xs mb-5" style={{ color: '#86868b' }}>Across both payment methods</p>
-          <div className="space-y-4">
-            {topProducts.length > 0 ? topProducts.map(([product, revenue], i) => {
-              const maxRevenue = topProducts[0]?.[1] || 1;
-              const widthPct = (revenue / maxRevenue) * 100;
-              const color = ACCENT_COLORS[i % ACCENT_COLORS.length];
-              return (
-                <div key={i}>
-                  <div className="flex items-center justify-between mb-1.5 text-sm">
-                    <span className="text-[#1d1d1f] font-medium truncate flex-1">{product}</span>
-                    <span className="font-bold ml-4" style={{ color }}>₹{revenue.toFixed(2)}</span>
-                  </div>
-                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: '#f5f5f7' }}>
-                    <div
-                      className="h-2 rounded-full transition-all duration-700"
-                      style={{ width: `${widthPct}%`, minWidth: revenue > 0 ? 24 : 0, background: color }}
-                    />
-                  </div>
-                </div>
-              );
-            }) : (
-              <p className="text-center py-8 text-sm" style={{ color: '#a1a1a6' }}>No product data available</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Top Machines */}
-      <div className="rounded-2xl p-5" style={CARD}>
-        <h3 className="font-semibold text-[#1d1d1f] mb-4">Top Machines by Revenue</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {topMachines.length > 0 ? topMachines.map(([machine, revenue], i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl"
-              style={{ background: '#f5f5f7', border: `1px solid ${ACCENT_COLORS[i % ACCENT_COLORS.length]}30` }}
-            >
-              <p className="text-xs mb-1" style={{ color: ACCENT_COLORS[i % ACCENT_COLORS.length] }}>#{i + 1}</p>
-              <p className="font-medium text-[#1d1d1f] text-sm truncate mb-2">{machine}</p>
-              <p className="text-lg font-bold" style={{ color: ACCENT_COLORS[i % ACCENT_COLORS.length] }}>₹{revenue.toFixed(2)}</p>
-            </div>
-          )) : (
-            <p className="col-span-5 text-center py-4 text-sm" style={{ color: '#a1a1a6' }}>No machine data available</p>
-          )}
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#86868b' }} />
-        <input
-          type="text"
-          placeholder="Search transactions by product, machine, or customer..."
-          className="w-full pl-11 pr-4 py-3 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
-          style={{
-            background: '#f5f5f7',
-            border: '1px solid #e5e5e7',
-            color: '#f3f4f6',
-          }}
-        />
-      </div>
-
-      {/* Transactions Table */}
-      <div className="rounded-2xl overflow-hidden" style={CARD}>
-        <div className="px-5 py-4" style={{ borderBottom: '1px solid #f5f5f7' }}>
-          <h3 className="font-semibold text-[#1d1d1f]">Recent Transactions</h3>
-          <p className="text-xs mt-0.5" style={{ color: '#86868b' }}>Last 50 coin, online &amp; RFID payments</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid #f5f5f7' }}>
-                {['Date & Time', 'Customer', 'Product', 'Machine', 'Amount', 'Type', 'Status'].map((h, i) => (
-                  <th
-                    key={h}
-                    className={`py-2.5 px-4 text-xs font-semibold uppercase tracking-wide ${i === 4 ? 'text-right' : i === 6 ? 'text-center' : 'text-left'}`}
-                    style={{ color: '#86868b' }}
-                  >{h}</th>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Panel title="Payment mix">
+          <Donut
+            centerValue={inr(revenue)}
+            centerLabel="COLLECTED"
+            slices={[
+              { label: 'UPI', value: byType('upi'), color: '#a1a1aa' },
+              { label: 'Coin', value: byType('coin'), color: '#f0be3c' },
+              { label: 'RFID', value: byType('rfid'), color: '#f27860' },
+            ]}
+          />
+        </Panel>
+        <Panel title="Top machines">
+          <BarList items={rank('machine')} format={(n) => inr(n)} />
+        </Panel>
+        <Panel title="Busiest hours (IST)">
+          {count > 0 ? (
+            <>
+              <div className="tx-hours" role="img" aria-label={`Peak hour ${fmtHour(peak)}`}>
+                {hours.map((v, h) => (
+                  <span key={h} title={`${fmtHour(h)}: ${v} payments`} className={h === peak ? 'is-peak' : ''} style={{ height: `${Math.max(4, (v / Math.max(...hours)) * 100)}%` }} />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {/* Coin Payments */}
-              {coinPayments && coinPayments.map((txn: any) => (
-                <tr
-                  key={`coin-${txn.id}`}
-                  className="row-hover"
-                  style={{ borderBottom: '1px solid #f5f5f7' }}
-                >
-                  <td className="py-3 px-4 whitespace-nowrap" style={{ color: '#6e6e73' }}>
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      {new Date(txn.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <User className="w-3.5 h-3.5 shrink-0" style={{ color: '#86868b' }} />
-                      <span style={{ color: '#6e6e73' }}>Coin Payment</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-[#1d1d1f]">{txn.products?.name || 'Unknown'}</td>
-                  <td className="py-3 px-4">
-                    <p className="text-[#1d1d1f]">{txn.vending_machines?.name || 'Unknown'}</p>
-                    <p className="text-xs" style={{ color: '#86868b' }}>{txn.vending_machines?.location}</p>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="font-semibold text-[#1d1d1f] flex items-center justify-end gap-0.5">
-                      <IndianRupee className="w-3 h-3" />{(txn.amount_in_paisa / 100).toFixed(2)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(154,100,0,0.12)', color: '#9a6400' }}>
-                      <Coins className="w-3 h-3" />Coin
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }}>Dispensed</span>
-                  </td>
-                </tr>
-              ))}
-
-              {/* Online Transactions */}
-              {transactions && transactions.map((txn: any) => {
-                const items = typeof txn.items === 'string' ? JSON.parse(txn.items) : txn.items || [];
-                const productNames = items.map((item: any) => item.name).join(', ') || 'N/A';
-                const statusStyle =
-                  txn.payment_status === 'paid'    ? { background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }
-                  : txn.payment_status === 'failed' ? { background: 'rgba(0,0,0,0.04)', color: '#0071e3' }
-                  : { background: 'rgba(154,100,0,0.12)', color: '#9a6400' };
-                return (
-                  <tr
-                    key={`online-${txn.id}`}
-                    className="row-hover"
-                    style={{ borderBottom: '1px solid #f5f5f7' }}
-                  >
-                    <td className="py-3 px-4 whitespace-nowrap" style={{ color: '#6e6e73' }}>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 shrink-0" />
-                        {new Date(txn.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 shrink-0" style={{ color: '#86868b' }} />
-                        <span className="text-[#1d1d1f] text-sm">{txn.profiles?.email || 'Guest'}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-medium text-[#1d1d1f]">{productNames}</td>
-                    <td className="py-3 px-4" style={{ color: '#6e6e73' }}>{txn.vending_machines?.name || 'N/A'}</td>
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-semibold text-[#1d1d1f] flex items-center justify-end gap-0.5">
-                        <IndianRupee className="w-3 h-3" />{parseFloat(txn.total_amount || 0).toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(0,113,227,0.10)', color: '#93C5FD' }}>
-                        <CreditCard className="w-3 h-3" />Online
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={statusStyle}>
-                        {txn.payment_status || 'pending'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {/* RFID Payments */}
-              {rfidPayments && rfidPayments.map((txn: any) => (
-                <tr
-                  key={`rfid-${txn.id}`}
-                  className="row-hover"
-                  style={{ borderBottom: '1px solid #f5f5f7' }}
-                >
-                  <td className="py-3 px-4 whitespace-nowrap" style={{ color: '#6e6e73' }}>
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      {new Date(txn.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <User className="w-3.5 h-3.5 shrink-0" style={{ color: '#86868b' }} />
-                      <span style={{ color: '#6e6e73' }}>{txn.rfid_cards?.holder_name || txn.card_uid}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-[#1d1d1f]">{txn.products?.name || 'Unknown'}</td>
-                  <td className="py-3 px-4">
-                    <p className="text-[#1d1d1f]">{txn.vending_machines?.name || 'Unknown'}</p>
-                    <p className="text-xs" style={{ color: '#86868b' }}>{txn.vending_machines?.location}</p>
-                  </td>
-                  <td className="py-3 px-4 text-right">
-                    <span className="font-semibold text-[#1d1d1f] flex items-center justify-end gap-0.5">
-                      <IndianRupee className="w-3 h-3" />{(txn.amount_in_paisa / 100).toFixed(2)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }}>
-                      <Nfc className="w-3 h-3" />RFID
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: 'rgba(29,122,60,0.12)', color: '#1d7a3c' }}>Dispensed</span>
-                  </td>
-                </tr>
-              ))}
-
-              {!transactions?.length && !coinPayments?.length && !rfidPayments?.length && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-sm" style={{ color: '#a1a1a6' }}>No transactions found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </div>
+              <div className="tx-hours-axis"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
+              <p className="text-xs mt-3 text-[var(--muted)]">Peak around <b className="text-[var(--fg)]">{fmtHour(peak)}</b> — plan refills before then.</p>
+            </>
+          ) : (
+            <p className="ui-empty-hint py-6 text-center">No data yet</p>
+          )}
+        </Panel>
       </div>
+
+      <TransactionsExplorer rows={cur} rangeLabel={rangeLabel} />
     </main>
   );
 }

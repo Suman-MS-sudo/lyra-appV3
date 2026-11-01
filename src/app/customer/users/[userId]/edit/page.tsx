@@ -7,9 +7,10 @@ import EditUserMachines from '@/components/EditUserMachines';
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 export default async function EditUserPage({ params }: { params: Promise<{ userId: string }> }) {
@@ -57,35 +58,35 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
       <div>
         <Link
           href="/customer/users"
-          className="text-sm transition-colors hover:text-[#1d1d1f] mb-2 inline-block"
-          style={{ color: '#6e6e73' }}
+          className="text-sm transition-colors hover:text-[var(--fg)] mb-2 inline-block"
+          style={{ color: 'var(--muted)' }}
         >
           ← Back to Users
         </Link>
-        <h1 className="text-2xl font-bold text-[#1d1d1f]">Edit User</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Update user information and machine assignments</p>
+        <h1 className="ui-title">Edit User</h1>
+        <p className="ui-subtitle">Update user information and machine assignments</p>
       </div>
 
       <div className="rounded-2xl p-6 space-y-6" style={CARD}>
         {/* User Info */}
         <div>
-          <h3 className="text-base font-semibold text-[#1d1d1f] mb-4">User Information</h3>
-          <div className="space-y-0" style={{ borderTop: '1px solid #f5f5f7' }}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-4">User Information</h3>
+          <div className="space-y-0" style={{ borderTop: '1px solid var(--surface-2)' }}>
             {[
               ['Email', userToEdit.email],
               ['Full Name', userToEdit.full_name || 'Not set'],
               ['Phone', userToEdit.phone || 'Not set'],
             ].map(([label, value]) => (
-              <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid #f5f5f7' }}>
-                <span className="text-sm" style={{ color: '#6e6e73' }}>{label}</span>
-                <span className="text-sm font-medium text-[#1d1d1f]">{value}</span>
+              <div key={label} className="flex justify-between py-3" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+                <span className="text-sm" style={{ color: 'var(--muted)' }}>{label}</span>
+                <span className="text-sm font-medium text-[var(--fg)]">{value}</span>
               </div>
             ))}
-            <div className="flex justify-between py-3" style={{ borderBottom: '1px solid #f5f5f7' }}>
-              <span className="text-sm" style={{ color: '#6e6e73' }}>Role</span>
+            <div className="flex justify-between py-3" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+              <span className="text-sm" style={{ color: 'var(--muted)' }}>Role</span>
               <span
                 className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                style={{ background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }}
+                style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--muted)' }}
               >
                 {userToEdit.role}
               </span>
@@ -94,9 +95,9 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
         </div>
 
         {/* Machine Assignment */}
-        <div className="pt-2" style={{ borderTop: '1px solid #f5f5f7' }}>
-          <h3 className="text-base font-semibold text-[#1d1d1f] mb-1">Machine Management</h3>
-          <p className="text-sm mb-4" style={{ color: '#6e6e73' }}>
+        <div className="pt-2" style={{ borderTop: '1px solid var(--surface-2)' }}>
+          <h3 className="text-base font-semibold text-[var(--fg)] mb-1">Machine Management</h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
             Assign specific machines to this user. Assigned machines will be owned and managed by them.
           </p>
           <EditUserMachines
@@ -108,8 +109,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
         </div>
 
         {/* Permissions info */}
-        <div className="rounded-xl p-4" style={{ background: '#f5f5f7', border: '1px solid #f5f5f7' }}>
-          <h4 className="text-sm font-semibold text-[#1d1d1f] mb-2">Access Permissions</h4>
+        <div className="rounded-xl p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-2)' }}>
+          <h4 className="text-sm font-semibold text-[var(--fg)] mb-2">Access Permissions</h4>
           <ul className="space-y-1">
             {[
               ['✓', 'View all machines in the organization'],
@@ -119,8 +120,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ userI
               ['✗', 'Cannot access admin features'],
             ].map(([icon, text]) => (
               <li key={text} className="flex items-center gap-2 text-sm">
-                <span style={{ color: icon === '✓' ? '#1d7a3c' : '#0071e3' }}>{icon}</span>
-                <span style={{ color: '#6e6e73' }}>{text}</span>
+                <span style={{ color: icon === '✓' ? 'var(--success)' : 'var(--accent)' }}>{icon}</span>
+                <span style={{ color: 'var(--muted)' }}>{text}</span>
               </li>
             ))}
           </ul>

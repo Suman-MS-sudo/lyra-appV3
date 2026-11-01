@@ -4,22 +4,25 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createProduct } from '@/app/actions/admin';
 
+import { PageHeader } from '@/components/ui/kit';
+
 export const revalidate = 0;
 
 const CARD: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
   borderRadius: 20,
+  boxShadow: 'var(--shadow-card)',
 };
 
 const INPUT: React.CSSProperties = {
-  background: '#f5f5f7',
-  border: '1px solid #e5e5e7',
+  background: 'var(--surface-2)',
+  border: '1px solid var(--line)',
   color: '#f3f4f6',
   borderRadius: 12,
 };
 
-const LABEL: React.CSSProperties = { color: '#1d1d1f' };
+const LABEL: React.CSSProperties = { color: 'var(--fg)' };
 
 export default async function NewProductPage() {
   const supabase = await createClient();
@@ -41,10 +44,7 @@ export default async function NewProductPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#1d1d1f]">Add Product</h1>
-        <p className="text-sm mt-0.5" style={{ color: '#6e6e73' }}>Create a new product</p>
-      </div>
+      <PageHeader title="Add Product" subtitle="Create a new product" />
 
       <form action={createProduct} className="rounded-2xl p-6 space-y-6" style={CARD}>
         <div>
@@ -56,7 +56,7 @@ export default async function NewProductPage() {
             id="name"
             name="name"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="e.g., Coca Cola"
           />
@@ -71,7 +71,7 @@ export default async function NewProductPage() {
             id="sku"
             name="sku"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="e.g., SKU-001"
           />
@@ -88,14 +88,14 @@ export default async function NewProductPage() {
             step="0.01"
             min="0"
             required
-            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500"
+            className="w-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
             style={INPUT}
             placeholder="0.00"
           />
         </div>
 
-        <div className="rounded-xl p-4" style={{ background: 'rgba(0,113,227,0.10)', border: '1px solid rgba(0,113,227,0.10)' }}>
-          <p className="text-sm" style={{ color: '#93C5FD' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-soft)' }}>
+          <p className="text-sm" style={{ color: 'var(--accent-ink)' }}>
             After creating the product, you can assign it to vending machines from the machine management page.
           </p>
         </div>
@@ -104,14 +104,14 @@ export default async function NewProductPage() {
           <Link
             href="/admin/products"
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-center transition-opacity hover:opacity-80"
-            style={{ background: '#f5f5f7', border: '1px solid #e5e5e7', color: '#1d1d1f' }}
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--fg)' }}
           >
             Cancel
           </Link>
           <button
             type="submit"
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: '#1d1d1f', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
+            className="flex-1 px-4 py-2.5 lyra-chamfer text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--accent)', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}
           >
             Create Product
           </button>

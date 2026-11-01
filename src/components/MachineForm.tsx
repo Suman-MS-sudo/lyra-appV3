@@ -49,7 +49,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
   };
 
   return (
-    <form action={formAction} className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+    <form action={formAction} className="bg-[var(--surface)] rounded-xl shadow-sm p-6 space-y-6">
       {state?.error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-4">
           <strong>Could not create machine:</strong> {state.error}
@@ -69,7 +69,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               id="name"
               name="name"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., L&T-22"
             />
           </div>
@@ -83,7 +83,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               id="location"
               name="location"
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., Building A, Floor 2"
             />
           </div>
@@ -98,7 +98,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="machine_id"
               name="machine_id"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., CN00005_SNVM_00022"
             />
           </div>
@@ -110,7 +110,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             <select
               id="status"
               name="status"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             >
               <option value="offline">Offline</option>
               <option value="online">Online</option>
@@ -133,7 +133,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="machine_type"
               name="machine_type"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., SNVM_WF_SL30"
             />
           </div>
@@ -146,7 +146,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="product_type"
               name="product_type"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., SANITARY PAD"
             />
           </div>
@@ -161,7 +161,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             name="body_type"
             required
             defaultValue=""
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           >
             <option value="" disabled>-- Select motor type --</option>
             <option value="single_motor">Single Motor — 25 napkin capacity</option>
@@ -180,7 +180,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="mac_id"
               name="mac_id"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., 00:4B:12:2F:C7:C4"
             />
           </div>
@@ -193,7 +193,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="ip_address"
               name="ip_address"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., 192.168.1.100"
             />
           </div>
@@ -207,7 +207,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             type="text"
             id="firmware_version"
             name="firmware_version"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             placeholder="e.g., v1.2.3"
           />
         </div>
@@ -226,7 +226,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             name="organization_id"
             required
             onChange={handleOrgChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
           >
             <option value="">-- Select an organization --</option>
             {organizations?.map((org) => (
@@ -247,7 +247,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="customer_name"
               name="customer_name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent bg-gray-50"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent bg-gray-50"
               placeholder="Auto-filled from selection"
               readOnly
             />
@@ -261,7 +261,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="customer_code"
               name="customer_code"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., ORG001"
             />
           </div>
@@ -276,7 +276,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="customer_contact"
               name="customer_contact"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., +91 9876543210"
             />
           </div>
@@ -289,7 +289,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="text"
               id="customer_alternate_contact"
               name="customer_alternate_contact"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
               placeholder="e.g., +91 9876543211"
             />
           </div>
@@ -303,7 +303,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             id="customer_address"
             name="customer_address"
             rows={2}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent bg-gray-50"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent bg-gray-50"
             placeholder="Auto-filled from selection"
             readOnly
           />
@@ -317,7 +317,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             type="text"
             id="customer_location"
             name="customer_location"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             placeholder="e.g., Mumbai, Maharashtra"
           />
         </div>
@@ -331,7 +331,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
             type="checkbox"
             name="rfid_enabled"
             value="true"
-            className="w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
+            className="w-4 h-4 text-[var(--accent-ink)] border-gray-300 rounded focus:ring-[var(--accent)]"
           />
           <span className="text-sm font-medium text-gray-700">Enable RFID card payments on this machine</span>
         </label>
@@ -354,7 +354,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
                   type="checkbox"
                   name="product_ids"
                   value={product.id}
-                  className="mt-1 w-4 h-4 text-[#0071e3] border-gray-300 rounded focus:ring-[#0071e3]"
+                  className="mt-1 w-4 h-4 text-[var(--accent-ink)] border-gray-300 rounded focus:ring-[var(--accent)]"
                 />
                 <div className="flex-1">
                   <div className="font-medium text-gray-900">{product.name}</div>
@@ -373,8 +373,8 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
           )}
         </div>
         
-        <div className="bg-[#f5f5f7] border border-[#e5e5e7] rounded-lg p-4">
-          <p className="text-sm text-[#3a3a3c]">
+        <div className="bg-[var(--surface-2)] border border-[var(--line)] rounded-lg p-4">
+          <p className="text-sm text-[var(--fg-2)]">
             <strong>Note:</strong> Selected products start with 0 stock — set the actual count after machine creation.
             They charge each product&apos;s own price (shown above) by default; the <code>machine_products.price</code> column
             stays empty unless you want this specific machine to charge a different price for a product than everywhere else.
@@ -395,7 +395,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="date"
               id="purchase_date"
               name="purchase_date"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             />
           </div>
 
@@ -407,7 +407,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="date"
               id="warranty_till"
               name="warranty_till"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             />
           </div>
 
@@ -419,7 +419,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
               type="date"
               id="amc_till"
               name="amc_till"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
             />
           </div>
         </div>
@@ -435,7 +435,7 @@ export function MachineForm({ organizations, products }: MachineFormProps) {
         <button
           type="submit"
           disabled={isPending}
-          className="flex-1 px-4 py-2 bg-[#1d1d1f] text-white rounded-lg hover:bg-black font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 bg-[var(--accent)] text-white lyra-chamfer hover:bg-black font-medium disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isPending ? 'Creating…' : 'Create Machine'}
         </button>

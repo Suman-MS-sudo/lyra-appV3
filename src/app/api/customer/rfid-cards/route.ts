@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchCustomerRfidCards } from '@/lib/rfid-cards';
+import { visibleOwnerIds } from '@/lib/machine-scope';
 
 // Resolves the RFID-enabled machine IDs this logged-in customer is allowed
 // to assign cards to: super_customers see every machine in their org,
@@ -26,12 +27,11 @@ async function requireCustomerAndMachines() {
     return { error: NextResponse.json({ error: 'Customer access required' }, { status: 403 }) };
   }
 
-  const isSuperCustomer = profile.account_type === 'super_customer';
 
   const { data: machines } = await service
     .from('vending_machines')
     .select('id, name, location')
-    .eq('customer_id', isSuperCustomer ? profile.organization_id : user.id)
+    .in('customer_id', await visibleOwnerIds(service, user.id, profile))
     .eq('rfid_enabled', true);
 
   return { service, profile, machines: machines || [] };

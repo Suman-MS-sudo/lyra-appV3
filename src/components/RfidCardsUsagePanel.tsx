@@ -18,9 +18,10 @@ type RfidCard = {
   machine: { id: string; name: string; location: string } | null;
 };
 
-const card_style = { background: '#f5f5f7', border: '1px solid #e5e5e7' };
-const muted = { color: '#6e6e73' };
-const inputStyle = { background: '#f5f5f7', border: '1px solid #e5e5e7' };
+// Same panel look as the shared CARD style: surface, hairline, soft shadow
+const card_style = { background: 'var(--surface)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-card)' };
+const muted = { color: 'var(--muted)' };
+const inputStyle = { background: 'var(--surface-2)', border: '1px solid var(--line)' };
 
 function rupees(paisa: number) {
   return `₹${(paisa / 100).toFixed(2)}`;
@@ -108,22 +109,22 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
     <div className="rounded-2xl p-5" style={card_style}>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
-          <h2 className="font-semibold text-[#1d1d1f]">RFID Card Holders</h2>
+          <h2 className="font-semibold text-[var(--fg)]">RFID Card Holders</h2>
           <p className="text-xs mt-0.5" style={muted}>Manage credits by card type</p>
         </div>
-        <Link href="/customer/rfid-cards" className="text-xs font-medium transition-colors hover:text-[#1d1d1f]" style={{ color: '#0071e3' }}>
+        <Link href="/customer/rfid-cards" className="text-xs font-medium transition-colors hover:text-[var(--fg)]" style={{ color: 'var(--accent-ink)' }}>
           Add / manage cards →
         </Link>
       </div>
 
       {/* Sub-tabs */}
-      <div className="flex items-center gap-2 p-1 rounded-xl w-fit mb-4" style={{ background: '#f5f5f7' }}>
+      <div className="flex items-center gap-2 p-1 rounded-xl w-fit mb-4" style={{ background: 'var(--surface-2)' }}>
         <button
           onClick={() => setSubTab('prepaid')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
           style={subTab === 'prepaid'
-            ? { background: 'rgba(0,0,0,0.04)', color: '#6e6e73' }
-            : { color: '#6e6e73' }}
+            ? { background: 'rgba(0,0,0,0.04)', color: 'var(--muted)' }
+            : { color: 'var(--muted)' }}
         >
           <Wallet className="w-3.5 h-3.5" /> Credit Based ({prepaidCards.length})
         </button>
@@ -131,15 +132,15 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
           onClick={() => setSubTab('postpaid')}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
           style={subTab === 'postpaid'
-            ? { background: 'rgba(0,113,227,0.10)', color: '#93C5FD' }
-            : { color: '#6e6e73' }}
+            ? { background: 'var(--accent-soft)', color: 'var(--accent-ink)' }
+            : { color: 'var(--muted)' }}
         >
           <InfinityIcon className="w-3.5 h-3.5" /> No Limit ({postpaidCards.length})
         </button>
       </div>
 
       {error && (
-        <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: '#c8102e' }}>
+        <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)', color: 'var(--danger)' }}>
           {error}
         </div>
       )}
@@ -151,22 +152,22 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
       ) : (
         <div className="space-y-2">
           {visible.map(card => (
-            <div key={card.id} className="rounded-xl p-3.5" style={{ background: '#f5f5f7', border: '1px solid #f5f5f7' }}>
+            <div key={card.id} className="rounded-xl p-3.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--surface-2)' }}>
               <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-[#1d1d1f] truncate">{card.holder_name || card.uid}</p>
+                    <p className="text-sm font-medium text-[var(--fg)] truncate">{card.holder_name || card.uid}</p>
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0"
                       style={card.is_active
                         ? { background: 'rgba(67,233,123,0.12)', color: '#43e97b' }
-                        : { background: 'rgba(200,16,46,0.10)', color: '#c8102e' }}
+                        : { background: 'rgba(200,16,46,0.10)', color: 'var(--danger)' }}
                     >
                       {card.is_active ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Ban className="w-2.5 h-2.5" />}
                       {card.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  {card.holder_name && <p className="text-xs font-mono" style={{ color: '#86868b' }}>{card.uid}</p>}
+                  {card.holder_name && <p className="text-xs font-mono" style={{ color: 'var(--subtle)' }}>{card.uid}</p>}
                   <p className="text-xs mt-0.5" style={muted}>{card.machine?.name || 'Unassigned'}</p>
                 </div>
                 <div className="text-right shrink-0">
@@ -174,7 +175,7 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
                     <p className="text-base font-bold" style={{ color: '#43e97b' }}>{card.credits_remaining} credits</p>
                   ) : (
                     <>
-                      <p className="text-base font-bold" style={{ color: '#9a6400' }}>{rupees(card.total_spent_paisa)} owed</p>
+                      <p className="text-base font-bold" style={{ color: 'var(--warning)' }}>{rupees(card.total_spent_paisa)} owed</p>
                       <p className="text-xs" style={muted}>{card.vend_count} vended</p>
                     </>
                   )}
@@ -190,13 +191,13 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
                     placeholder="Credits"
                     value={amounts[card.id] || ''}
                     onChange={e => setAmounts(prev => ({ ...prev, [card.id]: e.target.value }))}
-                    className="flex-1 px-3 py-1.5 rounded-lg text-xs text-[#1d1d1f] outline-none"
+                    className="flex-1 px-3 py-1.5 rounded-lg text-xs text-[var(--fg)] outline-none"
                     style={inputStyle}
                   />
                   <button
                     onClick={() => adjustCredits(card, 1)}
                     disabled={busyId === card.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-50"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-50"
                     style={{ background: 'rgba(67,233,123,0.15)', border: '1px solid rgba(67,233,123,0.28)' }}
                   >
                     <Plus className="w-3 h-3" /> Increase
@@ -204,7 +205,7 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
                   <button
                     onClick={() => adjustCredits(card, -1)}
                     disabled={busyId === card.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-50"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-50"
                     style={{ background: 'rgba(200,16,46,0.10)', border: '1px solid rgba(200,16,46,0.10)' }}
                   >
                     <Minus className="w-3 h-3" /> Decrease
@@ -212,8 +213,8 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
                   <button
                     onClick={() => toggleActive(card)}
                     disabled={busyId === card.id}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-50"
-                    style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-50"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
                   >
                     {card.is_active ? 'Deactivate' : 'Activate'}
                   </button>
@@ -223,7 +224,7 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
                   <button
                     onClick={() => settleTab(card)}
                     disabled={busyId === card.id}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-50"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-50"
                     style={{ background: 'rgba(154,100,0,0.12)', border: '1px solid rgba(154,100,0,0.12)' }}
                   >
                     <Receipt className="w-3.5 h-3.5" /> Settle Tab
@@ -231,8 +232,8 @@ export default function RfidCardsUsagePanel({ initialCards }: { initialCards: Rf
                   <button
                     onClick={() => toggleActive(card)}
                     disabled={busyId === card.id}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#1d1d1f] disabled:opacity-50"
-                    style={{ background: '#f5f5f7', border: '1px solid #e5e5e7' }}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--fg)] disabled:opacity-50"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--line)' }}
                   >
                     {card.is_active ? 'Deactivate' : 'Activate'}
                   </button>

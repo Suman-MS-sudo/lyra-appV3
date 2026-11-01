@@ -45,8 +45,8 @@ type MachineDetail = {
   created_at: string;
 };
 
-const muted = { color: '#6e6e73' };
-const cardBg = { background: '#f5f5f7', border: '1px solid #e5e5e7' };
+const muted = { color: 'var(--muted)' };
+const cardBg = { background: 'var(--surface-2)', border: '1px solid var(--line)' };
 
 function relativeTime(iso: string | null) {
   if (!iso) return 'Never';
@@ -70,17 +70,17 @@ function formatUptime(ms: number | null) {
 }
 
 function rssiLabel(rssi: number | null) {
-  if (rssi === null || rssi === undefined) return { label: '—', color: '#86868b' };
-  if (rssi >= -60) return { label: 'Excellent', color: '#1d7a3c' };
-  if (rssi >= -75) return { label: 'Good', color: '#0071e3' };
-  if (rssi >= -85) return { label: 'Weak', color: '#9a6400' };
-  return { label: 'Poor', color: '#c8102e' };
+  if (rssi === null || rssi === undefined) return { label: '—', color: 'var(--subtle)' };
+  if (rssi >= -60) return { label: 'Excellent', color: 'var(--success)' };
+  if (rssi >= -75) return { label: 'Good', color: 'var(--accent-ink)' };
+  if (rssi >= -85) return { label: 'Weak', color: 'var(--warning)' };
+  return { label: 'Poor', color: 'var(--danger)' };
 }
 
 const TYPE_META: Record<FeedType, { icon: any; label: string; color: string }> = {
-  upi: { icon: Smartphone, label: 'UPI', color: '#0071e3' },
-  coin: { icon: Coins, label: 'Coin', color: '#9a6400' },
-  rfid: { icon: Nfc, label: 'RFID', color: '#7c6fff' },
+  upi: { icon: Smartphone, label: 'UPI', color: 'var(--accent-ink)' },
+  coin: { icon: Coins, label: 'Coin', color: 'var(--warning)' },
+  rfid: { icon: Nfc, label: 'RFID', color: '#4d8dff' },
 };
 
 function TransactionChart({ chart }: { chart: ChartDay[] }) {
@@ -106,7 +106,7 @@ function TransactionChart({ chart }: { chart: ChartDay[] }) {
     <div className="relative">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" role="img" aria-label="Daily transactions">
         {[0, 0.5, 1].map(f => (
-          <line key={f} x1={padLeft} x2={width} y1={8 + plotH * f} y2={8 + plotH * f} stroke="#e5e5e7" strokeWidth={1} />
+          <line key={f} x1={padLeft} x2={width} y1={8 + plotH * f} y2={8 + plotH * f} stroke="var(--line)" strokeWidth={1} />
         ))}
         {chart.map((d, i) => {
           const x = padLeft + i * barW;
@@ -117,9 +117,9 @@ function TransactionChart({ chart }: { chart: ChartDay[] }) {
           const bx = x + (barW - barInnerW) / 2;
           let yCursor = 8 + plotH;
           const segments: { h: number; color: string }[] = [
-            { h: coinH, color: '#9a6400' },
-            { h: upiH, color: '#0071e3' },
-            { h: rfidH, color: '#7c6fff' },
+            { h: coinH, color: 'var(--warning)' },
+            { h: upiH, color: 'var(--accent-ink)' },
+            { h: rfidH, color: '#4d8dff' },
           ];
           return (
             <g key={d.date}
@@ -133,7 +133,7 @@ function TransactionChart({ chart }: { chart: ChartDay[] }) {
                 return <rect key={si} x={bx} y={yCursor} width={barInnerW} height={seg.h} fill={seg.color} opacity={hover === null || hover === i ? 1 : 0.35} rx={1} />;
               })}
               {hover === i && (
-                <line x1={x + barW / 2} x2={x + barW / 2} y1={8} y2={8 + plotH} stroke="#a1a1a6" strokeDasharray="3,3" />
+                <line x1={x + barW / 2} x2={x + barW / 2} y1={8} y2={8 + plotH} stroke="var(--subtle)" strokeDasharray="3,3" />
               )}
             </g>
           );
@@ -143,7 +143,7 @@ function TransactionChart({ chart }: { chart: ChartDay[] }) {
           if (i % Math.ceil(chart.length / 7) !== 0) return null;
           const x = padLeft + i * barW + barW / 2;
           return (
-            <text key={d.date} x={x} y={height - 4} fontSize="9" fill="#86868b" textAnchor="middle">
+            <text key={d.date} x={x} y={height - 4} fontSize="9" fill="var(--subtle)" textAnchor="middle">
               {new Date(d.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
             </text>
           );
@@ -152,19 +152,19 @@ function TransactionChart({ chart }: { chart: ChartDay[] }) {
       {hover !== null && chart[hover] && (
         <div
           className="absolute top-0 rounded-lg px-3 py-2 text-xs shadow-lg pointer-events-none"
-          style={{ left: `${(hover / chart.length) * 100}%`, background: '#1A1030', color: '#fff', border: '1px solid #e5e5e7', transform: 'translateX(-10%)' }}
+          style={{ left: `${(hover / chart.length) * 100}%`, background: '#1A1030', color: '#fff', border: '1px solid var(--line)', transform: 'translateX(-10%)' }}
         >
           <p className="font-semibold mb-1">{new Date(chart[hover].date).toLocaleDateString()}</p>
-          <p style={{ color: '#9a6400' }}>Coin: {chart[hover].coin}</p>
-          <p style={{ color: '#93C5FD' }}>UPI: {chart[hover].upi}</p>
+          <p style={{ color: 'var(--warning)' }}>Coin: {chart[hover].coin}</p>
+          <p style={{ color: 'var(--accent-ink)' }}>UPI: {chart[hover].upi}</p>
           <p style={{ color: '#c4b8ff' }}>RFID: {chart[hover].rfid}</p>
           <p style={{ color: '#43e97b' }}>Revenue: ₹{chart[hover].revenue.toFixed(2)}</p>
         </div>
       )}
       <div className="flex items-center gap-4 mt-2 text-xs flex-wrap" style={muted}>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#9a6400' }} /> Coin</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#0071e3' }} /> UPI</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#7c6fff' }} /> RFID</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: 'var(--warning)' }} /> Coin</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: 'var(--accent)' }} /> UPI</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#4d8dff' }} /> RFID</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-0.5" style={{ background: '#43e97b' }} /> Revenue</span>
       </div>
     </div>
@@ -217,7 +217,7 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
     >
       <div
         className="w-full max-w-3xl rounded-2xl my-8 max-h-[90vh] overflow-y-auto"
-        style={{ background: '#1c1937', border: '1px solid #e5e5e7' }}
+        style={{ background: '#1c1937', border: '1px solid var(--line)' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 sticky top-0 z-10" style={{ background: '#1c1937', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -229,23 +229,23 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                   className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
                   style={machine.asset_online
                     ? { background: 'rgba(29,122,60,0.20)', color: '#43e97b' }
-                    : { background: 'rgba(255,255,255,0.08)', color: '#a1a1a6' }}
+                    : { background: 'rgba(255,255,255,0.08)', color: 'var(--subtle)' }}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${machine.asset_online ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
                   {machine.asset_online ? 'Online' : 'Offline'}
                 </span>
               )}
             </h3>
-            {machine && <p className="text-xs mt-0.5" style={{ color: '#a1a1a6' }}>{machine.location}</p>}
+            {machine && <p className="text-xs mt-0.5" style={{ color: 'var(--subtle)' }}>{machine.location}</p>}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <X className="w-5 h-5" style={{ color: '#a1a1a6' }} />
+            <X className="w-5 h-5" style={{ color: 'var(--subtle)' }} />
           </button>
         </div>
 
         <div className="p-6 space-y-6">
           {loading ? (
-            <div className="text-center py-16 text-sm" style={{ color: '#a1a1a6' }}>Loading machine details...</div>
+            <div className="text-center py-16 text-sm" style={{ color: 'var(--subtle)' }}>Loading machine details...</div>
           ) : error ? (
             <div className="px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(200,16,46,0.15)', color: '#ff8080' }}>{error}</div>
           ) : machine ? (
@@ -256,37 +256,37 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-xs" style={muted}>Machine ID</p>
-                    <p className="font-mono text-[#1d1d1f]">{machine.machine_id}</p>
+                    <p className="font-mono text-[var(--fg)]">{machine.machine_id}</p>
                   </div>
                   <div>
                     <p className="text-xs" style={muted}>MAC ID</p>
-                    <p className="font-mono text-[#1d1d1f]">{machine.mac_id}</p>
+                    <p className="font-mono text-[var(--fg)]">{machine.mac_id}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Building2 className="w-3 h-3" /> Customer</p>
-                    <p className="text-[#1d1d1f]">{machine.customer_name || '—'}</p>
+                    <p className="text-[var(--fg)]">{machine.customer_name || '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><MapPin className="w-3 h-3" /> Location</p>
-                    <p className="text-[#1d1d1f]">{machine.location}</p>
+                    <p className="text-[var(--fg)]">{machine.location}</p>
                   </div>
                   <div>
                     <p className="text-xs" style={muted}>Body Type</p>
-                    <p className="text-[#1d1d1f]">
+                    <p className="text-[var(--fg)]">
                       {machine.body_type === 'quad_motor' ? 'Quad Motor' : machine.body_type === 'single_motor_35' ? 'Single Motor (35)' : machine.body_type || machine.machine_type || '—'}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Nfc className="w-3 h-3" /> RFID Payments</p>
-                    <p className="text-[#1d1d1f]">{machine.rfid_enabled ? 'Enabled' : 'Disabled'}</p>
+                    <p className="text-[var(--fg)]">{machine.rfid_enabled ? 'Enabled' : 'Disabled'}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><RadioTower className="w-3 h-3" /> Firmware</p>
-                    <p className="font-mono text-[#1d1d1f]">{machine.firmware_version || '—'}</p>
+                    <p className="font-mono text-[var(--fg)]">{machine.firmware_version || '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs" style={muted}>Added</p>
-                    <p className="text-[#1d1d1f]">{new Date(machine.created_at).toLocaleDateString()}</p>
+                    <p className="text-[var(--fg)]">{new Date(machine.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
               </div>
@@ -297,7 +297,7 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Clock className="w-3 h-3" /> Last Sync</p>
-                    <p className="text-[#1d1d1f] font-medium">{relativeTime(machine.last_ping)}</p>
+                    <p className="text-[var(--fg)] font-medium">{relativeTime(machine.last_ping)}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Wifi className="w-3 h-3" /> WiFi Signal</p>
@@ -305,23 +305,23 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Gauge className="w-3 h-3" /> Network Speed</p>
-                    <p className="text-[#1d1d1f] font-medium">{machine.network_speed ? `${machine.network_speed} KB/s` : '—'}</p>
+                    <p className="text-[var(--fg)] font-medium">{machine.network_speed ? `${machine.network_speed} KB/s` : '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Cpu className="w-3 h-3" /> Free Memory</p>
-                    <p className="text-[#1d1d1f] font-medium">{machine.free_heap ? `${(machine.free_heap / 1024).toFixed(0)} KB` : '—'}</p>
+                    <p className="text-[var(--fg)] font-medium">{machine.free_heap ? `${(machine.free_heap / 1024).toFixed(0)} KB` : '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Thermometer className="w-3 h-3" /> Temperature</p>
-                    <p className="text-[#1d1d1f] font-medium">{machine.temperature !== null ? `${machine.temperature}°C` : '—'}</p>
+                    <p className="text-[var(--fg)] font-medium">{machine.temperature !== null ? `${machine.temperature}°C` : '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs" style={muted}>Device Uptime</p>
-                    <p className="text-[#1d1d1f] font-medium">{formatUptime(machine.uptime)}</p>
+                    <p className="text-[var(--fg)] font-medium">{formatUptime(machine.uptime)}</p>
                   </div>
                   <div>
                     <p className="text-xs flex items-center gap-1" style={muted}><Package className="w-3 h-3" /> Stock</p>
-                    <p className="text-[#1d1d1f] font-medium">
+                    <p className="text-[var(--fg)] font-medium">
                       {machine.stock_level ?? '—'}{machine.max_capacity ? ` / ${machine.max_capacity}` : ''}
                     </p>
                   </div>
@@ -330,7 +330,7 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                       <p className="text-xs mb-1" style={muted}>Per-Motor Stock</p>
                       <div className="flex gap-3 flex-wrap">
                         {machine.motor_stock.map((s, i) => (
-                          <span key={i} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: '#e5e5e7' }}>
+                          <span key={i} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--line)' }}>
                             M{i + 1}: <span className="font-semibold">{s}</span>
                           </span>
                         ))}
@@ -362,13 +362,13 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                       const meta = TYPE_META[tx.type];
                       const Icon = meta.icon;
                       return (
-                        <div key={`${tx.type}-${tx.id}`} className="flex items-center justify-between py-2 px-2 rounded-lg" style={{ borderBottom: '1px solid #e5e5e7' }}>
+                        <div key={`${tx.type}-${tx.id}`} className="flex items-center justify-between py-2 px-2 rounded-lg" style={{ borderBottom: '1px solid var(--line)' }}>
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${meta.color}1A` }}>
                               <Icon className="w-4 h-4" style={{ color: meta.color }} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-[#1d1d1f] truncate">
+                              <p className="text-sm font-medium text-[var(--fg)] truncate">
                                 {tx.product_name || 'Product'}
                                 {tx.holder_name && <span style={muted}> · {tx.holder_name}</span>}
                               </p>
@@ -376,8 +376,8 @@ export default function MachineDetailModal({ machineId, onClose }: { machineId: 
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-sm font-semibold text-[#1d1d1f]">₹{tx.amount.toFixed(2)}</p>
-                            <p className="text-xs" style={{ color: tx.dispensed ? '#1d7a3c' : '#c8102e' }}>{tx.dispensed ? 'Dispensed' : 'Failed'}</p>
+                            <p className="text-sm font-semibold text-[var(--fg)]">₹{tx.amount.toFixed(2)}</p>
+                            <p className="text-xs" style={{ color: tx.dispensed ? 'var(--success)' : 'var(--danger)' }}>{tx.dispensed ? 'Dispensed' : 'Failed'}</p>
                           </div>
                         </div>
                       );
