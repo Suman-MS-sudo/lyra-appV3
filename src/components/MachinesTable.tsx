@@ -4,8 +4,7 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
-  Search, Filter, Download, AlertCircle,
-  CheckCircle, Clock, Edit2, Trash2, ChevronUp, ChevronDown,
+  Search, Filter, Download, Edit2, Trash2, ChevronUp, ChevronDown,
   ChevronsUpDown, Building2,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -138,13 +137,6 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
   const start = (currentPage - 1) * itemsPerPage;
   const page = filtered.slice(start, start + itemsPerPage);
 
-  const stats = useMemo(() => ({
-    total:    machines.length,
-    online:   machines.filter(m => m.asset_online).length,
-    offline:  machines.filter(m => !m.asset_online).length,
-    lowStock: machines.filter(m => m.stock_level !== null && m.stock_level < 5).length,
-  }), [machines]);
-
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     setDeletingId(id);
@@ -186,29 +178,11 @@ export default function MachinesTable({ machines }: { machines: Machine[] }) {
   return (
     <div className="space-y-5">
 
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Machines', value: stats.total,   icon: Building2,     iconColor: 'var(--accent)', iconBg: 'var(--accent-soft)'  },
-          { label: 'Online',         value: stats.online,  icon: CheckCircle,   iconColor: 'var(--success)', iconBg: 'rgba(29,122,60,0.12)'  },
-          { label: 'Offline',        value: stats.offline, icon: Clock,         iconColor: 'var(--muted)', iconBg: 'var(--surface-2)' },
-          { label: 'Low Stock',      value: stats.lowStock,icon: AlertCircle,   iconColor: 'var(--warning)', iconBg: 'rgba(154,100,0,0.12)'  },
-        ].map(({ label, value, icon: Icon, iconColor, iconBg }) => (
-          <div key={label} className="rounded-2xl p-5 relative overflow-hidden" style={CARD}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
-              <Icon className="w-5 h-5" style={{ color: iconColor }} />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--muted)' }}>{label}</p>
-            <p className="text-2xl font-bold text-[var(--fg)]">{value}</p>
-          </div>
-        ))}
-      </div>
-
       {/* ── Search & filter bar ── */}
       <div className="rounded-2xl p-4 space-y-3" style={CARD}>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-wrap gap-3">
           {/* Search */}
-          <div className="flex-1 relative">
+          <div className="relative basis-full sm:basis-auto sm:flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--subtle)' }} />
             <input
               type="text"

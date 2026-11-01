@@ -56,7 +56,7 @@ export function CustomerDashboardView(d: CustomerDashboardData) {
   return (
     <div className="flex flex-col gap-6">
       {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
         <VxKpi label="Today's revenue" value={inr(d.todayRevenue)} change={delta(d.todayRevenue, d.yesterdayRevenue)} icon={Wallet} />
         <VxKpi label="Payments today" value={d.todayCount.toLocaleString('en-IN')} change={delta(d.todayCount, d.yesterdayCount)} icon={Receipt} />
         <VxKpi label="Machines online" value={`${online}/${d.machines.length}`} change={offline ? { text: `${offline} off`, up: false } : { text: 'all', up: true }} icon={Building2} />

@@ -122,7 +122,7 @@ export function DashboardView(d: DashboardData) {
   return (
     <main className="px-4 sm:px-8 pt-4 pb-10 max-w-[1500px] mx-auto flex flex-col gap-6">
       {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5">
         <VxKpi label="Today's revenue" value={inr(d.todayRevenue)} change={delta(d.todayRevenue, d.yesterdayRevenue)} icon={Wallet} />
         <VxKpi label="Payments today" value={d.todayCount.toLocaleString('en-IN')} change={delta(d.todayCount, d.yesterdayCount)} icon={Receipt} />
         <VxKpi label="Machines online" value={`${d.onlineMachines}/${d.totalMachines}`} change={d.offlineMachines ? { text: `${d.offlineMachines} off`, up: false } : { text: 'all', up: true }} icon={Building2} />
@@ -235,11 +235,11 @@ export function MachineTable({ rows, range, showAssignee = false }: {
   if (rows.length === 0) return <p className="ui-empty-hint py-8 text-center">No machines yet</p>;
   return (
     <div className="overflow-x-auto -mx-1">
-      <table className="vx-table min-w-[520px]">
+      <table className="vx-table sm:min-w-[520px]">
         <thead>
           <tr>
             <th>Machine</th>
-            <th>{showAssignee ? 'Assigned to' : 'Location'}</th>
+            <th className="hidden sm:table-cell">{showAssignee ? 'Assigned to' : 'Location'}</th>
             <th>Revenue · {range}d</th>
             <th className="w-[26%]">Stock</th>
           </tr>
@@ -253,10 +253,13 @@ export function MachineTable({ rows, range, showAssignee = false }: {
                 <td>
                   <span className="vx-cell-title">
                     <span className={`vx-avatar ${m.online ? '' : 'is-off'}`} title={m.online ? 'Online' : `Offline · seen ${m.lastSeen}`}>{initials}</span>
-                    <span title={m.name}>{m.name}</span>
+                    <span title={m.name}>
+                      {m.name}
+                      <small className="vx-cell-sub sm:hidden">{showAssignee ? m.assignee || 'Unassigned' : m.location || ''}</small>
+                    </span>
                   </span>
                 </td>
-                <td className="text-[var(--muted)] max-w-[180px] truncate">{showAssignee ? m.assignee || '—' : m.location || '—'}</td>
+                <td className="hidden sm:table-cell text-[var(--muted)] max-w-[180px] truncate">{showAssignee ? m.assignee || '—' : m.location || '—'}</td>
                 <td className="font-bold">{inr(m.revenue)}</td>
                 <td>
                   <span className="vx-pct">{pct == null ? '—' : `${pct}%`}<span className="text-[var(--muted)] font-medium text-xs"> {m.stock != null ? `· ${m.stock}${m.capacity ? `/${m.capacity}` : ''}` : ''}</span></span>

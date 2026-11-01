@@ -293,10 +293,6 @@ a.vx-chip:hover { background: rgba(255, 255, 255, 0.12); }
 @keyframes vx-sweep { to { transform: rotate(360deg); } }
 @keyframes vx-ping { 0% { opacity: 0.55; transform: scale(0.4); } 25% { opacity: 0; transform: scale(1.6); } 100% { opacity: 0; transform: scale(1.6); } }
 @media (prefers-reduced-motion: reduce) { .vx-radar-sweep, .vx-blip-halo { animation: none; } }
-@media (max-width: 520px) {
-  .vx-welcome { grid-template-columns: 1fr; }
-  .vx-radar { margin: 0 auto; }
-}
 
 /* Semicircle gauge card */
 .vx-gauge { position: relative; width: 100%; max-width: 230px; margin: 4px auto 0; }
@@ -410,3 +406,86 @@ html:not(.dark) .app-shell .ui-pills a.is-active { color: var(--accent); }
 /* Ranked lists: rows share one column grid so every bar and value lines up */
 .ui-list.is-rank { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; column-gap: 12px; }
 .ui-list.is-rank > .ui-row-rank { grid-column: 1 / -1; grid-template-columns: subgrid; column-gap: 12px; }
+
+/* ── Mobile card lists (tables become cards on phones) ── */
+.m-cards { list-style: none; margin: 0; padding: 0 4px; }
+.m-card { padding: 14px 16px; border-top: 1px solid var(--line); }
+.m-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.m-card-title { margin: 0; min-width: 0; font-size: 14px; font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-card-num { margin: 0; font-size: 14.5px; font-weight: 700; color: var(--fg); white-space: nowrap; font-feature-settings: "tnum" 1; }
+.m-card-meta { margin: 0; font-size: 12px; color: var(--muted); }
+.vx-cell-sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 500; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Phones ── */
+@media (max-width: 639px) {
+  /* Top bar: just the page title + controls (the mobile header already shows the brand) */
+  .adm-topbar { padding: 14px 16px 0; }
+  .adm-crumbs { display: none; }
+  .adm-topbar-title { margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+  .adm-iconbtn { width: 36px; height: 36px; }
+  .adm-mobilebar { height: 58px; }
+
+  /* Less text: page subtitles and eyebrows hide; actions get a full row */
+  :is(html, html.dark) .app-shell .ui-pagehead { gap: 10px; margin-bottom: 14px; }
+  :is(html, html.dark) .app-shell .ui-pagehead .ui-subtitle { display: none; }
+  :is(html, html.dark) .app-shell .ui-pagehead .ui-actions { width: 100%; }
+
+  /* Cards */
+  :is(html, html.dark) .app-shell .ui-panel { padding: 16px; border-radius: 18px; }
+  :is(html, html.dark) .app-shell .ui-panel-head { flex-wrap: wrap; row-gap: 10px; margin-bottom: 12px; }
+  :is(html, html.dark) .app-shell .ui-panel-title { font-size: 16px; white-space: nowrap; }
+
+  /* Stat tiles: compact, one line each */
+  :is(html, html.dark) .app-shell :is(.ui-statgrid, .ui-statrow) { gap: 10px; }
+  :is(html, html.dark) .app-shell :is(.ui-statgrid, .ui-statrow) > .db-tile,
+  :is(html, html.dark) .app-shell :is(.ui-statgrid, .ui-statrow) > .db-tile:first-child { padding: 13px 14px; column-gap: 8px; border-radius: 16px; }
+  :is(html, html.dark) .app-shell .db-tile .db-tile-icon { width: 32px; height: 32px; border-radius: 10px; align-self: start; }
+  :is(html, html.dark) .app-shell .db-tile .db-tile-icon svg { width: 16px; height: 16px; }
+  :is(html, html.dark) .app-shell .db-tile :is(.db-tile-label, .db-tile-sub) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+  :is(html, html.dark) .app-shell .db-tile .db-tile-value { font-size: 18px; }
+
+  /* Dashboard KPIs (2 per row) */
+  .vx-kpi { padding: 13px 14px; gap: 8px; align-items: flex-start; border-radius: 16px; }
+  .vx-kpi-label { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vx-kpi-value { font-size: 17px; }
+  .vx-kpi-value small { display: block; margin: 2px 0 0; font-size: 11px; }
+  .vx-iconsq { width: 32px; height: 32px; border-radius: 10px; }
+  .vx-iconsq svg { width: 16px; height: 16px; }
+  .vx-iconsq.is-sm { width: 22px; height: 22px; border-radius: 7px; }
+
+  /* Welcome card: copy beside a smaller radar */
+  .vx-welcome { min-height: 0; padding: 18px 16px; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .vx-welcome-name { font-size: 20px; }
+  .vx-welcome-amount { font-size: 24px; }
+  .vx-welcome-today { margin-top: 12px; }
+  .vx-welcome-cta { padding-top: 12px; }
+  .vx-radar { width: 118px; height: 118px; margin: 0; align-self: start; }
+  .vx-radar-core { width: 50px; height: 50px; }
+  .vx-radar-core strong { font-size: 14px; }
+  .vx-radar-core small { font-size: 10px; }
+  .vx-radar-core span { font-size: 7.5px; margin-top: 1px; }
+
+  /* Gauge / score */
+  .vx-score { gap: 12px; }
+  .vx-score .vx-ring { width: 118px; height: 118px; }
+  .vx-score .vx-ring-center strong { font-size: 22px; }
+  .vx-score-stat { padding: 12px 14px; }
+  .vx-score-stat strong { font-size: 15px; }
+
+  /* Tables that stay tables: tighter cells */
+  :is(html, html.dark) .app-shell .app-main :is(td, th) { padding-left: 10px !important; padding-right: 10px !important; }
+  :is(html, html.dark) .app-shell .app-main tbody td { padding-top: 11px !important; padding-bottom: 11px !important; font-size: 13px; }
+  .vx-cell-title { gap: 10px; align-items: flex-start; }
+  .vx-cell-title > span:last-child { white-space: normal; }
+
+  /* Filter rows scroll sideways instead of wrapping into a wall of chips */
+  .tx-filters { flex-wrap: nowrap; overflow-x: auto; padding: 0 16px 12px; scrollbar-width: none; }
+  .tx-filters > * { flex: none; }
+  .tx-toolbar { padding: 14px 16px 10px; }
+  .tx-search { width: 100%; }
+}
+@media (max-width: 639px) {
+  /* The chart scales down ~2x on phones: enlarge x labels, drop y amounts (gridlines + tooltips remain) */
+  .vx-area-axis { font-size: 18px; }
+  .vx-area-axis.is-y { display: none; }
+}

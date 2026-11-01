@@ -156,8 +156,33 @@ export default function TransactionsExplorer({ rows, rangeLabel }: { rows: TxRow
         </div>
       </div>
 
+      {/* Phones: one card per payment */}
+      <ul className="m-cards sm:hidden">
+        {visible.map((r) => {
+          const T = TYPE_META[r.type];
+          const S = STATUS_META[r.status];
+          return (
+            <li key={`m-${r.type}-${r.id}`} className="m-card">
+              <div className="m-card-row">
+                <p className="m-card-title">{r.machine}</p>
+                <p className="m-card-num">{inr(r.amount)}</p>
+              </div>
+              <div className="m-card-row mt-2">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className={`tx-type db-tone-${T.tone}`}><T.icon className="w-3.5 h-3.5" />{T.label}</span>
+                  <span className={`ui-pill is-${S.tone}`}><span className="ui-pill-dot" />{S.label}</span>
+                </span>
+                <span className="m-card-meta shrink-0">{when(r.at)}</span>
+              </div>
+              <p className="m-card-meta mt-1.5 truncate">{[r.product, r.customer].filter(Boolean).join(' · ')}</p>
+            </li>
+          );
+        })}
+        {visible.length === 0 && <li className="py-12 text-center text-sm text-[var(--muted)]">No transactions match these filters</li>}
+      </ul>
+
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto hidden sm:block">
         <table className="w-full text-sm tx-table">
           <thead>
             <tr>

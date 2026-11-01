@@ -89,7 +89,32 @@ export function CustomerMachinesTable({
           All Machines
         </h2>
       </div>
-      <div className="overflow-x-auto">
+      {/* Phones: one card per machine */}
+      <ul className="m-cards sm:hidden">
+        {sorted.map((machine) => {
+          const low = machine.stock_level !== null && machine.stock_level < 5;
+          return (
+            <li key={`m-${machine.id}`} className="m-card">
+              <div className="m-card-row">
+                <button type="button" onClick={() => setDetailMachineId(machine.id)} className="m-card-title text-left hover:underline" style={{ color: 'var(--accent-ink)' }}>
+                  {machine.name}
+                </button>
+                <span className={`ui-pill ${machine.asset_online ? 'is-ok' : 'is-muted'}`}><span className="ui-pill-dot" />{machine.asset_online ? 'Online' : 'Offline'}</span>
+              </div>
+              <div className="m-card-row mt-2">
+                <span className="m-card-meta truncate">{machine.assignee ? `Assigned to ${machine.assignee}` : machine.location}</span>
+                <span className="flex items-center gap-3 shrink-0 text-sm">
+                  <span style={{ color: low ? 'var(--warning)' : 'var(--fg)' }} className="font-semibold">{machine.stock_level !== null ? `${machine.stock_level} left` : '—'}</span>
+                  {isSuperCustomer && <span className="font-bold text-[var(--fg)]">₹{formatAmount(machine.totalRevenue)}</span>}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+        {sorted.length === 0 && <li className="py-12 text-center text-sm text-[var(--muted)]">No machines found</li>}
+      </ul>
+
+      <div className="overflow-x-auto hidden sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--surface-2)' }}>

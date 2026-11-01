@@ -115,7 +115,7 @@ export function VxAreaChart({ labels, series, format = (n) => String(Math.round(
         {[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => (
           <g key={t}>
             <line x1={padL} x2={W} y1={y(t * nice)} y2={y(t * nice)} className="vx-area-grid" />
-            <text x={padL - 8} y={y(t * nice) + 3} textAnchor="end" className="vx-area-axis">{format(t * nice)}</text>
+            <text x={padL - 8} y={y(t * nice) + 3} textAnchor="end" className="vx-area-axis is-y">{format(t * nice)}</text>
           </g>
         ))}
         {series.map((s, i) => {
