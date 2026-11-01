@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { successResponse, errorResponse } from '@/lib/api-helpers';
+import { requireAdmin } from '@/lib/auth-helpers';
 
 /**
  * Update Machine API
@@ -10,6 +11,13 @@ import { successResponse, errorResponse } from '@/lib/api-helpers';
  */
 export async function PUT(request: NextRequest) {
   try {
+    // Admin-only: this bypasses RLS with the service role
+    try {
+      await requireAdmin();
+    } catch {
+      return errorResponse('Forbidden', 'FORBIDDEN', 403);
+    }
+
     const body = await request.json();
     const { 
       machineId,

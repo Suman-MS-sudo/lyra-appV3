@@ -1,11 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import { redirect } from 'next/navigation';
 
-export async function POST(request: Request) {
+export async function POST() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
-  
-  // Use redirect instead of NextResponse.redirect for proper handling
-  redirect('/login');
+  // 'local' signs out this browser only; other devices stay signed in
+  await supabase.auth.signOut({ scope: 'local' });
+
+  // 303 so the browser follows with a GET (a 307 would re-POST to /login).
+  // Relative Location keeps the user on whatever host they're using.
+  return new NextResponse(null, {
+    status: 303,
+    headers: { Location: '/login?signedout=1', 'Cache-Control': 'no-store' },
+  });
 }

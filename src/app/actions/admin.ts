@@ -2,6 +2,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { redirect } from 'next/navigation';
 
 // Lazily created on first use, not at module scope — instantiating it at
@@ -29,6 +30,7 @@ function bodyTypeCapacity(bodyType: string | null): number {
 }
 
 export async function createVendingMachine(_prevState: { error: string } | null, formData: FormData): Promise<{ error: string } | null> {
+  await requireAdmin();
   // Get selected product IDs
   const productIds = formData.getAll('product_ids').filter(id => id);
 
@@ -100,6 +102,7 @@ export async function createVendingMachine(_prevState: { error: string } | null,
 }
 
 export async function createProduct(formData: FormData) {
+  await requireAdmin();
   const name = formData.get('name') as string;
   const price = parseFloat(formData.get('price') as string);
   const sku = formData.get('sku') as string;
@@ -121,6 +124,7 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function updateProduct(productId: string, formData: FormData) {
+  await requireAdmin();
   const name = formData.get('name') as string;
   const price = parseFloat(formData.get('price') as string);
   const stock = parseInt(formData.get('stock') as string);
@@ -144,6 +148,7 @@ export async function updateProduct(productId: string, formData: FormData) {
 }
 
 export async function deleteProduct(productId: string) {
+  await requireAdmin();
   const { error } = await serviceSupabase()
     .from('products')
     .delete()
@@ -157,6 +162,7 @@ export async function deleteProduct(productId: string) {
 }
 
 export async function updateMachine(machineId: string, formData: FormData) {
+  await requireAdmin();
   const name = formData.get('name') as string;
   const location = formData.get('location') as string;
   const status = formData.get('status') as string;
@@ -179,6 +185,7 @@ export async function updateMachine(machineId: string, formData: FormData) {
 }
 
 export async function deleteMachine(machineId: string) {
+  await requireAdmin();
   const { error } = await serviceSupabase()
     .from('vending_machines')
     .delete()
@@ -197,6 +204,7 @@ export async function deleteOrgTransactions(
   orgId: string,
   rfidIds: string[] = []
 ) {
+  await requireAdmin();
   if (onlineIds.length > 0) {
     const { error } = await serviceSupabase()
       .from('transactions')
@@ -225,6 +233,7 @@ export async function deleteOrgTransactions(
 }
 
 export async function deleteOrganization(orgId: string) {
+  await requireAdmin();
   const { error } = await serviceSupabase()
     .from('organizations')
     .delete()

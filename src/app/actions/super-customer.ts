@@ -2,8 +2,9 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin } from '@/lib/auth-helpers';
 import { redirect } from 'next/navigation';
-import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
+import { sendWelcomeEmail } from '@/lib/account-mail';
 
 // Lazily created on first use, not at module scope — see admin.ts for why.
 let _serviceSupabase: SupabaseClient<any> | null = null;
@@ -17,34 +18,13 @@ function serviceSupabase() {
   return _serviceSupabase;
 }
 
-async function sendSetPasswordEmail(email: string) {
-  const { data, error } = await serviceSupabase().auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`,
-    },
-  });
-
-  const resetLink = data?.properties?.action_link;
-  if (error || !resetLink) {
-    console.error('Failed to generate reset link:', error);
-    return;
-  }
-
-  const result = await sendEmail({
-    to: email,
-    subject: 'Set Your Lyra Enterprises Password',
-    html: generatePasswordResetEmailHTML(resetLink),
-    text: `Set your password by visiting this link: ${resetLink}\n\nThis link expires in 1 hour.`,
-  });
-
-  if (!result.success) {
-    console.error('Failed to send reset email:', result.error);
-  }
+async function sendSetPasswordEmail(email: string, name?: string | null) {
+  const mail = await sendWelcomeEmail(serviceSupabase(), email, { name });
+  if (!mail.ok) console.error('Failed to send welcome email:', mail.error);
 }
 
 export async function createSuperCustomer(formData: FormData) {
+  await requireAdmin();
   const email = formData.get('email') as string;
   const fullName = formData.get('full_name') as string;
   const orgName = formData.get('org_name') as string;
@@ -117,7 +97,7 @@ export async function createSuperCustomer(formData: FormData) {
     }
 
     // Send password reset email
-    await sendSetPasswordEmail(email);
+    await sendSetPasswordEmail(email, fullName);
 
     revalidatePath('/admin/super-customers');
     redirect('/admin/super-customers');
@@ -206,13 +186,14 @@ export async function createSuperCustomer(formData: FormData) {
   }
 
   // Send password reset email
-  await sendSetPasswordEmail(email);
+  await sendSetPasswordEmail(email, fullName);
 
   revalidatePath('/admin/super-customers');
   redirect('/admin/super-customers');
 }
 
 export async function createCustomerUser(formData: FormData) {
+  await requireAdmin();
   const email = formData.get('email') as string;
   const fullName = formData.get('full_name') as string;
   const organizationId = formData.get('organization_id') as string;
@@ -291,13 +272,14 @@ export async function createCustomerUser(formData: FormData) {
   }
 
   // Send password reset email
-  await sendSetPasswordEmail(email);
+  await sendSetPasswordEmail(email, fullName);
 
   revalidatePath('/super-customer/users');
   redirect('/super-customer/users');
 }
 
 export async function updateCustomerPermissions(userId: string, formData: FormData) {
+  await requireAdmin();
   const canEdit = formData.get('can_edit') === 'true';
 
   const { error } = await serviceSupabase()
@@ -318,6 +300,7 @@ export async function updateCustomerPermissions(userId: string, formData: FormDa
 }
 
 export async function updateSuperCustomer(formData: FormData) {
+  await requireAdmin();
   const userId = formData.get('user_id') as string;
   const orgId = formData.get('org_id') as string;
   const fullName = formData.get('full_name') as string;

@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
+const PUBLIC_MACHINE_FIELDS = [
+  'id',
+  'name',
+  'machine_id',
+  'customer_name',
+  'location',
+  'status',
+  'asset_online',
+  'last_ping',
+  'rfid_enabled',
+  'stock_level',
+  'max_capacity',
+  'connection_type',
+  'wifi_rssi',
+] as const;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ machineId: string }> }
@@ -74,9 +90,15 @@ export async function GET(
       console.error('Error fetching products:', productsError);
     }
 
+    // This endpoint is public (the QR payment page calls it), so only send
+    // fields the page actually shows — never device_secret, mac_id, etc.
+    const publicMachine = Object.fromEntries(
+      PUBLIC_MACHINE_FIELDS.filter((k) => k in machine).map((k) => [k, machine[k]])
+    );
+
     return NextResponse.json({
       success: true,
-      machine,
+      machine: publicMachine,
       products: machineProducts || [],
     });
   } catch (error: any) {

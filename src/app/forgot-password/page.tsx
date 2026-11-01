@@ -1,121 +1,166 @@
 'use client';
 
-import { useState } from 'react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { AlertCircle } from 'lucide-react';
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+const RESEND_AFTER = 60;
+
+function ForgotPasswordForm() {
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
 
-  const handleResetRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const send = async (address: string) => {
     setError(null);
     setLoading(true);
-
     try {
       const response = await fetch('/api/auth/send-reset-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: address }),
       });
-
-      const result = await response.json();
-
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(result.error || 'Failed to send reset email');
-      } else {
-        setSuccess(true);
+        setError(result.error || "We couldn't send the email. Please try again.");
+        if (response.status === 429) setCooldown(RESEND_AFTER);
+        return;
       }
+      setSentTo(address);
+      setCooldown(RESEND_AFTER);
     } catch {
-      setError('An unexpected error occurred');
+      setError("Can't reach the server. Check your internet connection and try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const address = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    send(address);
+  };
+
+  const ErrorBox = error ? (
+    <div role="alert" className="mb-5 p-3.5 rounded-xl text-sm flex items-start gap-2.5 bg-[var(--danger-bg)] text-[var(--danger)]">
+      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+      <span>{error}</span>
+    </div>
+  ) : null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--surface)]">
+      <ThemeToggle floating />
       <div className="max-w-md w-full">
         {/* Brand */}
         <div className="text-center mb-8 animate-float-up" style={{ animationDelay: '0.05s' }}>
           <Link href="/" className="inline-block">
-            <span className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">
+            <span className="text-2xl font-semibold tracking-tight text-[var(--fg)]">
               Lyra Enterprises
             </span>
           </Link>
-          <p className="text-xs font-medium tracking-widest uppercase mt-1 text-[#86868b]">
+          <p className="text-xs font-medium tracking-widest uppercase mt-1 text-[var(--subtle)]">
             Smart Hygiene Access
           </p>
         </div>
 
         {/* Card */}
         <div
-          className="rounded-2xl p-8 animate-card-enter border border-[#e5e5e7]"
+          className="rounded-2xl p-8 animate-card-enter border border-[var(--line)]"
           style={{ animationDelay: '0.10s' }}
         >
-          {success ? (
-            <div className="text-center py-4">
-              {/* Success icon */}
-              <div className="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center bg-[#e8f5ea]">
-                <svg className="w-8 h-8 text-[#1d7a3c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          {sentTo ? (
+            <div className="text-center py-2" role="status">
+              <div className="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center bg-[var(--success-bg)]">
+                <svg className="w-8 h-8 text-[var(--success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-[#1d1d1f] mb-2">Check your inbox</h2>
-              <p className="text-[15px] mb-8 text-[#6e6e73]">
-                A password reset link has been sent to <span className="font-medium text-[#1d1d1f]">{email}</span>.
-                If it doesn&apos;t appear within a few minutes, check your spam folder.
+              <h2 className="text-xl font-semibold text-[var(--fg)] mb-2">Check your inbox</h2>
+              <p className="text-[15px] mb-2 text-[var(--muted)]">
+                If <span className="font-medium text-[var(--fg)] break-all">{sentTo}</span> belongs to a Lyra account,
+                a reset link is on its way. It expires in 1 hour.
               </p>
+              <p className="text-sm mb-6 text-[var(--subtle)]">Nothing after a few minutes? Check spam, or make sure you used the email your account was created with.</p>
+              {ErrorBox}
               <Link
-                href="/login"
-                className="block w-full py-3.5 min-h-11 rounded-xl text-[15px] font-semibold text-white text-center transition-transform active:scale-[0.97] bg-[#1d1d1f]"
+                href={`/login?email=${encodeURIComponent(sentTo)}`}
+                className="block w-full py-3.5 min-h-11 lyra-chamfer text-[15px] font-semibold text-white text-center transition-transform active:scale-[0.97] bg-[var(--accent)]"
               >
-                Back to Login
+                Back to sign in
               </Link>
+              <button
+                type="button"
+                onClick={() => send(sentTo)}
+                disabled={cooldown > 0 || loading}
+                className="mt-4 text-sm font-medium text-[var(--accent-ink)] hover:underline disabled:no-underline disabled:text-[var(--subtle)] disabled:cursor-not-allowed"
+              >
+                {loading ? 'Sending…' : cooldown > 0 ? `Resend email in ${cooldown}s` : 'Resend email'}
+              </button>
+              <div className="mt-2">
+                <button type="button" onClick={() => { setSentTo(null); setError(null); }} className="text-xs text-[var(--subtle)] hover:text-[var(--fg)]">
+                  Use a different email
+                </button>
+              </div>
             </div>
           ) : (
             <>
-              <h2 className="text-2xl font-semibold tracking-tight text-[#1d1d1f] mb-1">Reset password</h2>
-              <p className="text-[15px] mb-6 text-[#6e6e73]">
-                Enter your email and we&apos;ll send you a reset link
+              <h2 className="text-2xl font-semibold tracking-tight text-[var(--fg)] mb-1">Forgot your password?</h2>
+              <p className="text-[15px] mb-6 text-[var(--muted)]">
+                Enter your account email and we&apos;ll send you a link to choose a new one.
               </p>
 
-              {error && (
-                <div className="mb-5 p-3.5 rounded-xl text-sm bg-[#fbe9e9] text-[#c8102e]">
-                  {error}
-                </div>
-              )}
+              {ErrorBox}
 
-              <form onSubmit={handleResetRequest} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div>
-                  <label htmlFor="email" className="block text-xs font-semibold tracking-wide uppercase mb-2 text-[#6e6e73]">
-                    Email Address
+                  <label htmlFor="email" className="block text-xs font-semibold tracking-wide uppercase mb-2 text-[var(--muted)]">
+                    Email address
                   </label>
                   <input
                     id="email"
                     name="email"
                     type="email"
+                    inputMode="email"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    autoFocus
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 min-h-11 rounded-xl text-[15px] outline-none transition-shadow border border-[#d2d2d7] focus:ring-2 focus:ring-[#0071e3] focus:border-transparent"
-                    placeholder="you@example.com"
+                    className="w-full px-4 py-3 min-h-11 rounded-xl text-[15px] outline-none transition-shadow border border-[var(--line-strong)] focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+                    placeholder="you@company.com"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 min-h-11 rounded-xl text-[15px] font-semibold text-white transition-transform active:scale-[0.97] disabled:cursor-not-allowed bg-[#1d1d1f] disabled:bg-[#f5f5f7] disabled:text-[#a1a1a6]"
+                  disabled={loading || cooldown > 0}
+                  aria-busy={loading}
+                  className="w-full py-3.5 min-h-11 lyra-chamfer text-[15px] font-semibold text-white transition-transform active:scale-[0.97] disabled:cursor-not-allowed bg-[var(--accent)] disabled:bg-[var(--surface-2)] disabled:text-[var(--subtle)]"
                 >
-                  {loading ? 'Sending…' : 'Send Reset Link'}
+                  {loading ? 'Sending…' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Send reset link'}
                 </button>
 
                 <div className="text-center pt-1">
-                  <Link href="/login" className="text-xs font-medium text-[#0071e3] hover:underline">
-                    ← Back to Login
+                  <Link href={email.trim() ? `/login?email=${encodeURIComponent(email.trim())}` : '/login'} className="text-xs font-medium text-[var(--accent-ink)] hover:underline">
+                    ← Back to sign in
                   </Link>
                 </div>
               </form>
@@ -124,11 +169,20 @@ export default function ForgotPasswordPage() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link href="/" className="text-xs text-[#86868b] hover:text-[#1d1d1f] transition-colors">
+          <Link href="/" className="text-xs text-[var(--subtle)] hover:text-[var(--fg)] transition-colors">
             ← Back to home
           </Link>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  // useSearchParams needs a Suspense boundary
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--surface)]" />}>
+      <ForgotPasswordForm />
+    </Suspense>
   );
 }

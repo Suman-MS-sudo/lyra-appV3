@@ -9,8 +9,7 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD,
   },
-  debug: true, // Enable debug output
-  logger: true // Log to console
+  // No debug/logger: they print full messages (including reset links) into server logs
 });
 
 export interface EmailOptions {
@@ -28,7 +27,7 @@ export interface EmailOptions {
 export async function sendEmail(options: EmailOptions) {
   try {
     const info = await transporter.sendMail({
-      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
+      from: `"${process.env.SMTP_FROM_NAME || 'Lyra Enterprises'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       text: options.text,
@@ -65,13 +64,13 @@ export function generateInvoiceEmailHTML(data: {
   <title>Invoice ${data.invoiceNumber}</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+  <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
     <h1 style="color: white; margin: 0;">Lyra Enterprises</h1>
     <p style="color: #f0f0f0; margin: 10px 0 0 0;">Vending Machine Solutions</p>
   </div>
   
   <div style="background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-top: none;">
-    <h2 style="color: #667eea; margin-top: 0;">${isZeroAmount ? 'Monthly Statement' : 'New Invoice'}: ${data.invoiceNumber}</h2>
+    <h2 style="color: #3b82f6; margin-top: 0;">${isZeroAmount ? 'Monthly Statement' : 'New Invoice'}: ${data.invoiceNumber}</h2>
     
     <p>Dear ${data.organizationName},</p>
     
@@ -83,8 +82,8 @@ export function generateInvoiceEmailHTML(data: {
       <p style="margin: 10px 0 0 0; font-size: 16px;">We're pleased to inform you that there are no pending payments for this period. No vending machine transactions were recorded during this billing cycle.</p>
     </div>
     
-    <div style="background: white; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0;">
-      <h3 style="margin-top: 0; color: #667eea;">Statement Details</h3>
+    <div style="background: white; padding: 20px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #3b82f6;">Statement Details</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
           <td style="padding: 8px 0;"><strong>Statement Number:</strong></td>
@@ -102,15 +101,15 @@ export function generateInvoiceEmailHTML(data: {
     </div>
     
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${data.invoiceUrl}" style="display: inline-block; background: #667eea; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Statement</a>
+      <a href="${data.invoiceUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Statement</a>
     </div>
     
     <p style="color: #666; font-size: 14px; margin-top: 30px;">Thank you for your continued partnership with Lyra Enterprises. We look forward to serving you in the coming months.</p>
     ` : `
     <p>We hope this email finds you well. A new invoice has been generated for your account.</p>
     
-    <div style="background: white; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0;">
-      <h3 style="margin-top: 0; color: #667eea;">Invoice Details</h3>
+    <div style="background: white; padding: 20px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #3b82f6;">Invoice Details</h3>
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
           <td style="padding: 8px 0;"><strong>Invoice Number:</strong></td>
@@ -118,7 +117,7 @@ export function generateInvoiceEmailHTML(data: {
         </tr>
         <tr>
           <td style="padding: 8px 0;"><strong>Total Amount:</strong></td>
-          <td style="padding: 8px 0; text-align: right; color: #667eea; font-size: 18px; font-weight: bold;">${data.totalAmount}</td>
+          <td style="padding: 8px 0; text-align: right; color: #3b82f6; font-size: 18px; font-weight: bold;">${data.totalAmount}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0;"><strong>Due Date:</strong></td>
@@ -128,8 +127,8 @@ export function generateInvoiceEmailHTML(data: {
     </div>
     
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${data.paymentUrl}" style="display: inline-block; background: #667eea; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 0 10px;">Pay Now</a>
-      <a href="${data.invoiceUrl}" style="display: inline-block; background: white; color: #667eea; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; border: 2px solid #667eea; margin: 0 10px;">View Invoice</a>
+      <a href="${data.paymentUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 0 10px;">Pay Now</a>
+      <a href="${data.invoiceUrl}" style="display: inline-block; background: white; color: #3b82f6; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; border: 2px solid #3b82f6; margin: 0 10px;">View Invoice</a>
     </div>
     
     <p style="color: #666; font-size: 14px; margin-top: 30px;">If you have any questions regarding this invoice, please don't hesitate to contact our billing department.</p>
@@ -288,52 +287,6 @@ export function generatePaymentReminderHTML(data: {
       <p><strong>Lyra Enterprises</strong></p>
       <p>10/21, Vasuki Street, Cholapuram<br>Ambattur, Chennai - 600053</p>
       <p>+91 81223 78860 | lyraenterprisessales@gmail.com</p>
-    </div>
-  </div>
-</body>
-</html>
-  `;
-}
-
-
-// Template for password reset email
-export function generatePasswordResetEmailHTML(resetLink: string) {
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your Password</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0;">Lyra Enterprises</h1>
-    <p style="color: #f0f0f0; margin: 10px 0 0 0;">Vending Machine Solutions</p>
-  </div>
-
-  <div style="background: #f9f9f9; padding: 30px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;">
-    <h2 style="color: #667eea; margin-top: 0;">Password Reset Request</h2>
-
-    <p>We received a request to reset the password for your Lyra Enterprises account. Click the button below to set a new password.</p>
-
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px;">Reset My Password</a>
-    </div>
-
-    <p style="color: #666; font-size: 14px;">This link will expire in <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email &mdash; your password will remain unchanged.</p>
-
-    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-
-    <p style="color: #999; font-size: 12px;">If the button above does not work, copy and paste this link into your browser:</p>
-    <p style="color: #667eea; font-size: 12px; word-break: break-all;">${resetLink}</p>
-
-    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-
-    <div style="text-align: center; color: #999; font-size: 12px;">
-      <p><strong>Lyra Enterprises</strong></p>
-      <p>10/21, Vasuki Street, Cholapuram<br>Ambattur, Chennai - 600053</p>
-      <p>+91 81223 78860 | sales@lyraenterprise.co.in</p>
     </div>
   </div>
 </body>

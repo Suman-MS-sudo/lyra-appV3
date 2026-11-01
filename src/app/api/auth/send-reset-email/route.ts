@@ -1,63 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendEmail, generatePasswordResetEmailHTML } from '@/lib/email';
+import { sendPasswordResetEmail } from '@/lib/account-mail';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Best-effort in-memory throttling (per server instance): stops inbox flooding and SMTP abuse.
+const hits = new Map<string, number[]>();
+function tooMany(key: string, max: number, windowMs: number) {
+  const now = Date.now();
+  const recent = (hits.get(key) || []).filter((t) => now - t < windowMs);
+  if (recent.length >= max) { hits.set(key, recent); return true; }
+  recent.push(now);
+  hits.set(key, recent);
+  if (hits.size > 5000) hits.clear();
+  return false;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
-
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    const body = await request.json().catch(() => ({}));
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (!EMAIL_RE.test(email)) {
+      return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (tooMany(`ip:${ip}`, 10, 15 * 60_000) || tooMany(`email:${email}`, 5, 60 * 60_000)) {
+      return NextResponse.json({ error: 'Too many reset requests. Please wait a few minutes and try again.' }, { status: 429 });
+    }
+    if (tooMany(`email-burst:${email}`, 1, 60_000)) {
+      return NextResponse.json({ error: 'A reset email was just sent. Please wait a minute before asking for another.' }, { status: 429 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const adminClient = createAdminClient();
-
-    // Generate a password recovery link via the admin API
-    const { data, error } = await adminClient.auth.admin.generateLink({
-      type: 'recovery',
-      email,
-      options: {
-        redirectTo: `${appUrl}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      console.error('[send-reset-email] generateLink error:', error);
-      // Return a generic success response to avoid user enumeration
+    // Only real app users get a link. An auth account without a profile row is an orphan
+    // (half-finished signup or deleted user) and must not receive reset emails.
+    const admin = createAdminClient();
+    const { data: profile } = await admin.from('profiles').select('id').eq('email', email).maybeSingle();
+    if (!profile) {
+      // Same response as success to avoid revealing which emails have accounts
       return NextResponse.json({ success: true });
     }
 
-    const resetLink = data.properties?.action_link;
-    if (!resetLink) {
-      console.error('[send-reset-email] No action_link in response');
-      return NextResponse.json({ success: true });
+    const result = await sendPasswordResetEmail(admin, email);
+    if (!result.ok) {
+      console.error('[send-reset-email] failed:', result.error);
+      return NextResponse.json({ error: "We couldn't send the email right now. Please try again in a moment." }, { status: 500 });
     }
-
-    // Send via our own SMTP (from address comes from SMTP_FROM_NAME / SMTP_FROM_EMAIL env vars)
-    const result = await sendEmail({
-      to: email,
-      subject: 'Reset Your Lyra Enterprises Password',
-      html: generatePasswordResetEmailHTML(resetLink),
-      text: `Reset your password by visiting this link: ${resetLink}\n\nThis link expires in 1 hour.`,
-    });
-
-    if (!result.success) {
-      console.error('[send-reset-email] Email send failed:', result.error);
-      return NextResponse.json(
-        { error: 'Failed to send email. Please try again.' },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[send-reset-email] Unexpected error:', err);
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
